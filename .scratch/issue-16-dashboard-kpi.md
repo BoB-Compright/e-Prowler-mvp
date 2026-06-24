@@ -39,10 +39,12 @@
 
 ## Acceptance criteria
 
-- [ ] `GET /dashboard/metrics` 엔드포인트 구현됨
+- [ ] `GET /dashboard/metrics` 엔드포인트 구현됨 (SQLite 쿼리)
 - [ ] 상태 계산 로직 정확함 (healthy/warning/critical 카운트)
 - [ ] 심각도별 취약점 카운트 정확함
 - [ ] React 컴포넌트로 4개 KPI 카드 렌더링됨
 - [ ] 파이 차트가 심각도 분포를 시각화함
+- [ ] 대시보드 로드 시간 <2초 (노트북 성능)
+- [ ] 1분 폴링으로 자동 갱신됨 (WebSocket 불필요)
 - [ ] 스타일링: 기본 공백 레이아웃 (디자인은 Post-MVP)
 - [ ] 테스트: 데이터 없는 경우, 여러 서버/취약점, 부분 데이터
