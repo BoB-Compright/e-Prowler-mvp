@@ -24,6 +24,12 @@ MVP 전체 데이터 플로우를 지원하는 SQLite 스키마를 설계하고 
 - 애플리케이션 시작 시 자동으로 DB 파일 및 테이블 생성
 - 마이그레이션 필요 시 별도 스크립트로 관리
 
+**자동 백업 전략:**
+- 매일 정시(02:00)에 자동 백업 생성 (APScheduler 사용)
+- 백업 파일: `./data/backups/infra_security_YYYYMMDD.db.backup`
+- 실패 시 자동 재시도: 30초 간격, 최대 3회
+- 재시도 실패 시 로그 기록 및 담당자 경고
+
 ## Acceptance criteria
 
 - [ ] 위 5개 테이블이 SQLite에 생성됨
@@ -32,3 +38,6 @@ MVP 전체 데이터 플로우를 지원하는 SQLite 스키마를 설계하고 
 - [ ] scan_results와 vulnerabilities 간 외래키 관계 정의됨
 - [ ] `docker-compose up` 후 DB 자동 초기화 (`/backend/db/init.py` 실행)
 - [ ] SQLite 파일이 `/data/infra_security.db`에 생성됨
+- [ ] 자동 백업 기능 구현 (매일 02:00에 `/data/backups/` 저장)
+- [ ] 백업 실패 시 자동 재시도 (30초 간격 최대 3회)
+- [ ] 백업 실패 로그 기록 및 담당자 경고 메시지

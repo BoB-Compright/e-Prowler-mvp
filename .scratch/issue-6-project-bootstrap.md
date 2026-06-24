@@ -30,4 +30,6 @@
 - [ ] Docker Compose로 전체 스택 원커맨드 실행 가능 (`docker-compose up`)
 - [ ] SQLite DB 파일이 `./data/infra_security.db`에 생성됨 (Docker 볼륨 마운트 확인)
 - [ ] docker-compose.yml에 PostgreSQL 제거, SQLite 설정 추가
-- [ ] README에 로컬 개발 환경 구성 방법 설명 (Docker Desktop 필수, Python 3.9+, Node 16+)
+- [ ] .env.example 파일 생성 (ANTHROPIC_API_KEY, INFRA_SECURITY_MASTER_KEY 포함)
+- [ ] .gitignore에 .env 파일 등록 (암호화 키 보호)
+- [ ] README.md 생성 (노트북 스펙, Docker 설정, .env 관리, 백업 방법 포함)
