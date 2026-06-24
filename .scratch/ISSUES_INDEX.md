@@ -1,29 +1,35 @@
-# GitHub Issues Index
+# GitHub Issues Index (최신 버전)
 
 ## MVP 수직 슬라이스 (13개 이슈)
 
 ### Phase 0: 기초 인프라
-- [Issue #6](./issue-6-project-bootstrap.md) - 프로젝트 부트스트랩 (FastAPI + React + PostgreSQL)
-- [Issue #7](./issue-7-database-schema.md) - 데이터베이스 스키마 설계 및 마이그레이션
+- **[Issue #20](https://github.com/BoB-Compright/e-Prowler-mvp/issues/20)** - 프로젝트 부트스트랩 (FastAPI + React + SQLite)
+- **[Issue #21](https://github.com/BoB-Compright/e-Prowler-mvp/issues/21)** - 데이터베이스 스키마 설계 (SQLite + 자동 백업)
 
 ### Phase 1: 자산 관리
-- [Issue #8](./issue-8-csv-asset-upload.md) - CSV 자산 업로드 & 저장
-- [Issue #9](./issue-9-asset-list-api.md) - 자산 목록 조회 API
+- **[Issue #22](https://github.com/BoB-Compright/e-Prowler-mvp/issues/22)** - CSV 자산 업로드 & 저장
+- **[Issue #23](https://github.com/BoB-Compright/e-Prowler-mvp/issues/23)** - 자산 목록 조회 API
 
 ### Phase 2: OS 정보 수집
-- [Issue #10](./issue-10-ansible-playbook.md) - Ansible 플레이북 동적 생성
-- [Issue #11](./issue-11-os-collection.md) - OS 정보 수집 실행
-- [Issue #12](./issue-12-scan-status-api.md) - 스캔 진행 상황 API
+- **[Issue #24](https://github.com/BoB-Compright/e-Prowler-mvp/issues/24)** - Ansible 플레이북 동적 생성
+- **[Issue #25](https://github.com/BoB-Compright/e-Prowler-mvp/issues/25)** - OS 정보 수집 실행
+- **[Issue #26](https://github.com/BoB-Compright/e-Prowler-mvp/issues/26)** - 스캔 진행 상황 API
 
 ### Phase 3: AI 분석 & CVE 매칭
-- [Issue #13](./issue-13-claude-analysis.md) - Claude API 취약점 분석
-- [Issue #14](./issue-14-nvd-caching.md) - NVD CVE 데이터 캐싱
-- [Issue #15](./issue-15-cve-matching.md) - 패키지-CVE 매칭
+- **[Issue #27](https://github.com/BoB-Compright/e-Prowler-mvp/issues/27)** - Claude API 취약점 분석
+- **[Issue #28](https://github.com/BoB-Compright/e-Prowler-mvp/issues/28)** - NVD CVE 데이터 캐싱
+- **[Issue #29](https://github.com/BoB-Compright/e-Prowler-mvp/issues/29)** - 패키지-CVE 매칭
 
 ### Phase 4: 웹 대시보드
-- [Issue #16](./issue-16-dashboard-kpi.md) - 대시보드 KPI 표시
-- [Issue #17](./issue-17-vulnerability-list.md) - 취약점 목록 페이지
-- [Issue #18](./issue-18-server-detail.md) - 서버 상세 페이지
+- **[Issue #30](https://github.com/BoB-Compright/e-Prowler-mvp/issues/30)** - 대시보드 KPI 표시
+- **[Issue #31](https://github.com/BoB-Compright/e-Prowler-mvp/issues/31)** - 취약점 목록 페이지
+- **[Issue #32](https://github.com/BoB-Compright/e-Prowler-mvp/issues/32)** - 서버 상세 페이지
+
+---
+
+**⚠️ 이슈 번호 변경 이력:**
+- 기존 Issue #6~#18 → 폐기됨 (2026-06-24)
+- 새로운 Issue #20~#32 → 최신 버전 (깨끗한 상태, 댓글 혼동 제거)
 
 ## 의존성 그래프
 
