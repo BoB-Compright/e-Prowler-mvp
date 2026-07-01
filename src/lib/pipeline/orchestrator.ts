@@ -3,26 +3,32 @@ import { getDb } from "@/lib/db";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
 import { buildImage } from "./build";
+import { startSandbox } from "./sandbox";
+import { scheduleSandboxTimeout } from "./sandboxTimeout";
 import { updateRunStage } from "./runs";
 
 export interface PipelineDeps {
   clone: typeof cloneRepo;
   detectDockerfile: typeof detectDockerfile;
   build: typeof buildImage;
+  startSandbox: typeof startSandbox;
+  scheduleSandboxTimeout: typeof scheduleSandboxTimeout;
 }
 
 const defaultDeps: PipelineDeps = {
   clone: cloneRepo,
   detectDockerfile,
   build: buildImage,
+  startSandbox,
+  scheduleSandboxTimeout,
 };
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-// Drives a run through clone -> build. Later issues (#38-#40) will extend
-// this with sandbox/ansible/rule_eval/claude stages, reusing updateRunStage.
+// Drives a run through clone -> build -> sandbox. Later issues (#39-#40) will
+// extend this with ansible/rule_eval/claude stages, reusing updateRunStage.
 export async function runPipeline(
   runId: string,
   repoUrl: string,
@@ -60,4 +66,15 @@ export async function runPipeline(
     return;
   }
   updateRunStage(runId, "build", "succeeded", { imageTag }, db);
+
+  updateRunStage(runId, "sandbox", "running", {}, db);
+  const containerName = `scan-${runId}`;
+  try {
+    await deps.startSandbox(imageTag, containerName);
+  } catch (err) {
+    updateRunStage(runId, "sandbox", "failed", { errorMessage: errorMessage(err) }, db);
+    return;
+  }
+  updateRunStage(runId, "sandbox", "succeeded", { containerName }, db);
+  deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
 }

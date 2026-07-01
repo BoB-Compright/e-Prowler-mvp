@@ -19,6 +19,7 @@ export interface Run {
   stage: Stage;
   status: RunStatus;
   imageTag: string | null;
+  containerName: string | null;
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;

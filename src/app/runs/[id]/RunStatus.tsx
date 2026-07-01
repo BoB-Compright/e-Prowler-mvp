@@ -71,6 +71,11 @@ export function RunStatus({ runId }: { runId: string }) {
       {run.imageTag && (
         <p className="mt-1 text-sm text-slate-600">이미지 태그: {run.imageTag}</p>
       )}
+      {run.containerName && (
+        <p className="mt-1 text-sm text-slate-600">
+          Sandbox 컨테이너: {run.containerName}
+        </p>
+      )}
       {run.errorMessage && (
         <pre className="mt-2 whitespace-pre-wrap rounded bg-red-50 p-3 text-xs text-red-800">
           {run.errorMessage}
