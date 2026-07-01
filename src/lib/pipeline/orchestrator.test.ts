@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRun, getRun } from "./runs";
+import { listCheckResults } from "@/lib/checks/store";
 import { runPipeline, type PipelineDeps } from "./orchestrator";
 
 let db: Database;
@@ -12,7 +13,16 @@ function baseDeps(): PipelineDeps {
     detectDockerfile: vi.fn().mockReturnValue("/tmp/fake-repo/Dockerfile"),
     build: vi.fn().mockResolvedValue(undefined),
     startSandbox: vi.fn().mockResolvedValue({ containerName: "fake-container" }),
+    stopSandbox: vi.fn().mockResolvedValue(undefined),
     scheduleSandboxTimeout: vi.fn(),
+    runChecks: vi
+      .fn()
+      .mockResolvedValue([
+        { id: "C-01", status: "fail", evidence: "uid 0" },
+        { id: "C-02", status: "pass", evidence: "no secrets" },
+        { id: "U-16", status: "pass", evidence: "root:root 644" },
+      ]),
+    analyzeChecks: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -21,26 +31,51 @@ beforeEach(() => {
 });
 
 describe("runPipeline", () => {
-  it("clones, builds, starts the sandbox, and marks the run succeeded", async () => {
+  it("runs the full pipeline through claude analysis and marks the run done", async () => {
     const run = createRun("https://github.com/owner/repo.git", db);
     const deps = baseDeps();
 
     await runPipeline(run.id, run.repoUrl, deps, db);
 
     const updated = getRun(run.id, db)!;
-    expect(updated.stage).toBe("sandbox");
+    expect(updated.stage).toBe("done");
     expect(updated.status).toBe("succeeded");
-    expect(updated.imageTag).toBe(`scan-${run.id}`);
     expect(updated.containerName).toBe(`scan-${run.id}`);
-    expect(deps.build).toHaveBeenCalledWith("/tmp/fake-repo", `scan-${run.id}`);
-    expect(deps.startSandbox).toHaveBeenCalledWith(`scan-${run.id}`, `scan-${run.id}`);
-    expect(deps.scheduleSandboxTimeout).toHaveBeenCalledWith(
+
+    expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
+    expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    expect(deps.analyzeChecks).toHaveBeenCalledWith(
       run.id,
-      `scan-${run.id}`,
-      undefined,
-      undefined,
+      [
+        { id: "C-01", status: "fail", evidence: "uid 0" },
+        { id: "C-02", status: "pass", evidence: "no secrets" },
+        { id: "U-16", status: "pass", evidence: "root:root 644" },
+      ],
       db,
     );
+
+    const results = listCheckResults(run.id, db);
+    expect(results).toEqual([
+      { id: "C-01", status: "fail", evidence: "uid 0" },
+      { id: "C-02", status: "pass", evidence: "no secrets" },
+      { id: "U-16", status: "pass", evidence: "root:root 644" },
+    ]);
+  });
+
+  it("fails the run at the claude stage when analysis throws, keeping check results intact", async () => {
+    const run = createRun("https://github.com/owner/repo.git", db);
+    const deps = baseDeps();
+    deps.analyzeChecks = vi.fn().mockRejectedValue(new Error("ANTHROPIC_API_KEY missing"));
+
+    await runPipeline(run.id, run.repoUrl, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("claude");
+    expect(updated.status).toBe("failed");
+    expect(updated.errorMessage).toBe("ANTHROPIC_API_KEY missing");
+
+    // Check results committed during rule_eval must survive an AI failure.
+    expect(listCheckResults(run.id, db)).toHaveLength(3);
   });
 
   it("fails the run at the clone stage when clone throws", async () => {
@@ -98,5 +133,21 @@ describe("runPipeline", () => {
     expect(updated.status).toBe("failed");
     expect(updated.errorMessage).toMatch(/종료/);
     expect(deps.scheduleSandboxTimeout).not.toHaveBeenCalled();
+    expect(deps.runChecks).not.toHaveBeenCalled();
+  });
+
+  it("fails the run at the ansible stage and still stops the sandbox when checks throw", async () => {
+    const run = createRun("https://github.com/owner/repo.git", db);
+    const deps = baseDeps();
+    deps.runChecks = vi.fn().mockRejectedValue(new Error("ansible-playbook exited 4"));
+
+    await runPipeline(run.id, run.repoUrl, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("ansible");
+    expect(updated.status).toBe("failed");
+    expect(updated.errorMessage).toBe("ansible-playbook exited 4");
+    expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    expect(listCheckResults(run.id, db)).toEqual([]);
   });
 });

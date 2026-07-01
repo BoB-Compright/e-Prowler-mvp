@@ -23,6 +23,26 @@ CREATE TABLE IF NOT EXISTS run_events (
   message TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS check_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL REFERENCES runs(id),
+  item_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS analysis_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL REFERENCES runs(id),
+  item_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  remediation TEXT NOT NULL,
+  example TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 `;
 
 function createDatabase(dbPath: string): Database.Database {
