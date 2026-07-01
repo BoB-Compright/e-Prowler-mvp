@@ -1,0 +1,21 @@
+---
+# Read-only security checks against a running sandbox container. Every task
+# uses `raw` (no Python interpreter required on the target) since the images
+# under test are arbitrary user containers that may not have Python at all.
+#
+# Each task name is prefixed with the catalog id (see src/lib/catalog) so the
+# Node-side parser (src/lib/checks/ansibleRunner.ts) can map JSON callback
+# output back to a specific check.
+- hosts: all
+  gather_facts: false
+  tasks:
+    - name: "C-01: runtime uid"
+      ansible.builtin.raw: id -u
+      register: c01_result
+      changed_when: false
+
+    - name: "U-16: /etc/passwd owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then stat -c "%U:%G %a" /etc/passwd; else echo __MISSING__; fi'
+      register: u16_result
+      changed_when: false
