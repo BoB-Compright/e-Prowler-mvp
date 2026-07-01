@@ -22,6 +22,7 @@ function baseDeps(): PipelineDeps {
         { id: "C-02", status: "pass", evidence: "no secrets" },
         { id: "U-16", status: "pass", evidence: "root:root 644" },
       ]),
+    analyzeChecks: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -30,19 +31,28 @@ beforeEach(() => {
 });
 
 describe("runPipeline", () => {
-  it("runs the full clone->build->sandbox->ansible->rule_eval path and stores check results", async () => {
+  it("runs the full pipeline through claude analysis and marks the run done", async () => {
     const run = createRun("https://github.com/owner/repo.git", db);
     const deps = baseDeps();
 
     await runPipeline(run.id, run.repoUrl, deps, db);
 
     const updated = getRun(run.id, db)!;
-    expect(updated.stage).toBe("rule_eval");
+    expect(updated.stage).toBe("done");
     expect(updated.status).toBe("succeeded");
     expect(updated.containerName).toBe(`scan-${run.id}`);
 
     expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    expect(deps.analyzeChecks).toHaveBeenCalledWith(
+      run.id,
+      [
+        { id: "C-01", status: "fail", evidence: "uid 0" },
+        { id: "C-02", status: "pass", evidence: "no secrets" },
+        { id: "U-16", status: "pass", evidence: "root:root 644" },
+      ],
+      db,
+    );
 
     const results = listCheckResults(run.id, db);
     expect(results).toEqual([
@@ -50,6 +60,22 @@ describe("runPipeline", () => {
       { id: "C-02", status: "pass", evidence: "no secrets" },
       { id: "U-16", status: "pass", evidence: "root:root 644" },
     ]);
+  });
+
+  it("fails the run at the claude stage when analysis throws, keeping check results intact", async () => {
+    const run = createRun("https://github.com/owner/repo.git", db);
+    const deps = baseDeps();
+    deps.analyzeChecks = vi.fn().mockRejectedValue(new Error("ANTHROPIC_API_KEY missing"));
+
+    await runPipeline(run.id, run.repoUrl, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("claude");
+    expect(updated.status).toBe("failed");
+    expect(updated.errorMessage).toBe("ANTHROPIC_API_KEY missing");
+
+    // Check results committed during rule_eval must survive an AI failure.
+    expect(listCheckResults(run.id, db)).toHaveLength(3);
   });
 
   it("fails the run at the clone stage when clone throws", async () => {
