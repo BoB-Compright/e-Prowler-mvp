@@ -10,6 +10,9 @@ interface CheckResultView {
   evidence: string;
   title: string;
   severity: Severity | null;
+  reason: string | null;
+  remediation: string | null;
+  example: string | null;
 }
 
 const CHECK_STATUS_STYLES: Record<CheckStatus, string> = {
@@ -63,8 +66,7 @@ export function RunStatus({ runId }: { runId: string }) {
       setRun(data.run);
       setEvents(data.events);
       setChecks(data.checks);
-      // Stop polling once the run has finished this slice's pipeline
-      // (currently ends at rule_eval; #40 extends this to "claude"/"done").
+      // Stop polling once the run has reached a terminal status.
       if (data.run.status !== "running") return;
       timer = setTimeout(poll, 2000);
     }
@@ -104,32 +106,41 @@ export function RunStatus({ runId }: { runId: string }) {
       {checks.length > 0 && (
         <>
           <h2 className="mt-6 text-sm font-medium text-slate-500">점검 결과</h2>
-          <table className="mt-2 w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left text-slate-500">
-                <th className="py-1 pr-4">ID</th>
-                <th className="py-1 pr-4">항목</th>
-                <th className="py-1 pr-4">판정</th>
-                <th className="py-1 pr-4">Evidence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {checks.map((check) => (
-                <tr key={check.id} className="border-b last:border-0 align-top">
-                  <td className="py-2 pr-4 font-mono">{check.id}</td>
-                  <td className="py-2 pr-4">{check.title}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs ${CHECK_STATUS_STYLES[check.status]}`}
-                    >
-                      {CHECK_STATUS_LABELS[check.status]}
+          <ul className="mt-2 space-y-3">
+            {checks.map((check) => (
+              <li key={check.id} className="rounded border border-slate-200 p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono">{check.id}</span>
+                  <span>{check.title}</span>
+                  {check.severity && (
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                      {check.severity}
                     </span>
-                  </td>
-                  <td className="py-2 pr-4 text-slate-600">{check.evidence}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs ${CHECK_STATUS_STYLES[check.status]}`}
+                  >
+                    {CHECK_STATUS_LABELS[check.status]}
+                  </span>
+                </div>
+                <p className="mt-1 text-slate-600">Evidence: {check.evidence}</p>
+                {check.reason && (
+                  <p className="mt-2 text-slate-700">{check.reason}</p>
+                )}
+                {check.remediation && (
+                  <p className="mt-1 text-slate-700">
+                    <span className="font-medium">조치방안: </span>
+                    {check.remediation}
+                  </p>
+                )}
+                {check.example && (
+                  <pre className="mt-2 whitespace-pre-wrap rounded bg-slate-50 p-2 text-xs">
+                    {check.example}
+                  </pre>
+                )}
+              </li>
+            ))}
+          </ul>
         </>
       )}
 

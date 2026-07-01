@@ -8,6 +8,7 @@ import { scheduleSandboxTimeout } from "./sandboxTimeout";
 import { updateRunStage } from "./runs";
 import { runFirstWaveChecks } from "@/lib/checks";
 import { saveCheckResults } from "@/lib/checks/store";
+import { analyzeAndSaveChecks } from "@/lib/claude";
 
 export interface PipelineDeps {
   clone: typeof cloneRepo;
@@ -17,6 +18,7 @@ export interface PipelineDeps {
   stopSandbox: typeof stopSandbox;
   scheduleSandboxTimeout: typeof scheduleSandboxTimeout;
   runChecks: typeof runFirstWaveChecks;
+  analyzeChecks: typeof analyzeAndSaveChecks;
 }
 
 const defaultDeps: PipelineDeps = {
@@ -27,6 +29,7 @@ const defaultDeps: PipelineDeps = {
   stopSandbox,
   scheduleSandboxTimeout,
   runChecks: runFirstWaveChecks,
+  analyzeChecks: analyzeAndSaveChecks,
 };
 
 function errorMessage(err: unknown): string {
@@ -103,4 +106,16 @@ export async function runPipeline(
   updateRunStage(runId, "rule_eval", "running", {}, db);
   saveCheckResults(runId, results, db);
   updateRunStage(runId, "rule_eval", "succeeded", {}, db);
+
+  updateRunStage(runId, "claude", "running", {}, db);
+  try {
+    await deps.analyzeChecks(runId, results, db);
+  } catch (err) {
+    // AI failure is independent of check failure: check_results above are
+    // already committed and stay queryable even if analysis fails here.
+    updateRunStage(runId, "claude", "failed", { errorMessage: errorMessage(err) }, db);
+    return;
+  }
+  updateRunStage(runId, "claude", "succeeded", {}, db);
+  updateRunStage(runId, "done", "succeeded", {}, db);
 }
