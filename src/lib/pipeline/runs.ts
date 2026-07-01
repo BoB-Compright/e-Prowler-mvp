@@ -9,6 +9,7 @@ interface RunRow {
   stage: Stage;
   status: RunStatus;
   image_tag: string | null;
+  container_name: string | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -21,6 +22,7 @@ function toRun(row: RunRow): Run {
     stage: row.stage,
     status: row.status,
     imageTag: row.image_tag,
+    containerName: row.container_name,
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -35,13 +37,14 @@ export function createRun(repoUrl: string, db: Database = getDb()): Run {
     stage: "clone",
     status: "running",
     imageTag: null,
+    containerName: null,
     errorMessage: null,
     createdAt: now,
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO runs (id, repo_url, stage, status, image_tag, error_message, created_at, updated_at)
-     VALUES (@id, @repoUrl, @stage, @status, @imageTag, @errorMessage, @createdAt, @updatedAt)`,
+    `INSERT INTO runs (id, repo_url, stage, status, image_tag, container_name, error_message, created_at, updated_at)
+     VALUES (@id, @repoUrl, @stage, @status, @imageTag, @containerName, @errorMessage, @createdAt, @updatedAt)`,
   ).run(run);
   appendEvent(run.id, run.stage, run.status, null, db);
   return run;
@@ -51,13 +54,19 @@ export function updateRunStage(
   runId: string,
   stage: Stage,
   status: RunStatus,
-  extra: { imageTag?: string; errorMessage?: string; message?: string } = {},
+  extra: {
+    imageTag?: string;
+    containerName?: string;
+    errorMessage?: string;
+    message?: string;
+  } = {},
   db: Database = getDb(),
 ): void {
   const now = new Date().toISOString();
   db.prepare(
     `UPDATE runs SET stage = @stage, status = @status, updated_at = @updatedAt
      ${extra.imageTag !== undefined ? ", image_tag = @imageTag" : ""}
+     ${extra.containerName !== undefined ? ", container_name = @containerName" : ""}
      ${extra.errorMessage !== undefined ? ", error_message = @errorMessage" : ""}
      WHERE id = @id`,
   ).run({
@@ -66,6 +75,7 @@ export function updateRunStage(
     status,
     updatedAt: now,
     imageTag: extra.imageTag,
+    containerName: extra.containerName,
     errorMessage: extra.errorMessage,
   });
   appendEvent(runId, stage, status, extra.message ?? extra.errorMessage ?? null, db);
