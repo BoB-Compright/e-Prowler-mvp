@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCatalogSummary } from "@/lib/catalog";
+import { StartRunForm } from "./StartRunForm";
 
 export default function Home() {
   const summary = getCatalogSummary();
@@ -13,9 +14,12 @@ export default function Home() {
         GitHub 레포 → Docker 빌드 → Sandbox 실행 → Ansible 보안 점검 → Claude 분석
         → Web Dashboard
       </p>
+
+      <StartRunForm />
+
       <Link
         href="/catalog"
-        className="mt-8 inline-flex w-fit items-center rounded-full bg-black px-5 py-3 text-sm font-medium text-white hover:bg-zinc-800"
+        className="mt-8 inline-flex w-fit items-center text-sm font-medium text-slate-600 underline hover:text-black"
       >
         점검 항목 카탈로그 보기 ({summary.total}개)
       </Link>
