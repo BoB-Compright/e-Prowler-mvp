@@ -2,6 +2,23 @@
 
 import { useEffect, useState } from "react";
 import type { Run, RunEvent } from "@/lib/pipeline/types";
+import { CHECK_STATUS_LABELS, type CheckStatus, type Severity } from "@/lib/catalog/types";
+
+interface CheckResultView {
+  id: string;
+  status: CheckStatus;
+  evidence: string;
+  title: string;
+  severity: Severity | null;
+}
+
+const CHECK_STATUS_STYLES: Record<CheckStatus, string> = {
+  pass: "bg-green-100 text-green-800",
+  fail: "bg-red-100 text-red-800",
+  review: "bg-yellow-100 text-yellow-800",
+  skip: "bg-slate-100 text-slate-600",
+  not_automated: "bg-slate-100 text-slate-400",
+};
 
 const STAGE_LABELS: Record<Run["stage"], string> = {
   clone: "레포 Clone",
@@ -28,6 +45,7 @@ const STATUS_STYLES: Record<Run["status"], string> = {
 export function RunStatus({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
+  const [checks, setChecks] = useState<CheckResultView[]>([]);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -44,8 +62,9 @@ export function RunStatus({ runId }: { runId: string }) {
       if (cancelled) return;
       setRun(data.run);
       setEvents(data.events);
+      setChecks(data.checks);
       // Stop polling once the run has finished this slice's pipeline
-      // (currently ends at build; later issues extend this to "done").
+      // (currently ends at rule_eval; #40 extends this to "claude"/"done").
       if (data.run.status !== "running") return;
       timer = setTimeout(poll, 2000);
     }
@@ -80,6 +99,38 @@ export function RunStatus({ runId }: { runId: string }) {
         <pre className="mt-2 whitespace-pre-wrap rounded bg-red-50 p-3 text-xs text-red-800">
           {run.errorMessage}
         </pre>
+      )}
+
+      {checks.length > 0 && (
+        <>
+          <h2 className="mt-6 text-sm font-medium text-slate-500">점검 결과</h2>
+          <table className="mt-2 w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left text-slate-500">
+                <th className="py-1 pr-4">ID</th>
+                <th className="py-1 pr-4">항목</th>
+                <th className="py-1 pr-4">판정</th>
+                <th className="py-1 pr-4">Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {checks.map((check) => (
+                <tr key={check.id} className="border-b last:border-0 align-top">
+                  <td className="py-2 pr-4 font-mono">{check.id}</td>
+                  <td className="py-2 pr-4">{check.title}</td>
+                  <td className="py-2 pr-4">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs ${CHECK_STATUS_STYLES[check.status]}`}
+                    >
+                      {CHECK_STATUS_LABELS[check.status]}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-4 text-slate-600">{check.evidence}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
 
       <h2 className="mt-6 text-sm font-medium text-slate-500">진행 이력</h2>

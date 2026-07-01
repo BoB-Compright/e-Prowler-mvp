@@ -3,16 +3,20 @@ import { getDb } from "@/lib/db";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
 import { buildImage } from "./build";
-import { startSandbox } from "./sandbox";
+import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
 import { updateRunStage } from "./runs";
+import { runFirstWaveChecks } from "@/lib/checks";
+import { saveCheckResults } from "@/lib/checks/store";
 
 export interface PipelineDeps {
   clone: typeof cloneRepo;
   detectDockerfile: typeof detectDockerfile;
   build: typeof buildImage;
   startSandbox: typeof startSandbox;
+  stopSandbox: typeof stopSandbox;
   scheduleSandboxTimeout: typeof scheduleSandboxTimeout;
+  runChecks: typeof runFirstWaveChecks;
 }
 
 const defaultDeps: PipelineDeps = {
@@ -20,7 +24,9 @@ const defaultDeps: PipelineDeps = {
   detectDockerfile,
   build: buildImage,
   startSandbox,
+  stopSandbox,
   scheduleSandboxTimeout,
+  runChecks: runFirstWaveChecks,
 };
 
 function errorMessage(err: unknown): string {
@@ -76,5 +82,25 @@ export async function runPipeline(
     return;
   }
   updateRunStage(runId, "sandbox", "succeeded", { containerName }, db);
-  deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
+  // Safety net in case the ansible step below hangs or this process is
+  // killed before it finishes; cancelled once we're done with the container.
+  const sandboxTimeout = deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
+
+  updateRunStage(runId, "ansible", "running", {}, db);
+  let results;
+  try {
+    results = await deps.runChecks(dockerfilePath, containerName);
+  } catch (err) {
+    clearTimeout(sandboxTimeout);
+    await deps.stopSandbox(containerName);
+    updateRunStage(runId, "ansible", "failed", { errorMessage: errorMessage(err) }, db);
+    return;
+  }
+  clearTimeout(sandboxTimeout);
+  await deps.stopSandbox(containerName);
+  updateRunStage(runId, "ansible", "succeeded", {}, db);
+
+  updateRunStage(runId, "rule_eval", "running", {}, db);
+  saveCheckResults(runId, results, db);
+  updateRunStage(runId, "rule_eval", "succeeded", {}, db);
 }
