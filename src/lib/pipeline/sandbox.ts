@@ -38,7 +38,12 @@ export async function startSandbox(
       containerName,
       "--network",
       "none",
-      "--read-only",
+      // No --read-only: many real service images (nginx, etc.) write a
+      // pidfile or runtime state to an arbitrary app-specific path at
+      // startup and fail immediately under a read-only rootfs. The
+      // container is removed right after Ansible reads it (see
+      // orchestrator.ts), so a writable layer here doesn't persist risk;
+      // --network none and --cap-drop ALL remain the load-bearing controls.
       "--cap-drop",
       "ALL",
       "--memory",
