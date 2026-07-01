@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<style>
+@keyframes scan-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+}
+</style>
+</helmet>
+<div data-screen-label="점검 실행 상태" style="max-width:880px;margin:0 auto;padding:56px 24px 96px;font-family:Arial, Helvetica, sans-serif;color:#171717;background:#ffffff;">
+
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <h1 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.01em;">점검 실행 상태</h1>
+      <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:#ede9fe;color:#6d28d9;">✦ 룰 + Claude AI 하이브리드 분석</span>
+    </div>
+    <p style="margin:6px 0 0;font-size:13px;color:#64748b;word-break:break-all;">{{ repoUrl }}</p>
+  </div>
+
+  <div style="margin-top:36px;">
+    <div style="display:flex;align-items:flex-start;">
+      <sc-for list="{{ stageNodes }}" as="node" hint-placeholder-count="7">
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;width:100%;">
+            <div style="{{ node.lineBeforeStyle }}"></div>
+            <div style="{{ node.circleStyle }}">
+              {{ node.circleContent }}
+              <sc-if value="{{ node.aiTag }}">
+                <span style="position:absolute;top:-6px;right:-8px;background:#7c3aed;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:999px;line-height:1.4;">AI</span>
+              </sc-if>
+            </div>
+            <div style="{{ node.lineAfterStyle }}"></div>
+          </div>
+          <div style="{{ node.labelStyle }}">{{ node.labelText }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top:22px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;line-height:1.75;color:#334155;">
+    <div style="{{ currentStageCaptionStyle }}">{{ currentStageCaption }}</div>
+    <sc-if value="{{ imageTag }}">
+      <div>이미지 태그: <span style="font-family:ui-monospace, Menlo, monospace;">{{ imageTag }}</span></div>
+    </sc-if>
+    <sc-if value="{{ containerName }}">
+      <div>Sandbox 컨테이너: <span style="font-family:ui-monospace, Menlo, monospace;">{{ containerName }}</span></div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ errorMessage }}">
+    <pre style="margin-top:12px;white-space:pre-wrap;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 14px;border-radius:8px;font-size:12.5px;">{{ errorMessage }}</pre>
+  </sc-if>
+
+  <sc-if value="{{ hasChecks }}" hint-placeholder-val="{{ true }}">
+    <div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:32px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background:#dcfce7;color:#166534;"><span style="width:7px;height:7px;border-radius:999px;background:#22c55e;display:inline-block;"></span>양호 {{ passCount }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background:#fee2e2;color:#991b1b;"><span style="width:7px;height:7px;border-radius:999px;background:#ef4444;display:inline-block;"></span>취약 {{ failCount }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background:#fef9c3;color:#854d0e;"><span style="width:7px;height:7px;border-radius:999px;background:#eab308;display:inline-block;"></span>검토 {{ reviewCount }}</span>
+        <sc-if value="{{ hasAiChecks }}">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;background:#ede9fe;color:#6d28d9;">✦ Claude AI 교차검증 {{ aiCount }}건</span>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;font-size:14px;font-weight:600;color:#64748b;">점검 결과 <span style="font-weight:400;">({{ totalChecks }}개)</span></h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+            <sc-for list="{{ groupByOptions }}" as="opt" hint-placeholder-count="2">
+              <button onClick="{{ opt.onClick }}" style="{{ opt.style }}">{{ opt.label }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ toggleAll }}" style="border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:12.5px;padding:5px 12px;border-radius:6px;cursor:pointer;">{{ toggleAllLabel }}</button>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:22px;">
+        <sc-for list="{{ categoryGroups }}" as="group" hint-placeholder-count="3">
+          <div>
+            <sc-if value="{{ group.showHeader }}">
+              <button onClick="{{ group.onToggleCategory }}" style="{{ group.headerStyle }}">
+                <span style="{{ group.chevronStyle }}">▸</span>
+                <span style="font-weight:600;font-size:13.5px;">{{ group.label }}</span>
+                <span style="font-size:12.5px;color:#94a3b8;">{{ group.count }}개</span>
+                <span style="font-size:12px;color:#94a3b8;margin-left:auto;">{{ group.summaryText }}</span>
+              </button>
+            </sc-if>
+            <sc-if value="{{ group.expanded }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                <sc-for list="{{ group.checks }}" as="check" hint-placeholder-count="3">
+                  <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                    <button onClick="{{ check.onToggleCheck }}" style="width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:11px 14px;background:#fff;border:none;text-align:left;cursor:pointer;">
+                      <span style="{{ check.chevronStyle }}">▸</span>
+                      <span style="font-family:ui-monospace, Menlo, monospace;font-size:12px;color:#64748b;">{{ check.id }}</span>
+                      <span style="font-size:13.5px;color:#171717;">{{ check.title }}</span>
+                      <sc-if value="{{ check.severityLabel }}">
+                        <span style="{{ check.severityBadgeStyle }}">{{ check.severityLabel }}</span>
+                      </sc-if>
+                      <span style="{{ check.statusBadgeStyle }}">{{ check.statusLabel }}</span>
+                      <span style="{{ check.sourceBadgeStyle }}">{{ check.sourceLabel }}</span>
+                    </button>
+                    <div style="padding:0 14px 12px 40px;font-size:13px;color:#475569;">Evidence: {{ check.evidence }}</div>
+                    <sc-if value="{{ check.expanded }}">
+                      <div style="padding:2px 14px 16px 40px;display:flex;flex-direction:column;gap:8px;border-top:1px solid #f1f5f9;">
+                        <sc-if value="{{ check.reason }}">
+                          <div style="margin-top:10px;">
+                            <span style="{{ check.reasonLabelStyle }}">{{ check.reasonLabel }}</span>
+                            <p style="margin:4px 0 0;font-size:13px;color:#334155;line-height:1.6;">{{ check.reason }}</p>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ check.remediation }}">
+                          <p style="margin:0;font-size:13px;color:#334155;line-height:1.6;"><span style="font-weight:600;">조치방안: </span>{{ check.remediation }}</p>
+                        </sc-if>
+                        <sc-if value="{{ check.example }}">
+                          <pre style="margin:0;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;padding:10px 12px;border-radius:6px;font-size:12px;font-family:ui-monospace, Menlo, monospace;color:#334155;">{{ check.example }}</pre>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ noChecksYet }}">
+    <p style="margin-top:32px;font-size:13px;color:#94a3b8;font-style:italic;">아직 점검 결과가 없습니다 — 파이프라인이 진행되면 이 영역에 표시됩니다.</p>
+  </sc-if>
+
+  <h2 style="margin-top:40px;font-size:14px;font-weight:600;color:#64748b;">진행 이력</h2>
+  <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+    <sc-for list="{{ events }}" as="event" hint-placeholder-count="6">
+      <div style="display:flex;gap:10px;font-size:12.5px;">
+        <span style="color:#94a3b8;font-family:ui-monospace, Menlo, monospace;">{{ event.time }}</span>
+        <span style="color:#475569;">{{ event.text }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;sampleState&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Claude 분석 중 (결과 있음)&quot;, &quot;options&quot;: [&quot;Clone 진행 중&quot;, &quot;Claude 분석 중 (결과 있음)&quot;, &quot;완료&quot;, &quot;빌드 실패&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;데모 상태&quot; },
+  &quot;resultScale&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;많음 (15개, #42 이후)&quot;, &quot;options&quot;: [&quot;적음 (3개, 현재)&quot;, &quot;많음 (15개, #42 이후)&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;점검 결과 규모&quot; },
+  &quot;defaultExpanded&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;레이아웃&quot; }
+}">
+const STAGES = ["clone", "build", "sandbox", "ansible", "rule_eval", "claude", "done"];
+const STAGE_SHORT = { clone: "Clone", build: "Build", sandbox: "Sandbox", ansible: "Ansible", rule_eval: "룰 평가", claude: "Claude", done: "완료" };
+const STAGE_FULL = { clone: "레포 Clone", build: "Docker 빌드", sandbox: "Sandbox 실행", ansible: "Ansible 점검", rule_eval: "가이드 기반 룰 평가", claude: "Claude 분석", done: "완료" };
+const RUN_STATUS_LABEL = { running: "진행 중", succeeded: "성공", failed: "실패" };
+
+const STATUS_COLORS = {
+  pass: { bg: "#dcfce7", fg: "#166534" },
+  fail: { bg: "#fee2e2", fg: "#991b1b" },
+  review: { bg: "#fef9c3", fg: "#854d0e" },
+  skip: { bg: "#f1f5f9", fg: "#64748b" },
+  not_automated: { bg: "#f1f5f9", fg: "#94a3b8" },
+};
+const CHECK_STATUS_LABELS = { pass: "양호", fail: "취약", review: "검토", skip: "제외/해당 없음", not_automated: "자동화 전" };
+
+const SEVERITY_COLORS = {
+  Critical: { bg: "#fee2e2", fg: "#991b1b" },
+  High: { bg: "#ffedd5", fg: "#9a3412" },
+  Medium: { bg: "#fef9c3", fg: "#854d0e" },
+  Low: { bg: "#f1f5f9", fg: "#475569" },
+};
+
+const CATEGORY_LABELS = { container: "컨테이너/이미지 하드닝", unix: "Unix 서버 (KISA 가이드 기반)", web: "웹서비스 (KISA 가이드 기반)" };
+const CATEGORY_ORDER = ["container", "unix", "web"];
+
+// Which pipeline stage produced the verdict for a given check: a deterministic
+// Ansible/rule_eval match, or a Claude judgment call on ambiguous evidence.
+const SOURCE_COLORS = { rule: { bg: "#f1f5f9", fg: "#64748b" }, ai: { bg: "#ede9fe", fg: "#6d28d9" } };
+const SOURCE_LABELS = { rule: "룰 기반", ai: "AI 분석" };
+const AI_ANALYZED_IDS = new Set(["C-04", "C-06", "U-30", "W-01", "W-26"]);
+function getSource(id) {
+  return AI_ANALYZED_IDS.has(id) ? "ai" : "rule";
+}
+
+// When a run covers more than one scanned target (monorepo services, host +
+// image, etc.) checks can be regrouped by asset instead of by category.
+const ASSET_LABELS = {
+  "order-service": "order-service (이미지)",
+  "payment-service": "payment-service (이미지)",
+  "prod-web-01": "prod-web-01 (서버)",
+  "checkout-web": "checkout-web (웹서비스)",
+};
+function getAssetId(check) {
+  if (check.category === "container") return ["C-03", "C-06"].includes(check.id) ? "payment-service" : "order-service";
+  if (check.category === "unix") return "prod-web-01";
+  return "checkout-web";
+}
+
+const CHECKS_FEW = [
+  { id: "C-01", category: "container", title: "root(UID 0) 실행", severity: "High", status: "fail",
+    evidence: "Dockerfile에 USER 지시문이 없어 최종 이미지가 UID 0으로 실행됩니다.",
+    reason: "Dockerfile에 USER 지시문이 없어 컨테이너가 기본값인 root(UID 0)로 실행됩니다. 컨테이너가 침해될 경우 호스트 권한 상승으로 이어질 수 있습니다.",
+    remediation: "Dockerfile 마지막에 비루트 사용자를 생성하고 USER 지시문으로 전환하세요.",
+    example: "RUN adduser --disabled-password --gecos '' app\nUSER app" },
+  { id: "C-02", category: "container", title: "하드코딩 시크릿", severity: "Critical", status: "pass",
+    evidence: "ENV/ARG 선언에서 PASSWORD, SECRET, TOKEN 등 시크릿으로 의심되는 변수를 찾지 못했습니다.",
+    reason: null, remediation: null, example: null },
+  { id: "C-04", category: "container", title: "base 이미지 태그 미고정", severity: "Medium", status: "review",
+    evidence: "FROM node:20-slim — 태그는 지정되어 있으나 다이제스트 고정은 되어 있지 않습니다.",
+    reason: "베이스 이미지 태그는 지정되어 있으나 다이제스트(sha256) 고정이 되어 있지 않아 상위 이미지가 예고 없이 바뀔 수 있습니다.",
+    remediation: "베이스 이미지를 다이제스트로 고정하거나, 최소한 CI에서 이미지 다이제스트를 기록해 변경을 추적하세요.",
+    example: "FROM node:20-slim@sha256:1a2b3c..." },
+];
+
+const CHECKS_MANY = [
+  ...CHECKS_FEW,
+  { id: "C-03", category: "container", title: "불필요한 노출 포트", severity: "Medium", status: "pass",
+    evidence: "EXPOSE 지시문에 8080 포트만 선언되어 있으며, 알려진 위험 포트는 없습니다.", reason: null, remediation: null, example: null },
+  { id: "C-06", category: "container", title: "setuid/setgid 바이너리", severity: "High", status: "fail",
+    evidence: "이미지 내 /usr/bin, /usr/sbin 하위에서 setuid 비트가 설정된 바이너리 3개가 발견되었습니다.",
+    reason: "passwd, su, mount 등 setuid 비트가 설정된 바이너리가 런타임에 불필요하게 남아 있어 권한 상승 표면을 넓힙니다.",
+    remediation: "이미지 빌드 단계에서 불필요한 setuid 바이너리의 권한 비트를 제거하세요.",
+    example: "RUN find / -perm -4000 -type f -exec chmod u-s {} \\;" },
+  { id: "U-01", category: "unix", title: "root 계정 원격 접속 제한", severity: "High", status: "pass",
+    evidence: "/etc/ssh/sshd_config에 PermitRootLogin no 설정을 확인했습니다.", reason: null, remediation: null, example: null },
+  { id: "U-02", category: "unix", title: "비밀번호 관리정책 설정", severity: "High", status: "fail",
+    evidence: "/etc/security/pwquality.conf에 최소 길이·복잡도 정책이 설정되어 있지 않습니다.",
+    reason: "비밀번호 최소 길이 및 복잡도 정책이 설정되어 있지 않아 취약한 비밀번호 사용을 막지 못합니다.",
+    remediation: "minlen 8자 이상, 대소문자·숫자·특수문자 조합을 강제하는 정책을 적용하세요.",
+    example: "minlen=10\nminclass=3\nmaxrepeat=2" },
+  { id: "U-05", category: "unix", title: "root 이외의 UID가 '0' 금지", severity: "High", status: "pass",
+    evidence: "UID 0을 가진 계정은 root 하나뿐임을 확인했습니다.", reason: null, remediation: null, example: null },
+  { id: "U-16", category: "unix", title: "/etc/passwd 파일 소유자 및 권한 설정", severity: "High", status: "pass",
+    evidence: "/etc/passwd 소유자 root:root, 권한 644로 적절합니다.", reason: null, remediation: null, example: null },
+  { id: "U-30", category: "unix", title: "UMASK 설정 관리", severity: "Medium", status: "review",
+    evidence: "현재 UMASK가 022로 설정되어 있습니다.",
+    reason: "UMASK가 022로 설정되어 있어 그룹/기타 사용자에게 읽기 권한이 넓게 허용됩니다.",
+    remediation: "보안 정책에 따라 UMASK를 027 이상으로 강화하는 것을 검토하세요.",
+    example: "# /etc/profile\numask 027" },
+  { id: "U-63", category: "unix", title: "sudo 명령어 접근 관리", severity: "Medium", status: "skip",
+    evidence: "이 서버에는 sudo 패키지가 설치되어 있지 않아 해당 없음으로 처리했습니다.", reason: null, remediation: null, example: null },
+  { id: "W-01", category: "web", title: "Apache 디렉토리 리스팅 제거", severity: "High", status: "fail",
+    evidence: "mod_autoindex가 활성화되어 있어 index 파일이 없는 디렉토리 접근 시 파일 목록이 노출됩니다.",
+    reason: "Apache mod_autoindex가 활성화되어 있어 index 파일이 없는 디렉토리 접근 시 파일 목록이 노출됩니다.",
+    remediation: "httpd.conf에서 Options 지시문의 Indexes를 제거하세요.",
+    example: "<Directory /var/www/html>\n  Options -Indexes\n</Directory>" },
+  { id: "W-08", category: "web", title: "Apache 웹서비스 로그 설정", severity: "High", status: "pass",
+    evidence: "CustomLog, ErrorLog 지시문이 정상적으로 설정되어 있습니다.", reason: null, remediation: null, example: null },
+  { id: "W-25", category: "web", title: "웹서비스 불필요한 HTTP Method 제한", severity: "High", status: "not_automated",
+    evidence: "HTTP Method 제한 여부는 배포 환경별 리버스 프록시 설정에 따라 달라 수동 확인이 필요합니다.", reason: null, remediation: null, example: null },
+  { id: "W-26", category: "web", title: "웹서비스 헤더 정보 노출 제한", severity: "Medium", status: "review",
+    evidence: "Server 응답 헤더에 상세 버전 정보(Apache/2.4.57)가 노출되고 있습니다.",
+    reason: "Server 응답 헤더에 Apache 및 OS 버전 정보가 그대로 노출되고 있어 공격자가 알려진 취약점을 조회하기 쉬워집니다.",
+    remediation: "ServerTokens Prod, ServerSignature Off 설정으로 버전 정보 노출을 최소화하세요.",
+    example: "ServerTokens Prod\nServerSignature Off" },
+];
+
+const RESULT_SETS = {
+  "적음 (3개, 현재)": CHECKS_FEW,
+  "많음 (15개, #42 이후)": CHECKS_MANY,
+};
+const DEFAULT_SCALE = "많음 (15개, #42 이후)";
+
+const REPO_URL = "https://github.com/acme-corp/order-service.git";
+const IMAGE_TAG = "scan/order-service:640a8497";
+const CONTAINER_NAME = "scan-640a8497";
+
+const SAMPLE_STATES = {
+  "Clone 진행 중": {
+    stage: "clone", status: "running", repoUrl: REPO_URL, imageTag: null, containerName: null, errorMessage: null,
+    checksAvailable: false,
+    events: [
+      { time: "14:00:00", text: "레포 Clone → 진행 중" },
+    ],
+  },
+  "Claude 분석 중 (결과 있음)": {
+    stage: "claude", status: "running", repoUrl: REPO_URL, imageTag: IMAGE_TAG, containerName: CONTAINER_NAME, errorMessage: null,
+    checksAvailable: true,
+    events: [
+      { time: "14:00:00", text: "레포 Clone → 성공" },
+      { time: "14:00:42", text: "Docker 빌드 → 성공" },
+      { time: "14:01:10", text: "Sandbox 실행 → 성공" },
+      { time: "14:02:05", text: "Ansible 점검 → 성공" },
+      { time: "14:02:40", text: "가이드 기반 룰 평가 → 성공" },
+      { time: "14:03:02", text: "Claude 분석 → 진행 중" },
+    ],
+  },
+  "완료": {
+    stage: "done", status: "succeeded", repoUrl: REPO_URL, imageTag: IMAGE_TAG, containerName: CONTAINER_NAME, errorMessage: null,
+    checksAvailable: true,
+    events: [
+      { time: "14:00:00", text: "레포 Clone → 성공" },
+      { time: "14:00:42", text: "Docker 빌드 → 성공" },
+      { time: "14:01:10", text: "Sandbox 실행 → 성공" },
+      { time: "14:02:05", text: "Ansible 점검 → 성공" },
+      { time: "14:02:40", text: "가이드 기반 룰 평가 → 성공" },
+      { time: "14:03:41", text: "Claude 분석 → 성공" },
+      { time: "14:03:44", text: "완료 → 성공" },
+    ],
+  },
+  "빌드 실패": {
+    stage: "build", status: "failed", repoUrl: REPO_URL, imageTag: null, containerName: null,
+    errorMessage: "docker build 실패: exit code 1 — COPY failed: file not found in build context (package-lock.json)",
+    checksAvailable: false,
+    events: [
+      { time: "14:00:00", text: "레포 Clone → 성공" },
+      { time: "14:00:38", text: "Docker 빌드 → 실패" },
+    ],
+  },
+};
+const DEFAULT_SAMPLE_STATE = "Claude 분석 중 (결과 있음)";
+
+class Component extends DCLogic {
+  state = { expandedChecks: {}, collapsedCategories: {}, groupBy: "category" };
+
+  componentDidMount() {
+    this.resetExpansion();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.defaultExpanded !== this.props.defaultExpanded || prevProps.resultScale !== this.props.resultScale) {
+      this.resetExpansion();
+    }
+  }
+
+  getChecks() {
+    return RESULT_SETS[this.props.resultScale] || RESULT_SETS[DEFAULT_SCALE];
+  }
+
+  resetExpansion() {
+    const checks = this.getChecks();
+    const flag = this.props.defaultExpanded ?? false;
+    const map = {};
+    checks.forEach((c) => { map[c.id] = flag; });
+    this.setState({ expandedChecks: map, collapsedCategories: {} });
+  }
+
+  toggleCheck(id) {
+    this.setState((s) => ({ expandedChecks: { ...s.expandedChecks, [id]: !s.expandedChecks[id] } }));
+  }
+
+  toggleCategory(cat) {
+    this.setState((s) => ({ collapsedCategories: { ...s.collapsedCategories, [cat]: !s.collapsedCategories[cat] } }));
+  }
+
+  setGroupBy(val) {
+    this.setState({ groupBy: val, collapsedCategories: {} });
+  }
+
+  groupByButtonStyle(active, isLast) {
+    return {
+      border: "none",
+      borderRight: isLast ? "none" : "1px solid #e2e8f0",
+      background: active ? "#eff6ff" : "#fff",
+      color: active ? "#1d4ed8" : "#64748b",
+      fontSize: "12.5px",
+      fontWeight: active ? 600 : 500,
+      padding: "5px 12px",
+      cursor: "pointer",
+    };
+  }
+
+  toggleAll() {
+    const checks = this.getChecks();
+    const allExpanded = checks.every((c) => this.state.expandedChecks[c.id]);
+    const map = {};
+    checks.forEach((c) => { map[c.id] = !allExpanded; });
+    this.setState({ expandedChecks: map });
+  }
+
+  circleStyle(nodeState) {
+    const base = { width: "32px", height: "32px", borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: 700, flexShrink: 0, position: "relative" };
+    if (nodeState === "done") return { ...base, background: "#22c55e", color: "#fff" };
+    if (nodeState === "current") return { ...base, background: "#3b82f6", color: "#fff", animation: "scan-pulse-ring 1.8s infinite" };
+    if (nodeState === "failed") return { ...base, background: "#ef4444", color: "#fff" };
+    return { ...base, background: "#fff", border: "2px solid #e2e8f0", color: "#94a3b8" };
+  }
+
+  labelStyle(nodeState) {
+    const color = nodeState === "current" ? "#1d4ed8" : nodeState === "failed" ? "#b91c1c" : nodeState === "done" ? "#166534" : "#94a3b8";
+    return { marginTop: "8px", fontSize: "11.5px", textAlign: "center", color, fontWeight: nodeState === "current" ? 700 : 500, lineHeight: 1.3, maxWidth: "76px" };
+  }
+
+  checkStatusBadgeStyle(status) {
+    const c = STATUS_COLORS[status];
+    return { display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: "999px", fontSize: "11.5px", fontWeight: 600, background: c.bg, color: c.fg, whiteSpace: "nowrap" };
+  }
+
+  severityBadgeStyle(sev) {
+    const c = SEVERITY_COLORS[sev];
+    return { display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 600, background: c.bg, color: c.fg, whiteSpace: "nowrap" };
+  }
+
+  sourceBadgeStyle(source) {
+    const c = SOURCE_COLORS[source];
+    return { display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: c.bg, color: c.fg, whiteSpace: "nowrap" };
+  }
+
+  buildCheckVM(c) {
+    const expanded = !!this.state.expandedChecks[c.id];
+    const source = getSource(c.id);
+    return {
+      key: c.id, id: c.id, title: c.title, evidence: c.evidence,
+      statusLabel: CHECK_STATUS_LABELS[c.status], statusBadgeStyle: this.checkStatusBadgeStyle(c.status),
+      severityLabel: c.severity || null, severityBadgeStyle: c.severity ? this.severityBadgeStyle(c.severity) : null,
+      sourceLabel: SOURCE_LABELS[source], sourceBadgeStyle: this.sourceBadgeStyle(source),
+      expanded, onToggleCheck: () => this.toggleCheck(c.id),
+      chevronStyle: { display: "inline-block", transition: "transform .15s ease", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", color: "#94a3b8", fontSize: "11px", width: "10px" },
+      reason: c.reason || null,
+      reasonLabel: c.reason ? (source === "ai" ? "AI 분석 근거" : "룰 기반 판단 근거") : null,
+      reasonLabelStyle: { color: source === "ai" ? "#6d28d9" : "#94a3b8", fontSize: "11px", fontWeight: 700, letterSpacing: "0.02em" },
+      remediation: c.remediation || null, example: c.example || null,
+    };
+  }
+
+  groupSummaryText(items) {
+    const pass = items.filter((c) => c.status === "pass").length;
+    const fail = items.filter((c) => c.status === "fail").length;
+    const review = items.filter((c) => c.status === "review").length;
+    return `양호 ${pass} · 취약 ${fail} · 검토 ${review}`;
+  }
+
+  buildGroups(checks, groupBy) {
+    if (groupBy === "asset") {
+      const order = [];
+      const buckets = {};
+      checks.forEach((c) => {
+        const id = getAssetId(c);
+        if (!buckets[id]) { buckets[id] = []; order.push(id); }
+        buckets[id].push(c);
+      });
+      return order.map((id) => {
+        const items = buckets[id];
+        const collapsed = !!this.state.collapsedCategories[id];
+        return {
+          key: id, label: ASSET_LABELS[id] || id, showHeader: true, count: items.length,
+          summaryText: this.groupSummaryText(items),
+          expanded: !collapsed,
+          onToggleCategory: () => this.toggleCategory(id),
+          headerStyle: { width: "100%", display: "flex", alignItems: "center", gap: "8px", padding: "8px 4px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
+          chevronStyle: { display: "inline-block", transition: "transform .15s ease", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", color: "#94a3b8", fontSize: "11px" },
+          checks: items.map((c) => this.buildCheckVM(c)),
+        };
+      });
+    }
+    return CATEGORY_ORDER.map((cat) => {
+      const items = checks.filter((c) => c.category === cat);
+      if (!items.length) return null;
+      const collapsed = !!this.state.collapsedCategories[cat];
+      return {
+        key: cat, label: CATEGORY_LABELS[cat], showHeader: true, count: items.length,
+        summaryText: this.groupSummaryText(items),
+        expanded: !collapsed,
+        onToggleCategory: () => this.toggleCategory(cat),
+        headerStyle: { width: "100%", display: "flex", alignItems: "center", gap: "8px", padding: "8px 4px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" },
+        chevronStyle: { display: "inline-block", transition: "transform .15s ease", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)", color: "#94a3b8", fontSize: "11px" },
+        checks: items.map((c) => this.buildCheckVM(c)),
+      };
+    }).filter(Boolean);
+  }
+
+  renderVals() {
+    const sample = SAMPLE_STATES[this.props.sampleState] || SAMPLE_STATES[DEFAULT_SAMPLE_STATE];
+    const checks = this.getChecks();
+
+    const currentIndex = STAGES.indexOf(sample.stage);
+    const nodeStates = STAGES.map((s, i) => {
+      if (sample.status === "failed" && i === currentIndex) return "failed";
+      if (i < currentIndex || (i === currentIndex && sample.status === "succeeded")) return "done";
+      if (i === currentIndex && sample.status === "running") return "current";
+      return "pending";
+    });
+    const connectorColors = [];
+    for (let i = 0; i < STAGES.length - 1; i++) {
+      connectorColors.push(nodeStates[i] === "done" ? "#22c55e" : "#e2e8f0");
+    }
+    const stageNodes = STAGES.map((s, i) => ({
+      key: s,
+      circleStyle: this.circleStyle(nodeStates[i]),
+      circleContent: nodeStates[i] === "done" ? "✓" : nodeStates[i] === "failed" ? "✕" : String(i + 1),
+      labelText: STAGE_SHORT[s],
+      labelStyle: this.labelStyle(nodeStates[i]),
+      aiTag: s === "claude",
+      lineBeforeStyle: { flex: 1, height: "2px", background: i === 0 ? "transparent" : connectorColors[i - 1] },
+      lineAfterStyle: { flex: 1, height: "2px", background: i === STAGES.length - 1 ? "transparent" : connectorColors[i] },
+    }));
+
+    const hasChecks = sample.checksAvailable && checks.length > 0;
+    const passCount = checks.filter((c) => c.status === "pass").length;
+    const failCount = checks.filter((c) => c.status === "fail").length;
+    const reviewCount = checks.filter((c) => c.status === "review").length;
+    const aiCount = checks.filter((c) => getSource(c.id) === "ai").length;
+
+    const categoryGroups = hasChecks ? this.buildGroups(checks, this.state.groupBy) : [];
+    const allExpanded = checks.length > 0 && checks.every((c) => this.state.expandedChecks[c.id]);
+
+    return {
+      repoUrl: sample.repoUrl,
+      imageTag: sample.imageTag,
+      containerName: sample.containerName,
+      errorMessage: sample.errorMessage,
+      currentStageCaption: `${STAGE_FULL[sample.stage]} · ${RUN_STATUS_LABEL[sample.status]}`,
+      currentStageCaptionStyle: { fontWeight: 600, color: sample.status === "failed" ? "#b91c1c" : sample.status === "succeeded" ? "#166534" : "#1d4ed8" },
+      stageNodes,
+      hasChecks,
+      noChecksYet: !hasChecks,
+      passCount, failCount, reviewCount,
+      aiCount,
+      hasAiChecks: aiCount > 0,
+      totalChecks: checks.length,
+      toggleAllLabel: allExpanded ? "전체 접기" : "전체 펼치기",
+      toggleAll: () => this.toggleAll(),
+      groupByOptions: [
+        { key: "category", label: "카테고리", onClick: () => this.setGroupBy("category"), style: this.groupByButtonStyle(this.state.groupBy === "category", false) },
+        { key: "asset", label: "자산", onClick: () => this.setGroupBy("asset"), style: this.groupByButtonStyle(this.state.groupBy === "asset", true) },
+      ],
+      categoryGroups,
+      events: sample.events.map((e, i) => ({ key: i, time: e.time, text: e.text })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -7,11 +7,8 @@ export default async function RunPage({
 }) {
   const { id } = await params;
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-xl font-semibold">점검 실행 상태</h1>
-      <div className="mt-6">
-        <RunStatus runId={id} />
-      </div>
+    <main className="mx-auto max-w-[880px] px-6 py-14">
+      <RunStatus runId={id} />
     </main>
   );
 }
