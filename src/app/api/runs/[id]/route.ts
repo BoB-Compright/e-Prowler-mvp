@@ -20,10 +20,15 @@ export async function GET(
 
   const checks = listCheckResults(id).map((result) => {
     const report = reportsByItem.get(result.id);
+    const catalogItem = getCatalogItem(result.id);
     return {
       ...result,
-      title: getCatalogItem(result.id)?.title ?? result.id,
-      severity: getCatalogItem(result.id)?.severity ?? null,
+      title: catalogItem?.title ?? result.id,
+      severity: catalogItem?.severity ?? null,
+      category: catalogItem?.category ?? null,
+      // "ai" once Claude has analyzed this item (every item goes through
+      // Claude in this pipeline), "rule" while only rule_eval has run so far.
+      source: report ? "ai" : "rule",
       reason: report?.reason ?? null,
       remediation: report?.remediation ?? null,
       example: report?.example ?? null,
