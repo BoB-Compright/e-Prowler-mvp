@@ -75,4 +75,29 @@ describe("importAssetsFromWorkbook", () => {
     const buffer = buildWorkbook({ repo: [{ display_name: "a", repo_url: "https://github.com/x/a" }] });
     expect(importAssetsFromWorkbook(buffer, null, db).server).toEqual([]);
   });
+
+  it("keeps correct row numbers when a blank row precedes a data row", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a" },
+        {},
+        { display_name: "c", repo_url: "https://github.com/x/c" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo).toHaveLength(3);
+    expect(result.repo[0]).toMatchObject({ row: 2, ok: true });
+    expect(result.repo[1]).toMatchObject({ row: 3, ok: false }); // the blank row itself, correctly reported
+    expect(result.repo[2]).toMatchObject({ row: 4, ok: true }); // not shifted to row 3
+  });
+
+  it("accepts a numeric secret value instead of treating it as empty", () => {
+    const buffer = buildWorkbook({
+      server: [
+        { display_name: "web-01", host_ip: "10.0.0.5", hostname: "web-01", ssh_port: 22, auth_type: "password", username: "admin", secret: 123456 },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server[0]).toMatchObject({ ok: true });
+  });
 });

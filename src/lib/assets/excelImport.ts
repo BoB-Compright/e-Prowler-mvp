@@ -43,7 +43,12 @@ function importServerSheet(rows: ServerRow[], projectId: string | null, db: Data
     const sshPort = Number(raw.ssh_port);
     const authType = raw.auth_type as ServerAuthType;
     const username = typeof raw.username === "string" ? raw.username.trim() : "";
-    const secret = typeof raw.secret === "string" ? raw.secret : "";
+    const secret =
+      typeof raw.secret === "string"
+        ? raw.secret
+        : typeof raw.secret === "number"
+          ? String(raw.secret)
+          : "";
 
     if (!displayName || !hostIp || !hostname || !username || !secret) {
       return { row: rowNumber, ok: false, reason: "필수 컬럼이 비어 있습니다" };
@@ -74,7 +79,11 @@ export function importAssetsFromWorkbook(
   const repoSheet = workbook.Sheets["repo"];
   const serverSheet = workbook.Sheets["server"];
   return {
-    repo: repoSheet ? importRepoSheet(XLSX.utils.sheet_to_json<RepoRow>(repoSheet), projectId, db) : [],
-    server: serverSheet ? importServerSheet(XLSX.utils.sheet_to_json<ServerRow>(serverSheet), projectId, db) : [],
+    repo: repoSheet
+      ? importRepoSheet(XLSX.utils.sheet_to_json<RepoRow>(repoSheet, { blankrows: true }), projectId, db)
+      : [],
+    server: serverSheet
+      ? importServerSheet(XLSX.utils.sheet_to_json<ServerRow>(serverSheet, { blankrows: true }), projectId, db)
+      : [],
   };
 }
