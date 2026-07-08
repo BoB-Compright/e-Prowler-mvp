@@ -474,6 +474,7 @@ Claude API로 전달하기 전 다음 값을 제거 또는 마스킹한다.
 | Claude API 실패                    | 외부 API 불안정                                                | AI 실패와 점검 실패를 분리                            |
 | PAT 노출                           | 로그/AI payload/DB 유출 위험                                   | sanitizer + 보안 테스트 필수                          |
 | Docker socket 권한                 | 호스트 권한 리스크                                             | 로컬 단일 사용자 MVP 전제, 제품화 시 재설계           |
+| `xlsx`(SheetJS) 미패치 취약점      | npm 배포 버전에 Prototype Pollution·ReDoS High 취약점(패치 없음). 자산 엑셀 업로드(A1)가 사용자 업로드 파일을 이 라이브러리로 직접 파싱 | 로컬 단일 운영자 MVP 전제로 리스크 수용(2026-07-08 결정). 업로드 API(A1 Task 10)에서 파일 크기 제한 등 완화책 추가 검토. 멀티유저/외부 공개 전환 시 SheetJS 패치 빌드(cdn.sheetjs.com) 또는 대체 라이브러리로 재검토 필수 |
 
 ---
 
