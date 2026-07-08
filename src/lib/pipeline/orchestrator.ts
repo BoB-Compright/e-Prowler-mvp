@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { getDb } from "@/lib/db";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
-import { buildImage } from "./build";
+import { buildImage, removeImage } from "./build";
 import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
 import { updateRunStage } from "./runs";
@@ -14,6 +14,7 @@ export interface PipelineDeps {
   clone: typeof cloneRepo;
   detectDockerfile: typeof detectDockerfile;
   build: typeof buildImage;
+  removeImage: typeof removeImage;
   startSandbox: typeof startSandbox;
   stopSandbox: typeof stopSandbox;
   scheduleSandboxTimeout: typeof scheduleSandboxTimeout;
@@ -25,6 +26,7 @@ const defaultDeps: PipelineDeps = {
   clone: cloneRepo,
   detectDockerfile,
   build: buildImage,
+  removeImage,
   startSandbox,
   stopSandbox,
   scheduleSandboxTimeout,
@@ -100,46 +102,58 @@ export async function runPipeline(
     updateRunStage(runId, "build", "succeeded", { imageTag }, db);
   }
 
-  updateRunStage(runId, "sandbox", "running", {}, db);
-  const containerName = `scan-${runId}`;
+  // A git-sourced run builds a one-off `scan-<runId>` image that's never
+  // reused by anything else; a local_image-sourced run reuses an image the
+  // user owns and must never delete. Wrapping the rest of the pipeline in
+  // try/finally means the git-built image gets cleaned up on every exit
+  // path below (sandbox failure, ansible failure, or full success) without
+  // repeating the cleanup call at each return.
   try {
-    await deps.startSandbox(imageTag, containerName);
-  } catch (err) {
-    updateRunStage(runId, "sandbox", "failed", { errorMessage: errorMessage(err) }, db);
-    return;
-  }
-  updateRunStage(runId, "sandbox", "succeeded", { containerName }, db);
-  // Safety net in case the ansible step below hangs or this process is
-  // killed before it finishes; cancelled once we're done with the container.
-  const sandboxTimeout = deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
+    updateRunStage(runId, "sandbox", "running", {}, db);
+    const containerName = `scan-${runId}`;
+    try {
+      await deps.startSandbox(imageTag, containerName);
+    } catch (err) {
+      updateRunStage(runId, "sandbox", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
+    updateRunStage(runId, "sandbox", "succeeded", { containerName }, db);
+    // Safety net in case the ansible step below hangs or this process is
+    // killed before it finishes; cancelled once we're done with the container.
+    const sandboxTimeout = deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
 
-  updateRunStage(runId, "ansible", "running", {}, db);
-  let results;
-  try {
-    results = await deps.runChecks(dockerfilePath, containerName);
-  } catch (err) {
+    updateRunStage(runId, "ansible", "running", {}, db);
+    let results;
+    try {
+      results = await deps.runChecks(dockerfilePath, containerName);
+    } catch (err) {
+      clearTimeout(sandboxTimeout);
+      await deps.stopSandbox(containerName);
+      updateRunStage(runId, "ansible", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
     clearTimeout(sandboxTimeout);
     await deps.stopSandbox(containerName);
-    updateRunStage(runId, "ansible", "failed", { errorMessage: errorMessage(err) }, db);
-    return;
-  }
-  clearTimeout(sandboxTimeout);
-  await deps.stopSandbox(containerName);
-  updateRunStage(runId, "ansible", "succeeded", {}, db);
+    updateRunStage(runId, "ansible", "succeeded", {}, db);
 
-  updateRunStage(runId, "rule_eval", "running", {}, db);
-  saveCheckResults(runId, results, db);
-  updateRunStage(runId, "rule_eval", "succeeded", {}, db);
+    updateRunStage(runId, "rule_eval", "running", {}, db);
+    saveCheckResults(runId, results, db);
+    updateRunStage(runId, "rule_eval", "succeeded", {}, db);
 
-  updateRunStage(runId, "claude", "running", {}, db);
-  try {
-    await deps.analyzeChecks(runId, results, db);
-  } catch (err) {
-    // AI failure is independent of check failure: check_results above are
-    // already committed and stay queryable even if analysis fails here.
-    updateRunStage(runId, "claude", "failed", { errorMessage: errorMessage(err) }, db);
-    return;
+    updateRunStage(runId, "claude", "running", {}, db);
+    try {
+      await deps.analyzeChecks(runId, results, db);
+    } catch (err) {
+      // AI failure is independent of check failure: check_results above are
+      // already committed and stay queryable even if analysis fails here.
+      updateRunStage(runId, "claude", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
+    updateRunStage(runId, "claude", "succeeded", {}, db);
+    updateRunStage(runId, "done", "succeeded", {}, db);
+  } finally {
+    if (source.type === "git") {
+      await deps.removeImage(imageTag);
+    }
   }
-  updateRunStage(runId, "claude", "succeeded", {}, db);
-  updateRunStage(runId, "done", "succeeded", {}, db);
 }
