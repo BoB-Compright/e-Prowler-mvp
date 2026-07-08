@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
+import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { AssetFilters } from "./AssetFilters";
 
 export default async function AssetsPage({
@@ -31,7 +32,7 @@ export default async function AssetsPage({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-muted)]">
-            <th className="py-2">이름</th><th className="py-2">타입</th><th className="py-2">프로젝트</th><th className="py-2">등록일</th>
+            <th className="py-2">이름</th><th className="py-2">타입</th><th className="py-2">프로젝트</th><th className="py-2">등록일</th><th className="py-2">정기 점검</th>
           </tr>
         </thead>
         <tbody>
@@ -43,6 +44,13 @@ export default async function AssetsPage({
                 <td className="py-2">{asset.type === "repo" ? "레포" : "서버"}</td>
                 <td className="py-2">{project?.name ?? "미분류"}</td>
                 <td className="py-2 font-mono text-xs text-[var(--color-muted)]">{asset.createdAt}</td>
+                <td className="py-2 text-xs">
+                  {(() => {
+                    const schedule = getScheduleByAsset(asset.id);
+                    if (!schedule || !schedule.enabled) return "—";
+                    return schedule.frequency === "daily" ? "매일" : schedule.frequency === "weekly" ? "매주" : "매월";
+                  })()}
+                </td>
               </tr>
             );
           })}

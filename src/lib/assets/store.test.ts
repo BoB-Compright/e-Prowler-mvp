@@ -19,6 +19,7 @@ import {
   getAsset,
   listAssets,
 } from "./store";
+import { getScheduleByAsset, upsertSchedule } from "@/lib/scheduling/store";
 
 let db: Database;
 
@@ -119,5 +120,19 @@ describe("deleteAsset", () => {
 
     expect(listInstalledPackages(asset.id, db)).toEqual([]);
     expect(listCveMatches(asset.id, db)).toEqual([]);
+  });
+
+  it("cascades schedule deletion when an asset is deleted", () => {
+    const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
+    upsertSchedule(
+      asset.id,
+      { frequency: "daily", dayOfWeek: null, dayOfMonth: null, timeOfDay: "03:00", enabled: true },
+      new Date(),
+      db,
+    );
+
+    deleteAsset(asset.id, db);
+
+    expect(getScheduleByAsset(asset.id, db)).toBeUndefined();
   });
 });

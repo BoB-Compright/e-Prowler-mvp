@@ -109,6 +109,21 @@ CREATE TABLE IF NOT EXISTS nvd_query_cache (
   raw_response TEXT NOT NULL,
   fetched_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS schedules (
+  id TEXT PRIMARY KEY,
+  asset_id TEXT NOT NULL UNIQUE REFERENCES assets(id),
+  frequency TEXT NOT NULL,
+  day_of_week INTEGER,
+  day_of_month INTEGER,
+  time_of_day TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  next_run_at TEXT NOT NULL,
+  last_run_at TEXT,
+  last_skip_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 // Existing on-disk databases predate the "source_type" column; ADD COLUMN
@@ -124,6 +139,9 @@ function migrate(db: Database.Database): void {
   }
   if (!runColumns.some((column) => column.name === "batch_id")) {
     db.exec(`ALTER TABLE runs ADD COLUMN batch_id TEXT REFERENCES scan_batches(id)`);
+  }
+  if (!runColumns.some((column) => column.name === "trigger_type")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'manual'`);
   }
 }
 

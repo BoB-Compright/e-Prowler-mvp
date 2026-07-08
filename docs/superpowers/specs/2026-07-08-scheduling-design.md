@@ -55,7 +55,7 @@
 | `last_skip_reason` | TEXT, nullable | 마지막 skip 사유 (예: `"이미 진행 중인 run 존재"`) |
 | `created_at` / `updated_at` | timestamp | |
 
-`asset_id`에 `ON DELETE CASCADE` — 자산이 hard delete되면 스케줄도 함께 삭제.
+`asset_id`는 `REFERENCES assets(id)` (DB 레벨 `ON DELETE CASCADE` 없음) — 자산이 hard delete될 때 `deleteAsset()`의 트랜잭션이 스케줄 행을 명시적으로 함께 삭제한다(이 코드베이스는 SQLite FK cascade에 의존하지 않고 모든 cascade를 애플리케이션 코드로 처리하는 기존 관례를 따른다). `better-sqlite3`는 기본적으로 `foreign_keys=1`(ON)이며, 모든 명시적 cascade delete가 자식을 부모보다 먼저 지우는 순서를 지키고 있어 FK 활성화 여부와 무관하게 안전하다.
 
 ### `runs` 테이블 확장
 - `trigger_type` 컬럼 추가 (`TEXT NOT NULL DEFAULT 'manual'`, 값: `'manual'` \| `'scheduled'`)

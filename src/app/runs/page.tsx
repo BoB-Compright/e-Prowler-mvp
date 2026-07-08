@@ -72,6 +72,9 @@ export default async function RunsPage({
                 <th className="px-2.5 py-2.5 text-center font-mono text-[11px] text-[var(--color-muted)] uppercase">
                   낮음
                 </th>
+                <th className="px-2.5 py-2.5 text-center font-mono text-[11px] text-[var(--color-muted)] uppercase">
+                  트리거
+                </th>
                 <th className="px-3.5 py-2.5 font-mono text-[11px] tracking-wide text-[var(--color-muted)] uppercase">
                   상태
                 </th>
@@ -122,6 +125,9 @@ export default async function RunsPage({
                     </td>
                     <td className="px-2.5 py-2.5 text-center font-mono text-[var(--color-muted)]">
                       {summary.severityCounts.Low || "—"}
+                    </td>
+                    <td className="px-2.5 py-2.5 text-center font-mono text-[11px] text-[var(--color-muted)]">
+                      {run.triggerType === "scheduled" ? "예약" : "수동"}
                     </td>
                     <td className="px-3.5 py-2.5">
                       <span
