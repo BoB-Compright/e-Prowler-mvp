@@ -12,8 +12,14 @@ import {
   type Severity,
 } from "@/lib/catalog/types";
 import type { CheckResultSource, DecoratedCheckResult } from "@/lib/checks/types";
-import { computeRiskSummary } from "@/lib/checks/riskSummary";
+import { computeRiskSummary, overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
+
+const OUTCOME_BORDER_COLOR: Record<RunOutcome, string> = {
+  fail: "var(--color-fail)",
+  review: "var(--color-review)",
+  pass: "var(--color-pass)",
+};
 
 // Marks the Claude analysis step as AI-driven, distinct from the rule-based
 // stages around it.
@@ -216,6 +222,8 @@ export function RunStatus({ runId }: { runId: string }) {
   }
 
   const hasChecks = checks.length > 0;
+  const riskSummary = computeRiskSummary(checks);
+  const riskOutcome = overallRunOutcome(riskSummary);
   const passCount = checks.filter((c) => c.status === "pass").length;
   const failCount = checks.filter((c) => c.status === "fail").length;
   const reviewCount = checks.filter((c) => c.status === "review").length;
@@ -245,16 +253,34 @@ export function RunStatus({ runId }: { runId: string }) {
       </div>
       <p className="mt-1.5 break-all text-sm text-[var(--color-muted)]">{run.repoUrl}</p>
 
-      {hasChecks && (
-        <div className="mt-5 flex flex-col gap-2">
-          <RiskSummaryBar summary={computeRiskSummary(checks)} />
-          <Link
-            href={`/runs/${runId}/report`}
-            className="self-end text-[12.5px] font-semibold text-[var(--color-primary)] hover:underline"
-          >
-            상세 리포트 보기 →
-          </Link>
+      <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-slate-700">
+        <div
+          className={`font-semibold ${
+            run.status === "failed"
+              ? "text-red-700"
+              : run.status === "succeeded"
+                ? "text-green-800"
+                : "text-blue-700"
+          }`}
+        >
+          {STAGE_LABELS[run.stage]} · {STATUS_LABELS[run.status]}
         </div>
+        {run.imageTag && (
+          <div>
+            이미지 태그: <span className="font-mono">{run.imageTag}</span>
+          </div>
+        )}
+        {run.containerName && (
+          <div>
+            Sandbox 컨테이너: <span className="font-mono">{run.containerName}</span>
+          </div>
+        )}
+      </div>
+
+      {run.errorMessage && (
+        <pre className="mt-3 whitespace-pre-wrap rounded-[var(--radius-nh)] border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+          {run.errorMessage}
+        </pre>
       )}
 
       <div className="mt-7 flex items-center justify-between gap-2.5">
@@ -361,34 +387,43 @@ export function RunStatus({ runId }: { runId: string }) {
         </div>
       )}
 
-      <div className="mt-5 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-slate-700">
-        <div
-          className={`font-semibold ${
-            run.status === "failed"
-              ? "text-red-700"
-              : run.status === "succeeded"
-                ? "text-green-800"
-                : "text-blue-700"
-          }`}
-        >
-          {STAGE_LABELS[run.stage]} · {STATUS_LABELS[run.status]}
-        </div>
-        {run.imageTag && (
+      <div className="mt-4 min-h-[72px] rounded-[var(--radius-nh)] border border-[#1e293b] bg-[#0b1220] p-3 font-mono text-[12.5px] leading-relaxed text-[#cbd5e1]">
+        {events.length === 0 && <div className="text-[#64748b]">$ 점검이 시작되면 로그가 여기에 표시됩니다.</div>}
+        {events.map((event) => {
+          const isFailed = event.status === "failed";
+          const isRunning = event.status === "running";
+          const prefix = isFailed ? "✕" : isRunning ? "▶" : "✓";
+          const prefixColor = isFailed ? "#f87171" : isRunning ? "#38bdf8" : "#4ade80";
+          return (
+            <div key={event.id}>
+              <span className="text-[#64748b]">[{event.createdAt}]</span>{" "}
+              <span style={{ color: prefixColor }}>{prefix}</span>{" "}
+              {STAGE_LABELS[event.stage]} → {STATUS_LABELS[event.status]}
+              {event.message ? ` — ${event.message}` : ""}
+            </div>
+          );
+        })}
+        {run.status === "running" && (
           <div>
-            이미지 태그: <span className="font-mono">{run.imageTag}</span>
-          </div>
-        )}
-        {run.containerName && (
-          <div>
-            Sandbox 컨테이너: <span className="font-mono">{run.containerName}</span>
+            <span className="text-[#38bdf8]">$</span>{" "}
+            <span className="animate-[terminal-cursor-blink_1s_step-end_infinite]">▋</span>
           </div>
         )}
       </div>
 
-      {run.errorMessage && (
-        <pre className="mt-3 whitespace-pre-wrap rounded-[var(--radius-nh)] border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-          {run.errorMessage}
-        </pre>
+      {hasChecks && (
+        <div
+          className="mt-5 flex flex-col gap-2 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5"
+          style={{ borderLeft: `3px solid ${OUTCOME_BORDER_COLOR[riskOutcome]}` }}
+        >
+          <RiskSummaryBar summary={riskSummary} />
+          <Link
+            href={`/runs/${runId}/report`}
+            className="self-end text-[12.5px] font-semibold text-[var(--color-primary)] hover:underline"
+          >
+            상세 리포트 보기 →
+          </Link>
+        </div>
       )}
 
       {hasChecks ? (
@@ -493,31 +528,6 @@ export function RunStatus({ runId }: { runId: string }) {
           아직 점검 결과가 없습니다 — 파이프라인이 진행되면 이 영역에 표시됩니다.
         </p>
       )}
-
-      <h2 className="mt-10 text-sm font-semibold text-[var(--color-muted)]">진행 이력</h2>
-      <div className="mt-2.5 min-h-[72px] rounded-[var(--radius-nh)] border border-[#1e293b] bg-[#0b1220] p-3 font-mono text-[12.5px] leading-relaxed text-[#cbd5e1]">
-        {events.length === 0 && <div className="text-[#64748b]">$ 점검이 시작되면 로그가 여기에 표시됩니다.</div>}
-        {events.map((event) => {
-          const isFailed = event.status === "failed";
-          const isRunning = event.status === "running";
-          const prefix = isFailed ? "✕" : isRunning ? "▶" : "✓";
-          const prefixColor = isFailed ? "#f87171" : isRunning ? "#38bdf8" : "#4ade80";
-          return (
-            <div key={event.id}>
-              <span className="text-[#64748b]">[{event.createdAt}]</span>{" "}
-              <span style={{ color: prefixColor }}>{prefix}</span>{" "}
-              {STAGE_LABELS[event.stage]} → {STATUS_LABELS[event.status]}
-              {event.message ? ` — ${event.message}` : ""}
-            </div>
-          );
-        })}
-        {run.status === "running" && (
-          <div>
-            <span className="text-[#38bdf8]">$</span>{" "}
-            <span className="animate-[terminal-cursor-blink_1s_step-end_infinite]">▋</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -532,7 +542,7 @@ function CheckCard({
   onToggle: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)]">
+    <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
       <button
         onClick={onToggle}
         className="flex w-full flex-wrap items-center gap-2 px-3.5 py-2.5 text-left hover:bg-[var(--color-surface)]"
@@ -548,7 +558,7 @@ function CheckCard({
         <span className="text-[13.5px]">{check.title}</span>
         {check.severity && (
           <span
-            className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_STYLES[check.severity]}`}
+            className={`rounded-[6px] px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_STYLES[check.severity]}`}
           >
             {check.severity}
           </span>

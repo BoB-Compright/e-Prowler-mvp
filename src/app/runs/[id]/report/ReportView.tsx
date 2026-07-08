@@ -11,6 +11,8 @@ import {
   type Severity,
 } from "@/lib/catalog/types";
 import type { CheckResultSource, DecoratedCheckResult } from "@/lib/checks/types";
+import { computeRiskSummary } from "@/lib/checks/riskSummary";
+import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
 
 const CATEGORY_CHIP_LABELS: Record<Category, string> = {
   container: "컨테이너",
@@ -106,6 +108,12 @@ export function ReportView({ runId }: { runId: string }) {
         </div>
       </div>
 
+      {checks.length > 0 && (
+        <div className="mt-5">
+          <RiskSummaryBar summary={computeRiskSummary(checks)} />
+        </div>
+      )}
+
       {checks.length === 0 ? (
         <p className="mt-8 text-[13px] text-[var(--color-muted)] italic">
           아직 점검 결과가 없습니다.
@@ -172,7 +180,7 @@ export function ReportView({ runId }: { runId: string }) {
                       </span>
                       {check.severity && (
                         <span
-                          className={`ml-auto rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${SEVERITY_STYLES[check.severity]}`}
+                          className={`ml-auto rounded-[6px] px-1.5 py-0.5 text-[10.5px] font-semibold ${SEVERITY_STYLES[check.severity]}`}
                         >
                           {check.severity}
                         </span>
@@ -204,7 +212,7 @@ export function ReportView({ runId }: { runId: string }) {
                 </span>
                 {selected.severity && (
                   <span
-                    className={`rounded px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_STYLES[selected.severity]}`}
+                    className={`rounded-[6px] px-2 py-0.5 text-[11px] font-semibold ${SEVERITY_STYLES[selected.severity]}`}
                   >
                     {selected.severity}
                   </span>
