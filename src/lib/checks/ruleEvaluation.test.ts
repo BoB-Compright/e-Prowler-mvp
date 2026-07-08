@@ -42,6 +42,40 @@ import {
   evaluateU31,
   evaluateU32,
   evaluateU33,
+  evaluateU34,
+  evaluateU35,
+  evaluateU36,
+  evaluateU37,
+  evaluateU38,
+  evaluateU39,
+  evaluateU40,
+  evaluateU41,
+  evaluateU42,
+  evaluateU43,
+  evaluateU44,
+  evaluateU45,
+  evaluateU46,
+  evaluateU47,
+  evaluateU48,
+  evaluateU49,
+  evaluateU50,
+  evaluateU51,
+  evaluateU52,
+  evaluateU53,
+  evaluateU54,
+  evaluateU55,
+  evaluateU56,
+  evaluateU57,
+  evaluateU58,
+  evaluateU59,
+  evaluateU60,
+  evaluateU61,
+  evaluateU62,
+  evaluateU63,
+  evaluateU64,
+  evaluateU65,
+  evaluateU66,
+  evaluateU67,
   evaluateW01,
   evaluateW08,
   evaluateW09,
@@ -66,6 +100,33 @@ function nginxTasks(config: string | null, w22Stdout = ""): AnsibleTaskOutput[] 
     task("nginx detection (internal)", config === null ? "absent" : "present"),
     task("nginx effective config (internal)", config === null ? "__MISSING__" : config),
     task("W-22: nginx config file permissions", w22Stdout),
+  ];
+}
+
+// Task-list builders for the #46 service-family internal helpers (mirrors
+// nginxTasks above): pass null to simulate "service not detected".
+function mailTasks(variant: "postfix" | "sendmail" | "exim" | null): AnsibleTaskOutput[] {
+  return [task("mail service detection (internal)", variant ?? "absent")];
+}
+
+function dnsTasks(present: boolean, config: string | null): AnsibleTaskOutput[] {
+  return [
+    task("dns service detection (internal)", present ? "present" : "absent"),
+    task("dns effective config (internal)", config === null ? "__MISSING__" : config),
+  ];
+}
+
+function ftpTasks(variant: "vsftpd" | "proftpd" | "pure-ftpd" | null, config: string | null): AnsibleTaskOutput[] {
+  return [
+    task("ftp service detection (internal)", variant ?? "absent"),
+    task("ftp effective config (internal)", config === null ? "__MISSING__" : config),
+  ];
+}
+
+function snmpTasks(present: boolean, config: string | null): AnsibleTaskOutput[] {
+  return [
+    task("snmp service detection (internal)", present ? "present" : "absent"),
+    task("snmp effective config (internal)", config === null ? "__MISSING__" : config),
   ];
 }
 
@@ -1029,6 +1090,607 @@ describe("evaluateU33", () => {
     const result = evaluateU33([task("U-33: hidden files and directories", "/tmp/...\n")]);
     expect(result.status).toBe("fail");
     expect(result.evidence).toContain("/tmp/...");
+  });
+});
+
+describe("evaluateU34", () => {
+  it("skips when finger is not installed", () => {
+    expect(evaluateU34([task("U-34: finger service presence", "")]).status).toBe("skip");
+  });
+
+  it("fails when a finger daemon binary is found", () => {
+    const result = evaluateU34([task("U-34: finger service presence", "BIN:fingerd\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("fingerd");
+  });
+});
+
+describe("evaluateU35", () => {
+  it("skips when neither Samba nor NFS is present", () => {
+    expect(evaluateU35([task("U-35: shared service anonymous access", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when present but no anonymous-access lines match", () => {
+    expect(evaluateU35([task("U-35: shared service anonymous access", "")]).status).toBe("pass");
+  });
+
+  it("fails when Samba guest access is enabled", () => {
+    const result = evaluateU35([task("U-35: shared service anonymous access", "SMB:guest ok = yes\n")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU36", () => {
+  it("skips when no r-series service is found", () => {
+    expect(evaluateU36([task("U-36: r-series services (rsh/rlogin/rexec)", "")]).status).toBe("skip");
+  });
+
+  it("fails when rlogind is found", () => {
+    expect(evaluateU36([task("U-36: r-series services (rsh/rlogin/rexec)", "BIN:rlogind\n")]).status).toBe(
+      "fail",
+    );
+  });
+});
+
+describe("evaluateU37", () => {
+  it("skips when no crontab files exist", () => {
+    expect(
+      evaluateU37([task("U-37: crontab configuration file permissions", "__MISSING__")]).status,
+    ).toBe("skip");
+  });
+
+  it("passes when crontab files are root-owned with a safe mode", () => {
+    const result = evaluateU37([
+      task("U-37: crontab configuration file permissions", "FILE /etc/crontab root:root 600\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a crontab file is group/other writable", () => {
+    const result = evaluateU37([
+      task("U-37: crontab configuration file permissions", "FILE /etc/crontab root:root 666\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("passes for the Debian default root:crontab 1730 (trusted setgid group)", () => {
+    const result = evaluateU37([
+      task(
+        "U-37: crontab configuration file permissions",
+        "FILE /var/spool/cron/crontabs root:crontab 1730\n",
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when root:crontab is also world-writable", () => {
+    const result = evaluateU37([
+      task(
+        "U-37: crontab configuration file permissions",
+        "FILE /var/spool/cron/crontabs root:crontab 1737\n",
+      ),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU38", () => {
+  it("skips when no DoS-prone inetd services exist", () => {
+    expect(
+      evaluateU38([task("U-38: DoS-prone inetd services (echo/discard/daytime/chargen)", "__MISSING__")])
+        .status,
+    ).toBe("skip");
+  });
+
+  it("passes when the service entries are present but disabled", () => {
+    const result = evaluateU38([
+      task("U-38: DoS-prone inetd services (echo/discard/daytime/chargen)", "PRESENT:echo\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a service entry is active", () => {
+    const result = evaluateU38([
+      task("U-38: DoS-prone inetd services (echo/discard/daytime/chargen)", "ACTIVE:chargen\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU39", () => {
+  it("skips when no NFS service is found", () => {
+    expect(evaluateU39([task("U-39: unnecessary NFS service", "")]).status).toBe("skip");
+  });
+
+  it("fails when an NFS daemon binary is found", () => {
+    expect(evaluateU39([task("U-39: unnecessary NFS service", "BIN:rpc.nfsd\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU40", () => {
+  it("skips when /etc/exports does not exist", () => {
+    expect(evaluateU40([task("U-40: NFS export access control", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when there are no export entries", () => {
+    expect(evaluateU40([task("U-40: NFS export access control", "")]).status).toBe("pass");
+  });
+
+  it("passes when exports restrict the client", () => {
+    const result = evaluateU40([
+      task("U-40: NFS export access control", "/srv/nfs 192.168.1.0/24(ro,sync)\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when an export uses a wildcard client", () => {
+    const result = evaluateU40([task("U-40: NFS export access control", "/srv/nfs *(rw,sync)\n")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU41", () => {
+  it("skips when automountd is not found", () => {
+    expect(evaluateU41([task("U-41: unnecessary automountd", "")]).status).toBe("skip");
+  });
+
+  it("fails when automount is found", () => {
+    expect(evaluateU41([task("U-41: unnecessary automountd", "BIN:automount\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU42", () => {
+  it("skips when no RPC service is found", () => {
+    expect(evaluateU42([task("U-42: unnecessary RPC services", "")]).status).toBe("skip");
+  });
+
+  it("fails when rpcbind is found", () => {
+    expect(evaluateU42([task("U-42: unnecessary RPC services", "BIN:rpcbind\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU43", () => {
+  it("skips when no NIS service is found", () => {
+    expect(evaluateU43([task("U-43: NIS/NIS+ service", "")]).status).toBe("skip");
+  });
+
+  it("fails when ypbind is found", () => {
+    expect(evaluateU43([task("U-43: NIS/NIS+ service", "BIN:ypbind\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU44", () => {
+  it("skips when neither tftp nor talk is found", () => {
+    expect(evaluateU44([task("U-44: tftp/talk services", "")]).status).toBe("skip");
+  });
+
+  it("fails when tftpd is found", () => {
+    expect(evaluateU44([task("U-44: tftp/talk services", "BIN:tftpd\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU45", () => {
+  it("skips when no mail service is detected", () => {
+    expect(evaluateU45(mailTasks(null)).status).toBe("skip");
+  });
+
+  it("returns review when a mail service is present, regardless of version", () => {
+    const result = evaluateU45([
+      ...mailTasks("postfix"),
+      task("U-45: mail service version", "postfix mail_version = 3.7.2\n"),
+    ]);
+    expect(result.status).toBe("review");
+    expect(result.evidence).toContain("postfix");
+  });
+});
+
+describe("evaluateU46", () => {
+  it("skips when no mail service is detected", () => {
+    expect(evaluateU46(mailTasks(null)).status).toBe("skip");
+  });
+
+  it("passes for postfix (queue access restricted by default)", () => {
+    expect(evaluateU46(mailTasks("postfix")).status).toBe("pass");
+  });
+
+  it("passes for sendmail with restrictqrun set", () => {
+    const result = evaluateU46([
+      ...mailTasks("sendmail"),
+      task("U-46: mail queue access restriction", "O PrivacyOptions=restrictqrun\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails for sendmail without restrictqrun", () => {
+    const result = evaluateU46([...mailTasks("sendmail"), task("U-46: mail queue access restriction", "")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU47", () => {
+  it("skips when no mail service is detected", () => {
+    expect(evaluateU47(mailTasks(null)).status).toBe("skip");
+  });
+
+  it("fails when postfix mynetworks is a fully open relay", () => {
+    const result = evaluateU47([
+      ...mailTasks("postfix"),
+      task("U-47: mail relay restriction", "mynetworks = 0.0.0.0/0\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("passes when postfix mynetworks is scoped", () => {
+    const result = evaluateU47([
+      ...mailTasks("postfix"),
+      task("U-47: mail relay restriction", "mynetworks = 127.0.0.0/8\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails for sendmail with no relay access control", () => {
+    const result = evaluateU47([...mailTasks("sendmail"), task("U-47: mail relay restriction", "")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU48", () => {
+  it("skips when no mail service is detected", () => {
+    expect(evaluateU48(mailTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when postfix disables the VRFY command", () => {
+    const result = evaluateU48([
+      ...mailTasks("postfix"),
+      task("U-48: SMTP EXPN/VRFY command restriction", "disable_vrfy_command = yes\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when postfix leaves VRFY at its default", () => {
+    const result = evaluateU48([
+      ...mailTasks("postfix"),
+      task("U-48: SMTP EXPN/VRFY command restriction", ""),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("passes for sendmail with noexpn and novrfy set", () => {
+    const result = evaluateU48([
+      ...mailTasks("sendmail"),
+      task("U-48: SMTP EXPN/VRFY command restriction", "O PrivacyOptions=noexpn,novrfy\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("evaluateU49", () => {
+  it("skips when DNS (BIND) is not detected", () => {
+    expect(evaluateU49(dnsTasks(false, null)).status).toBe("skip");
+  });
+
+  it("returns review when BIND is present, regardless of version", () => {
+    const result = evaluateU49([
+      ...dnsTasks(true, null),
+      task("U-49: DNS service version", "BIND 9.18.1\n"),
+    ]);
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateU50", () => {
+  it("skips when DNS (BIND) is not detected", () => {
+    expect(evaluateU50(dnsTasks(false, null)).status).toBe("skip");
+  });
+
+  it("fails when allow-transfer is not configured", () => {
+    expect(evaluateU50(dnsTasks(true, "options {\n};\n")).status).toBe("fail");
+  });
+
+  it("fails when allow-transfer allows any host", () => {
+    expect(evaluateU50(dnsTasks(true, "allow-transfer { any; };\n")).status).toBe("fail");
+  });
+
+  it("passes when allow-transfer is scoped to specific hosts", () => {
+    expect(evaluateU50(dnsTasks(true, "allow-transfer { 10.0.0.1; };\n")).status).toBe("pass");
+  });
+});
+
+describe("evaluateU51", () => {
+  it("skips when DNS (BIND) is not detected", () => {
+    expect(evaluateU51(dnsTasks(false, null)).status).toBe("skip");
+  });
+
+  it("passes when allow-update is not configured (dynamic update disabled by default)", () => {
+    expect(evaluateU51(dnsTasks(true, "options {\n};\n")).status).toBe("pass");
+  });
+
+  it("fails when allow-update allows any host", () => {
+    expect(evaluateU51(dnsTasks(true, "allow-update { any; };\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateU52", () => {
+  it("skips when telnetd is not found", () => {
+    expect(evaluateU52([task("U-52: telnet service", "")]).status).toBe("skip");
+  });
+
+  it("fails when telnetd is found", () => {
+    expect(evaluateU52([task("U-52: telnet service", "BIN:telnetd\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU53", () => {
+  it("skips when no FTP server is detected", () => {
+    expect(evaluateU53(ftpTasks(null, null)).status).toBe("skip");
+  });
+
+  it("fails when present but the config can't be read", () => {
+    expect(evaluateU53(ftpTasks("vsftpd", null)).status).toBe("fail");
+  });
+
+  it("passes when a custom vsftpd banner is set", () => {
+    expect(evaluateU53(ftpTasks("vsftpd", "ftpd_banner=Authorized use only\n")).status).toBe("pass");
+  });
+
+  it("fails when the default vsftpd banner is left in place", () => {
+    expect(evaluateU53(ftpTasks("vsftpd", "anonymous_enable=NO\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateU54", () => {
+  it("skips when no FTP server is detected", () => {
+    expect(evaluateU54(ftpTasks(null, null)).status).toBe("skip");
+  });
+
+  it("passes when vsftpd has TLS enabled", () => {
+    expect(evaluateU54(ftpTasks("vsftpd", "ssl_enable=YES\n")).status).toBe("pass");
+  });
+
+  it("fails when vsftpd has no TLS configuration", () => {
+    expect(evaluateU54(ftpTasks("vsftpd", "anonymous_enable=NO\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateU55", () => {
+  it("skips when no FTP server is detected", () => {
+    expect(evaluateU55(ftpTasks(null, null)).status).toBe("skip");
+  });
+
+  it("passes when there is no ftp system account", () => {
+    const result = evaluateU55([
+      ...ftpTasks("vsftpd", ""),
+      task("U-55: FTP account shell restriction", "__MISSING__"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("passes when the ftp account uses nologin", () => {
+    const result = evaluateU55([
+      ...ftpTasks("vsftpd", ""),
+      task("U-55: FTP account shell restriction", "ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the ftp account has an interactive shell", () => {
+    const result = evaluateU55([
+      ...ftpTasks("vsftpd", ""),
+      task("U-55: FTP account shell restriction", "ftp:x:14:50:FTP User:/var/ftp:/bin/bash\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU56", () => {
+  it("skips when no FTP server is detected", () => {
+    expect(evaluateU56(ftpTasks(null, null)).status).toBe("skip");
+  });
+
+  it("passes when vsftpd has tcp_wrappers enabled", () => {
+    expect(evaluateU56(ftpTasks("vsftpd", "tcp_wrappers=YES\n")).status).toBe("pass");
+  });
+
+  it("fails when no access-control directive is present", () => {
+    expect(evaluateU56(ftpTasks("vsftpd", "anonymous_enable=NO\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateU57", () => {
+  it("skips when no FTP server is detected", () => {
+    expect(evaluateU57(ftpTasks(null, null)).status).toBe("skip");
+  });
+
+  it("fails when no ftpusers file exists", () => {
+    const result = evaluateU57([
+      ...ftpTasks("vsftpd", ""),
+      task("U-57: ftpusers file configuration", "__MISSING__"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("passes when root is listed in ftpusers", () => {
+    const result = evaluateU57([
+      ...ftpTasks("vsftpd", ""),
+      task("U-57: ftpusers file configuration", "FILE:/etc/ftpusers\nroot\nbin\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when root is not listed in ftpusers", () => {
+    const result = evaluateU57([
+      ...ftpTasks("vsftpd", ""),
+      task("U-57: ftpusers file configuration", "FILE:/etc/ftpusers\nbin\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU58", () => {
+  it("skips when SNMP is not detected", () => {
+    expect(evaluateU58(snmpTasks(false, null)).status).toBe("skip");
+  });
+
+  it("fails when SNMP is detected (presence itself is the finding)", () => {
+    expect(evaluateU58(snmpTasks(true, null)).status).toBe("fail");
+  });
+});
+
+describe("evaluateU59", () => {
+  it("skips when SNMP is not detected", () => {
+    expect(evaluateU59(snmpTasks(false, null)).status).toBe("skip");
+  });
+
+  it("fails when v1/v2c community strings are configured", () => {
+    expect(evaluateU59(snmpTasks(true, "rocommunity public\n")).status).toBe("fail");
+  });
+
+  it("passes when only SNMPv3 users are configured", () => {
+    expect(evaluateU59(snmpTasks(true, "createUser admin SHA authpass AES privpass\nrouser admin\n")).status).toBe(
+      "pass",
+    );
+  });
+});
+
+describe("evaluateU60", () => {
+  it("skips when SNMP is not detected", () => {
+    expect(evaluateU60(snmpTasks(false, null)).status).toBe("skip");
+  });
+
+  it("passes when no community strings are configured", () => {
+    expect(evaluateU60(snmpTasks(true, "createUser admin SHA authpass\n")).status).toBe("pass");
+  });
+
+  it("fails when a default community string (public/private) is used", () => {
+    expect(evaluateU60(snmpTasks(true, "rocommunity public\n")).status).toBe("fail");
+  });
+
+  it("passes when a non-default community string is used", () => {
+    expect(evaluateU60(snmpTasks(true, "rocommunity S3cur3-Str1ng\n")).status).toBe("pass");
+  });
+});
+
+describe("evaluateU61", () => {
+  it("skips when SNMP is not detected", () => {
+    expect(evaluateU61(snmpTasks(false, null)).status).toBe("skip");
+  });
+
+  it("fails when no com2sec/community source restriction is configured", () => {
+    expect(evaluateU61(snmpTasks(true, "")).status).toBe("fail");
+  });
+
+  it("fails when the community source is unrestricted (default)", () => {
+    expect(evaluateU61(snmpTasks(true, "com2sec notConfigUser default public\n")).status).toBe("fail");
+  });
+
+  it("passes when the community source is scoped to a specific network", () => {
+    expect(evaluateU61(snmpTasks(true, "com2sec readonly 10.0.0.0/24 public\n")).status).toBe("pass");
+  });
+});
+
+describe("evaluateU62", () => {
+  it("fails when both issue.net and issue are empty", () => {
+    expect(evaluateU62([task("U-62: login warning banner", "__ISSUE_NET__\n__ISSUE__\n")]).status).toBe(
+      "fail",
+    );
+  });
+
+  it("passes when issue.net has a custom warning banner", () => {
+    const result = evaluateU62([
+      task(
+        "U-62: login warning banner",
+        "__ISSUE_NET__\nUnauthorized access is prohibited.\n__ISSUE__\n",
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("evaluateU63", () => {
+  it("skips when /etc/sudoers does not exist", () => {
+    expect(evaluateU63([task("U-63: sudo command access management", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes with only standard root/admin-group grants", () => {
+    const result = evaluateU63([
+      task(
+        "U-63: sudo command access management",
+        "root ALL=(ALL:ALL) ALL\n%sudo ALL=(ALL:ALL) ALL\n",
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a non-admin user has NOPASSWD:ALL", () => {
+    const result = evaluateU63([
+      task("U-63: sudo command access management", "root ALL=(ALL:ALL) ALL\nappuser ALL=(ALL) NOPASSWD:ALL\n"),
+    ]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("appuser");
+  });
+});
+
+describe("evaluateU64", () => {
+  it("always returns review, since patch recency can't be verified from a static image", () => {
+    const result = evaluateU64([task("U-64: periodic security patch application", "PKG:apt/dpkg\n")]);
+    expect(result.status).toBe("review");
+    expect(result.evidence).toContain("apt/dpkg");
+  });
+});
+
+describe("evaluateU65", () => {
+  it("skips when no NTP/time-sync service is detected", () => {
+    expect(evaluateU65([task("U-65: NTP and time synchronization", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when chrony has a server configured", () => {
+    const result = evaluateU65([
+      task("U-65: NTP and time synchronization", "__CHRONY__\nserver time.google.com iburst\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when present but no time source is configured", () => {
+    const result = evaluateU65([task("U-65: NTP and time synchronization", "__CHRONY__\n")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU66", () => {
+  it("skips when no syslog configuration exists", () => {
+    expect(evaluateU66([task("U-66: system logging policy", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when an active logging rule is configured", () => {
+    const result = evaluateU66([
+      task("U-66: system logging policy", "auth,authpriv.*\t/var/log/auth.log\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when present but no active logging rule exists", () => {
+    const result = evaluateU66([task("U-66: system logging policy", "# auth,authpriv.* /var/log/auth.log\n")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU67", () => {
+  it("skips when /var/log does not exist", () => {
+    expect(evaluateU67([task("U-67: log directory ownership and permissions", "__MISSING__")]).status).toBe(
+      "skip",
+    );
+  });
+
+  it("passes for root:root 755", () => {
+    expect(evaluateU67([task("U-67: log directory ownership and permissions", "root:root 755\n")]).status).toBe(
+      "pass",
+    );
+  });
+
+  it("fails when /var/log is world-writable", () => {
+    expect(evaluateU67([task("U-67: log directory ownership and permissions", "root:root 777\n")]).status).toBe(
+      "fail",
+    );
   });
 });
 

@@ -1021,6 +1021,667 @@ export function evaluateU33(tasks: AnsibleTaskOutput[]): CheckResult {
     evidence: `점검이 필요한 숨겨진 파일/디렉터리 발견: ${summarizeList(suspicious)}`,
   };
 }
+// U-34..U-67 (KISA guide, service/patch/log management, #46): completes the
+// Unix catalog. Most of U-34..U-61 ask "is this legacy/unnecessary service
+// even installed" -- KISA guidance for those is "must not be present or
+// reachable", so on a minimal container image (the common case here) the
+// correct outcome is overwhelmingly "skip", never a false "fail". A handful
+// of items (U-37, U-62, U-63, U-64, U-65, U-66, U-67) are evaluable on
+// virtually any container and rarely skip. See individual comments below for
+// judgment calls -- U-64 (patch management) especially, which can't be
+// reliably pass/failed from a static image snapshot at all.
+
+// getServiceVariant/getServiceConfig mirror getNginxState (W-section, #47):
+// several of the U-45..U-61 items share a service-family detection/config
+// helper task (mail/dns/ftp/snmp) instead of each re-implementing "is this
+// service even present" from scratch. Reuses findExactTaskOutput, which is
+// defined further down in this file alongside the nginx W-checks --
+// function declarations hoist, so this is safe.
+function getServiceVariant(tasks: AnsibleTaskOutput[], detectionTaskName: string): string {
+  return findExactTaskOutput(tasks, detectionTaskName)?.stdout.trim() || "absent";
+}
+
+function getServiceConfig(tasks: AnsibleTaskOutput[], configTaskName: string): string {
+  const raw = findExactTaskOutput(tasks, configTaskName)?.stdout ?? "";
+  return raw.trim() === MISSING_MARKER ? "" : raw;
+}
+
+// Shared by the many U-34..U-52 "does this legacy/unnecessary service exist
+// on the container at all" checks (U-34/36/39/41/42/43/44/52): KISA guidance
+// for every one of these is "there must be no active or reachable instance",
+// not "reconfigure it" -- so there's no secondary configuration to inspect,
+// and any evidence line at all (a matching binary or an inetd/xinetd entry)
+// is itself the finding. On a minimal container image the overwhelmingly
+// common outcome is empty output, i.e. skip -- never a false "fail". This is
+// the shared shape #46 factors out, mirroring how #44 factored out
+// hasNoGroupOrOtherWrite/summarizeList.
+function evaluateServiceAbsence(id: string, tasks: AnsibleTaskOutput[], serviceLabel: string): CheckResult {
+  const stdout = findTaskOutput(tasks, id)?.stdout.trim() ?? "";
+  const lines = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+  if (lines.length === 0) {
+    return { id, status: "skip", evidence: `${serviceLabel}가 설치/구성되어 있지 않음` };
+  }
+  return {
+    id,
+    status: "fail",
+    evidence: `${serviceLabel} 관련 흔적 발견 (비활성화 필요): ${summarizeList(lines)}`,
+  };
+}
+
+export function evaluateU34(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-34", tasks, "finger 서비스");
+}
+
+export function evaluateU35(tasks: AnsibleTaskOutput[]): CheckResult {
+  // "공유 서비스" covers the classic KISA anonymous-access surfaces: Samba
+  // guest access and NFS's no_root_squash/insecure export options.
+  // Empty (not missing) output is meaningful here: it means the ansible task
+  // found a Samba/NFS config file (found=1) but no anonymous-access lines
+  // matched -- that's "present and safe" (pass), not "absent" (skip). Only
+  // the explicit MISSING_MARKER means neither service is configured at all.
+  const stdout = findTaskOutput(tasks, "U-35")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-35", status: "skip", evidence: "공유 서비스(Samba/NFS)가 감지되지 않음" };
+  }
+  const offenders = stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^(SMB|NFS):/.test(line));
+  return {
+    id: "U-35",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "공유 서비스 설정에서 익명/게스트 접근 허용 항목이 발견되지 않음"
+        : `공유 서비스에 익명 접근을 허용하는 설정 발견: ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU36(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-36", tasks, "r계열 서비스(rsh/rlogin/rexec)");
+}
+
+// The trusted "crontab" group (see evaluateU37 below) is allowed group-write
+// -- only "other" having zero access matters for it.
+function isSafeCrontabGroupMode(mode: string): boolean {
+  if (!/^[0-7]{3,4}$/.test(mode)) return false;
+  return Number(mode.slice(-1)) === 0;
+}
+
+export function evaluateU37(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-37")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-37", status: "skip", evidence: "crontab 관련 설정 파일/디렉터리가 존재하지 않음" };
+  }
+  const entries = stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      // "FILE <path> <owner:group> <mode>"
+      const [, filePath, ownerGroup, mode] = line.split(/\s+/);
+      return { filePath, ownerGroup, mode };
+    });
+  // Debian/Ubuntu ship /var/spool/cron/crontabs as root:crontab 1730 by
+  // default -- group-write is intentional there (only the setgid `crontab`
+  // binary belongs to that group, same trusted-group idea as root:shadow for
+  // U-18) and isn't a misconfiguration. Everywhere else, neither group nor
+  // other should have write access.
+  const offenders = entries.filter(({ ownerGroup, mode }) => {
+    if (ownerGroup === "root:crontab") return !isSafeCrontabGroupMode(mode ?? "");
+    return ownerGroup !== "root:root" || !hasNoGroupOrOtherWrite(mode ?? "");
+  });
+  return {
+    id: "U-37",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? `crontab 설정 파일 소유자/권한 안전함: ${entries.map((e) => `${e.filePath} ${e.ownerGroup} ${e.mode}`).join(", ")}`
+        : `crontab 설정 파일 소유자/권한 미흡: ${offenders.map((e) => `${e.filePath} ${e.ownerGroup} ${e.mode}`).join(", ")}`,
+  };
+}
+
+export function evaluateU38(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-38")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return {
+      id: "U-38",
+      status: "skip",
+      evidence: "(x)inetd 기반 echo/discard/daytime/chargen 서비스가 감지되지 않음",
+    };
+  }
+  const lines = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  const active = lines.filter((line) => line.startsWith("ACTIVE:"));
+  return {
+    id: "U-38",
+    status: active.length === 0 ? "pass" : "fail",
+    evidence:
+      active.length === 0
+        ? `서비스 항목은 존재하나 모두 비활성화됨: ${summarizeList(lines)}`
+        : `DoS 공격에 취약한 서비스가 활성화되어 있음: ${summarizeList(active)}`,
+  };
+}
+
+export function evaluateU39(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-39", tasks, "NFS 서비스");
+}
+
+export function evaluateU40(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-40")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-40", status: "skip", evidence: "/etc/exports가 존재하지 않음 (NFS 서버 미사용)" };
+  }
+  const activeLines = stdout.split("\n").filter(isActiveLine);
+  if (activeLines.length === 0) {
+    return { id: "U-40", status: "pass", evidence: "/etc/exports에 등록된 공유 항목이 없음" };
+  }
+  const offenders = activeLines.filter((line) => {
+    const rest = line.trim().split(/\s+/).slice(1).join(" ");
+    return rest === "" || /(^|\s)\*(\(|\s|$)/.test(rest);
+  });
+  return {
+    id: "U-40",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "모든 NFS 공유 항목에 클라이언트 접근 제한이 설정됨"
+        : `클라이언트 제한 없이 공유된 NFS 항목 발견 (와일드카드 또는 클라이언트 지정 누락): ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU41(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-41", tasks, "automountd");
+}
+
+export function evaluateU42(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-42", tasks, "RPC 서비스");
+}
+
+export function evaluateU43(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-43", tasks, "NIS/NIS+ 서비스");
+}
+
+export function evaluateU44(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-44", tasks, "tftp/talk 서비스");
+}
+
+// U-45 (mail version) and U-49 (DNS version) can't be turned into a
+// meaningful pass/fail from inside a static container: we have no CVE
+// database to compare the extracted version string against. Rather than
+// guess, both surface "review" with the detected version as evidence, same
+// reasoning as U-64 below.
+export function evaluateU45(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "mail service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-45", status: "skip", evidence: "메일 서비스(sendmail/postfix/exim)가 감지되지 않음" };
+  }
+  const versionInfo = findTaskOutput(tasks, "U-45")?.stdout.trim() || "확인 불가";
+  return {
+    id: "U-45",
+    status: "review",
+    evidence: `메일 서비스(${variant}) 버전 정보: ${versionInfo} — 정적 이미지 점검만으로는 최신 보안 패치 적용 여부를 판단할 수 없어 벤더 보안 권고사항과 수동 대조가 필요함`,
+  };
+}
+
+export function evaluateU46(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "mail service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-46", status: "skip", evidence: "메일 서비스가 감지되지 않음" };
+  }
+  if (variant === "postfix") {
+    return {
+      id: "U-46",
+      status: "pass",
+      evidence: "Postfix는 기본 설정상 메일 큐 조작을 권한이 있는 계정으로 제한함",
+    };
+  }
+  const stdout = findTaskOutput(tasks, "U-46")?.stdout.trim() ?? "";
+  const restricted = stdout.split("\n").filter(isActiveLine).some((line) => /restrictqrun/i.test(line));
+  return {
+    id: "U-46",
+    status: restricted ? "pass" : "fail",
+    evidence: restricted
+      ? "sendmail.cf PrivacyOptions에 restrictqrun 설정됨"
+      : `${variant} 메일 서비스에서 일반 사용자의 메일 큐 접근을 제한하는 설정이 확인되지 않음`,
+  };
+}
+
+export function evaluateU47(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "mail service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-47", status: "skip", evidence: "메일 서비스가 감지되지 않음" };
+  }
+  const stdout = findTaskOutput(tasks, "U-47")?.stdout.trim() ?? "";
+  const activeLines = stdout.split("\n").filter(isActiveLine);
+  if (variant === "postfix") {
+    const openRelay = activeLines.some((line) => /^mynetworks\s*=.*0\.0\.0\.0\/0/.test(line));
+    return {
+      id: "U-47",
+      status: openRelay ? "fail" : "pass",
+      evidence: openRelay
+        ? "Postfix mynetworks가 모든 네트워크(0.0.0.0/0)로부터의 릴레이를 허용함"
+        : "Postfix mynetworks가 개방형 릴레이(0.0.0.0/0)로 설정되어 있지 않음",
+    };
+  }
+  const hasAccessControl = activeLines.length > 0;
+  return {
+    id: "U-47",
+    status: hasAccessControl ? "pass" : "fail",
+    evidence: hasAccessControl
+      ? "메일 릴레이 접근 제어 설정(/etc/mail/access)이 존재함"
+      : "메일 릴레이를 제한하는 접근 제어 설정이 확인되지 않음",
+  };
+}
+
+export function evaluateU48(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "mail service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-48", status: "skip", evidence: "메일 서비스가 감지되지 않음" };
+  }
+  const stdout = findTaskOutput(tasks, "U-48")?.stdout.trim() ?? "";
+  const activeLines = stdout.split("\n").filter(isActiveLine);
+  if (variant === "postfix") {
+    const disabled = activeLines.some((line) => /^disable_vrfy_command\s*=\s*yes/i.test(line));
+    return {
+      id: "U-48",
+      status: disabled ? "pass" : "fail",
+      evidence: disabled
+        ? "Postfix disable_vrfy_command=yes 설정됨"
+        : "Postfix에서 VRFY 명령어가 비활성화되어 있지 않음 (기본값은 활성화)",
+    };
+  }
+  const restricted =
+    activeLines.some((line) => /noexpn/i.test(line)) && activeLines.some((line) => /novrfy/i.test(line));
+  return {
+    id: "U-48",
+    status: restricted ? "pass" : "fail",
+    evidence: restricted
+      ? "sendmail.cf PrivacyOptions에 noexpn/novrfy 설정됨"
+      : `${variant} 메일 서비스에서 EXPN/VRFY 명령어 제한 설정이 확인되지 않음`,
+  };
+}
+
+export function evaluateU49(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "dns service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-49", status: "skip", evidence: "DNS 서비스(BIND)가 감지되지 않음" };
+  }
+  const versionInfo = findTaskOutput(tasks, "U-49")?.stdout.trim() || "확인 불가";
+  return {
+    id: "U-49",
+    status: "review",
+    evidence: `DNS 서비스(BIND) 버전 정보: ${versionInfo} — 정적 이미지 점검만으로는 최신 보안 패치 적용 여부를 판단할 수 없어 벤더 보안 권고사항과 수동 대조가 필요함`,
+  };
+}
+
+export function evaluateU50(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "dns service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-50", status: "skip", evidence: "DNS 서비스(BIND)가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "dns effective config (internal)");
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const transferLine = activeLines.find((line) => /allow-transfer/.test(line));
+  if (!transferLine) {
+    return {
+      id: "U-50",
+      status: "fail",
+      evidence: "allow-transfer 설정이 없어 Zone Transfer 제한 여부를 확인할 수 없음 (미설정 시 위험 가능성)",
+    };
+  }
+  const isAny = /allow-transfer\s*\{\s*any\s*;/.test(transferLine);
+  return {
+    id: "U-50",
+    status: isAny ? "fail" : "pass",
+    evidence: `allow-transfer 설정: ${transferLine.trim()}`,
+  };
+}
+
+export function evaluateU51(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "dns service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-51", status: "skip", evidence: "DNS 서비스(BIND)가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "dns effective config (internal)");
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const updateLine = activeLines.find((line) => /allow-update/.test(line));
+  if (!updateLine) {
+    return { id: "U-51", status: "pass", evidence: "allow-update 설정이 없어 동적 업데이트가 비활성화됨 (기본값)" };
+  }
+  const isAny = /allow-update\s*\{\s*any\s*;/.test(updateLine);
+  return {
+    id: "U-51",
+    status: isAny ? "fail" : "pass",
+    evidence: `allow-update 설정: ${updateLine.trim()}`,
+  };
+}
+
+export function evaluateU52(tasks: AnsibleTaskOutput[]): CheckResult {
+  return evaluateServiceAbsence("U-52", tasks, "telnet 서비스");
+}
+
+export function evaluateU53(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "ftp service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-53", status: "skip", evidence: "FTP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "ftp effective config (internal)");
+  if (!config) {
+    return {
+      id: "U-53",
+      status: "fail",
+      evidence: `${variant} 설정 파일을 확인할 수 없어 배너 커스터마이징 여부를 확인할 수 없음`,
+    };
+  }
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const customBanner =
+    activeLines.some((line) => /^ftpd_banner\s*=/.test(line)) || // vsftpd
+    activeLines.some((line) => /^ServerIdent\s+on/i.test(line)); // proftpd
+  return {
+    id: "U-53",
+    status: customBanner ? "pass" : "fail",
+    evidence: customBanner
+      ? "FTP 배너가 커스터마이징되어 버전 정보가 노출되지 않음"
+      : `${variant} 기본 배너를 사용 중이어서 버전 정보가 노출될 수 있음`,
+  };
+}
+
+export function evaluateU54(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "ftp service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-54", status: "skip", evidence: "FTP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "ftp effective config (internal)");
+  if (!config) {
+    return {
+      id: "U-54",
+      status: "fail",
+      evidence: `${variant} 설정 파일을 확인할 수 없어 암호화(TLS) 적용 여부를 확인할 수 없음`,
+    };
+  }
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const tlsEnabled =
+    activeLines.some((line) => /^ssl_enable\s*=\s*YES/i.test(line)) || // vsftpd
+    activeLines.some((line) => /^TLSEngine\s+on/i.test(line)); // proftpd mod_tls
+  return {
+    id: "U-54",
+    status: tlsEnabled ? "pass" : "fail",
+    evidence: tlsEnabled
+      ? "FTP 서비스에 TLS/SSL이 활성화됨"
+      : `${variant}에서 TLS/SSL이 활성화되어 있지 않아 인증정보가 평문으로 전송됨`,
+  };
+}
+
+export function evaluateU55(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "ftp service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-55", status: "skip", evidence: "FTP 서비스가 감지되지 않음" };
+  }
+  const stdout = findTaskOutput(tasks, "U-55")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-55", status: "pass", evidence: "ftp 시스템 계정이 /etc/passwd에 존재하지 않음" };
+  }
+  // /etc/passwd: name:pass:uid:gid:gecos:home:shell
+  const shell = stdout.split(":")[6];
+  const fail = shell !== undefined && !NOLOGIN_SHELLS.has(shell.trim());
+  return {
+    id: "U-55",
+    status: fail ? "fail" : "pass",
+    evidence: `ftp 계정 Shell: ${shell || "확인 불가"}`,
+  };
+}
+
+export function evaluateU56(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "ftp service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-56", status: "skip", evidence: "FTP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "ftp effective config (internal)");
+  if (!config) {
+    return {
+      id: "U-56",
+      status: "fail",
+      evidence: `${variant} 설정 파일을 확인할 수 없어 접근 제어 설정 여부를 확인할 수 없음`,
+    };
+  }
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const hasAccessControl =
+    activeLines.some((line) => /^tcp_wrappers\s*=\s*YES/i.test(line)) ||
+    (activeLines.some((line) => /^userlist_enable\s*=\s*YES/i.test(line)) &&
+      activeLines.some((line) => /^userlist_deny\s*=\s*NO/i.test(line))) ||
+    activeLines.some((line) => /<Limit LOGIN>/i.test(line));
+  return {
+    id: "U-56",
+    status: hasAccessControl ? "pass" : "fail",
+    evidence: hasAccessControl
+      ? "FTP 접근 제어 설정(tcp_wrappers/userlist/Limit LOGIN)이 발견됨"
+      : `${variant}에 접근 제어(tcp_wrappers, userlist 등) 설정이 발견되지 않음`,
+  };
+}
+
+export function evaluateU57(tasks: AnsibleTaskOutput[]): CheckResult {
+  const variant = getServiceVariant(tasks, "ftp service detection (internal)");
+  if (variant === "absent") {
+    return { id: "U-57", status: "skip", evidence: "FTP 서비스가 감지되지 않음" };
+  }
+  const stdout = findTaskOutput(tasks, "U-57")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-57", status: "fail", evidence: "ftpusers 파일이 존재하지 않아 특정 계정의 FTP 접근을 제한할 수 없음" };
+  }
+  const hasRootDenied = stdout.split("\n").some((line) => /^root\s*$/.test(line.trim()));
+  return {
+    id: "U-57",
+    status: hasRootDenied ? "pass" : "fail",
+    evidence: hasRootDenied
+      ? "ftpusers에 root 계정이 등록되어 FTP 접근이 차단됨"
+      : "ftpusers 파일에 root 계정이 등록되어 있지 않음",
+  };
+}
+
+export function evaluateU58(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "snmp service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-58", status: "skip", evidence: "SNMP 서비스가 감지되지 않음" };
+  }
+  return {
+    id: "U-58",
+    status: "fail",
+    evidence: "SNMP 서비스(snmpd)가 구동 중이며, 불필요할 경우 비활성화가 필요함",
+  };
+}
+
+export function evaluateU59(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "snmp service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-59", status: "skip", evidence: "SNMP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "snmp effective config (internal)");
+  if (!config) {
+    return { id: "U-59", status: "fail", evidence: "snmpd.conf를 확인할 수 없어 SNMP 버전을 확인할 수 없음" };
+  }
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const hasLegacyVersion = activeLines.some((line) => /^(rocommunity|rwcommunity|com2sec)\b/.test(line));
+  const hasV3User = activeLines.some((line) => /^(createUser|rouser|rwuser)\b/.test(line));
+  const fail = hasLegacyVersion || !hasV3User;
+  return {
+    id: "U-59",
+    status: fail ? "fail" : "pass",
+    evidence: fail
+      ? "SNMP v1/v2c(커뮤니티 스트링 기반) 설정이 발견되었거나 v3 사용자 인증 설정이 없음"
+      : "SNMP v3(사용자 인증 기반) 설정만 발견됨",
+  };
+}
+
+export function evaluateU60(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "snmp service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-60", status: "skip", evidence: "SNMP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "snmp effective config (internal)");
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const communityLines = activeLines.filter((line) => /^(rocommunity|rwcommunity)\b/.test(line));
+  if (communityLines.length === 0) {
+    return { id: "U-60", status: "pass", evidence: "커뮤니티 스트링 기반(v1/v2c) 설정이 없음" };
+  }
+  const weak = communityLines.filter((line) => /\b(public|private)\b/i.test(line));
+  return {
+    id: "U-60",
+    status: weak.length === 0 ? "pass" : "fail",
+    evidence:
+      weak.length === 0
+        ? "SNMP community string이 기본값(public/private)을 사용하지 않음"
+        : `SNMP community string이 기본값을 사용 중: ${summarizeList(weak)}`,
+  };
+}
+
+export function evaluateU61(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = getServiceVariant(tasks, "snmp service detection (internal)") === "present";
+  if (!present) {
+    return { id: "U-61", status: "skip", evidence: "SNMP 서비스가 감지되지 않음" };
+  }
+  const config = getServiceConfig(tasks, "snmp effective config (internal)");
+  if (!config) {
+    return { id: "U-61", status: "fail", evidence: "snmpd.conf를 확인할 수 없어 접근 제어 설정 여부를 확인할 수 없음" };
+  }
+  const activeLines = config.split("\n").filter(isActiveLine);
+  const relevantLines = activeLines.filter((line) => /^(com2sec|rocommunity|rwcommunity)\b/.test(line));
+  if (relevantLines.length === 0) {
+    return { id: "U-61", status: "fail", evidence: "SNMP 접근을 제한하는 com2sec/community 소스 설정이 발견되지 않음" };
+  }
+  // com2sec <secName> <source> <community> | rocommunity/rwcommunity <community> [source]
+  // -- the source field lands at index 2 for both forms.
+  const unrestricted = relevantLines.filter((line) => {
+    const source = line.trim().split(/\s+/)[2];
+    return !source || source === "default" || source === "0.0.0.0/0" || source === "any";
+  });
+  return {
+    id: "U-61",
+    status: unrestricted.length === 0 ? "pass" : "fail",
+    evidence:
+      unrestricted.length === 0
+        ? "SNMP 접근이 특정 소스로 제한됨"
+        : `SNMP 접근 제어가 특정 소스로 제한되지 않음: ${summarizeList(unrestricted)}`,
+  };
+}
+
+export function evaluateU62(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-62")?.stdout ?? "";
+  const [, issueNetSection = "", issueSection = ""] = stdout.split(/__ISSUE_NET__|__ISSUE__/);
+  const issueNet = issueNetSection.trim();
+  const issue = issueSection.trim();
+  const hasBanner = issueNet.length > 0 || issue.length > 0;
+  return {
+    id: "U-62",
+    status: hasBanner ? "pass" : "fail",
+    evidence: hasBanner
+      ? `로그인 경고 배너 설정됨 (issue.net: ${issueNet ? "있음" : "없음"}, issue: ${issue ? "있음" : "없음"})`
+      : "/etc/issue.net과 /etc/issue가 모두 비어 있어 로그인 경고 배너가 설정되어 있지 않음",
+  };
+}
+
+// Standard-safe defaults: root and the conventional admin groups get full
+// sudo access by design on most distros -- that's not an "excessive grant".
+const SAFE_SUDO_IDENTITIES = new Set(["root", "%sudo", "%wheel", "%admin"]);
+
+export function evaluateU63(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-63")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-63", status: "skip", evidence: "/etc/sudoers가 존재하지 않음 (sudo 미사용)" };
+  }
+
+  const offenders: string[] = [];
+  for (const line of stdout.split("\n").filter(isActiveLine)) {
+    const match = line.trim().match(/^(\S+)\s+ALL\s*=\s*(?:\([^)]*\)\s*)?(NOPASSWD:\s*)?ALL/i);
+    if (!match) continue;
+    const [, identity, nopasswd] = match;
+    if (SAFE_SUDO_IDENTITIES.has(identity)) continue;
+    offenders.push(`${identity}${nopasswd ? " (NOPASSWD)" : ""}`);
+  }
+
+  return {
+    id: "U-63",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "root/기본 관리자 그룹 외에 전체 권한(ALL=(ALL) ALL) sudo 권한을 가진 계정이 없음"
+        : `과도한 sudo 권한(전체 명령 허용)을 가진 계정 발견: ${offenders.join(", ")}`,
+  };
+}
+
+// U-64 (periodic patch application) can't be reliably turned into a
+// pass/fail from a single static container snapshot: there's no "last
+// patched" timestamp reliably queryable from inside the image, and we have
+// no CVE/vendor-advisory database to compare installed package versions
+// against. Guessing pass or fail here would be actively misleading either
+// way, so this always returns "review" -- surfacing which package manager
+// was detected as context -- and expects a human to cross-check package
+// versions against current vendor security advisories. This is the fuzziest
+// judgment call in this slice (#46).
+export function evaluateU64(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-64")?.stdout.trim() ?? "";
+  return {
+    id: "U-64",
+    status: "review",
+    evidence: `패키지 관리자: ${stdout || "확인 불가"} — 정적 이미지 점검만으로는 최신 보안 패치 적용 여부를 판단할 수 없어, 벤더 보안 권고사항과의 수동 대조가 필요함`,
+  };
+}
+
+export function evaluateU65(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-65")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return {
+      id: "U-65",
+      status: "skip",
+      evidence: "NTP/시각 동기화 서비스가 감지되지 않음 (컨테이너는 통상 호스트 시각을 사용)",
+    };
+  }
+  const activeLines = stdout.split("\n").filter(isActiveLine);
+  const hasTimeSource = activeLines.some(
+    (line) => /^(server|pool)\s+\S/.test(line) || /^NTP\s*=\s*\S/.test(line),
+  );
+  return {
+    id: "U-65",
+    status: hasTimeSource ? "pass" : "fail",
+    evidence: hasTimeSource
+      ? "시각 동기화 서버(NTP) 설정이 구성되어 있음"
+      : "시각 동기화 서비스는 존재하나 동기화 대상 서버가 설정되어 있지 않음",
+  };
+}
+
+export function evaluateU66(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-66")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-66", status: "skip", evidence: "(r)syslog 설정 파일이 존재하지 않음 (syslog 미사용)" };
+  }
+  const activeLines = stdout.split("\n").filter(isActiveLine);
+  // A syslog/rsyslog selector line looks like "<facility>.<priority> <action>",
+  // e.g. "auth,authpriv.* /var/log/auth.log" or "*.info /var/log/messages".
+  const hasLoggingRule = activeLines.some((line) => /^\S+\.\S+\s+\S+/.test(line));
+  return {
+    id: "U-66",
+    status: hasLoggingRule ? "pass" : "fail",
+    evidence: hasLoggingRule
+      ? "syslog/rsyslog에 활성화된 로깅 규칙이 설정되어 있음"
+      : "syslog 설정 파일은 존재하나 활성화된 로깅 규칙(facility.priority)이 없음",
+  };
+}
+
+export function evaluateU67(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-67")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-67", status: "skip", evidence: "대상 컨테이너에 /var/log 디렉터리가 존재하지 않음" };
+  }
+  const [ownerGroup, mode] = stdout.split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root";
+  const isSafeMode = hasNoGroupOrOtherWrite(mode ?? "");
+  const fail = !isRootOwned || !isSafeMode;
+  return {
+    id: "U-67",
+    status: fail ? "fail" : "pass",
+    evidence: `/var/log 소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}`,
+  };
+}
+
 // W-01..W-26 (KISA guide, web service): nginx-only for MVP scope (#47).
 // "nginx detection (internal)" and "nginx effective config (internal)" are
 // helper tasks in security-checks.yml with no catalog id of their own, so
@@ -1259,6 +1920,40 @@ export function evaluateAllChecks(
     evaluateU31(tasks),
     evaluateU32(tasks),
     evaluateU33(tasks),
+    evaluateU34(tasks),
+    evaluateU35(tasks),
+    evaluateU36(tasks),
+    evaluateU37(tasks),
+    evaluateU38(tasks),
+    evaluateU39(tasks),
+    evaluateU40(tasks),
+    evaluateU41(tasks),
+    evaluateU42(tasks),
+    evaluateU43(tasks),
+    evaluateU44(tasks),
+    evaluateU45(tasks),
+    evaluateU46(tasks),
+    evaluateU47(tasks),
+    evaluateU48(tasks),
+    evaluateU49(tasks),
+    evaluateU50(tasks),
+    evaluateU51(tasks),
+    evaluateU52(tasks),
+    evaluateU53(tasks),
+    evaluateU54(tasks),
+    evaluateU55(tasks),
+    evaluateU56(tasks),
+    evaluateU57(tasks),
+    evaluateU58(tasks),
+    evaluateU59(tasks),
+    evaluateU60(tasks),
+    evaluateU61(tasks),
+    evaluateU62(tasks),
+    evaluateU63(tasks),
+    evaluateU64(tasks),
+    evaluateU65(tasks),
+    evaluateU66(tasks),
+    evaluateU67(tasks),
     evaluateW01(tasks),
     evaluateW08(tasks),
     evaluateW09(tasks),
