@@ -110,7 +110,7 @@ export function StartRunForm() {
                     : "이미지 선택"}
             </option>
             {localImages?.map((image) => (
-              <option key={image.id} value={image.tag}>
+              <option key={image.tag} value={image.tag}>
                 {image.tag} ({image.size}, {image.createdSince})
               </option>
             ))}
