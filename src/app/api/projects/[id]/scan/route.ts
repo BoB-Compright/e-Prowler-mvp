@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProject } from "@/lib/projects/store";
-import { scanProjectFleet } from "@/lib/pipeline/serverScan";
+import { startProjectFleetScan } from "@/lib/pipeline/serverScan";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,6 +9,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  const result = await scanProjectFleet(id);
+  // Fire-and-forget: run rows are created synchronously so the client can
+  // navigate to the batch page immediately, while the fleet scans in the
+  // background (same pattern as the single-run POST /api/runs route).
+  const result = startProjectFleetScan(id);
   return NextResponse.json(result, { status: 202 });
 }

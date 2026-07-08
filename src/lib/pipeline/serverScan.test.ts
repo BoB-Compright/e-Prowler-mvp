@@ -17,6 +17,7 @@ import {
   runWithConcurrency,
   scanProjectFleet,
   scanServerAsset,
+  startProjectFleetScan,
   type ServerScanDeps,
 } from "./serverScan";
 
@@ -253,6 +254,54 @@ describe("scanProjectFleet", () => {
     const deps = baseDeps();
 
     const result = await scanProjectFleet(project.id, deps, db);
+
+    expect(result.runIds).toHaveLength(0);
+  });
+});
+
+describe("startProjectFleetScan", () => {
+  // The fleet-scan API route needs a batchId/runIds to respond with right
+  // away so the client can navigate to the batch page — awaiting the whole
+  // fleet (as scanProjectFleet does) would hold that HTTP request open for
+  // the entire batch, which can take many minutes.
+  it("returns batch/run ids synchronously, before any run has finished", async () => {
+    const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    const assets = Array.from({ length: 2 }, (_, i) =>
+      createServerAsset(
+        serverAssetInput({
+          displayName: `web-${i}`,
+          hostIp: `10.0.0.${i}`,
+          hostname: `web-${i}`,
+          projectId: project.id,
+        }),
+        db,
+      ),
+    );
+    const deps = baseDeps();
+
+    const result = startProjectFleetScan(project.id, deps, db);
+
+    expect(result.runIds).toHaveLength(assets.length);
+    for (const runId of result.runIds) {
+      const run = getRun(runId, db)!;
+      expect(run.batchId).toBe(result.batchId);
+      expect(run.stage).not.toBe("done");
+    }
+
+    await vi.waitFor(() => {
+      for (const runId of result.runIds) {
+        expect(getRun(runId, db)!.stage).toBe("done");
+      }
+    });
+  });
+
+  it("does not scan repo assets or assets from other projects", () => {
+    const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    const otherProject = createProject({ name: "Q", pmName: "이", pmEmail: "b@nh.com", sharePassword: "pw" }, db);
+    createServerAsset(serverAssetInput({ projectId: otherProject.id }), db);
+    const deps = baseDeps();
+
+    const result = startProjectFleetScan(project.id, deps, db);
 
     expect(result.runIds).toHaveLength(0);
   });

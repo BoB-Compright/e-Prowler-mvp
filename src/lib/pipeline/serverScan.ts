@@ -145,7 +145,9 @@ export async function runWithConcurrency(
 }
 
 // Scans every server asset in a project under one shared batch id, at most
-// FLEET_SCAN_CONCURRENCY at a time.
+// FLEET_SCAN_CONCURRENCY at a time. Awaits the whole fleet before resolving —
+// used by tests and any caller that wants the finished batch, not by the API
+// route (see startProjectFleetScan for that).
 export async function scanProjectFleet(
   projectId: string,
   deps: ServerScanDeps = defaultDeps,
@@ -160,4 +162,28 @@ export async function scanProjectFleet(
   });
   await runWithConcurrency(tasks, FLEET_SCAN_CONCURRENCY);
   return { batchId: batch.id, runIds };
+}
+
+// Fire-and-forget counterpart to scanProjectFleet: creates the batch and every
+// run row synchronously (so the caller gets a real batchId/runIds right away),
+// then drives the fleet through runServerScanPipeline in the background without
+// blocking the caller. This is what the fleet-scan API route uses — awaiting
+// scanProjectFleet there would hold the HTTP request open for the whole batch
+// (potentially many minutes across FLEET_SCAN_CONCURRENCY-sized waves), leaving
+// the client stuck before it could even navigate to the batch page.
+export function startProjectFleetScan(
+  projectId: string,
+  deps: ServerScanDeps = defaultDeps,
+  db: Database = getDb(),
+): { batchId: string; runIds: string[] } {
+  const batch = createScanBatch(projectId, db);
+  const servers = listAssets({ projectId, type: "server" }, db);
+  const created = servers.map((asset) => createServerRun(asset.id, batch.id, db));
+
+  const tasks = created.map(({ run, asset }) => async () => {
+    await runServerScanPipeline(run, asset, deps, db);
+  });
+  void runWithConcurrency(tasks, FLEET_SCAN_CONCURRENCY);
+
+  return { batchId: batch.id, runIds: created.map(({ run }) => run.id) };
 }
