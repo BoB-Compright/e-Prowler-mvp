@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS runs (
   image_tag TEXT,
   container_name TEXT,
   error_message TEXT,
+  trigger_type TEXT NOT NULL DEFAULT 'manual',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -92,6 +93,9 @@ function migrate(db: Database.Database): void {
   }
   if (!runColumns.some((column) => column.name === "batch_id")) {
     db.exec(`ALTER TABLE runs ADD COLUMN batch_id TEXT REFERENCES scan_batches(id)`);
+  }
+  if (!runColumns.some((column) => column.name === "trigger_type")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'manual'`);
   }
 }
 
