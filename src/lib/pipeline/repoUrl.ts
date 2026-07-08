@@ -8,3 +8,10 @@ export function isValidRepoUrl(value: string): boolean {
   if (!value || value.startsWith("-")) return false;
   return REMOTE_URL_PATTERN.test(value.trim());
 }
+
+// "https://github.com/owner/repo.git" -> "owner/repo". Falls back to the raw
+// URL when it doesn't match the expected owner/repo shape.
+export function getRepoDisplayName(repoUrl: string): string {
+  const match = repoUrl.match(/([^/]+\/[^/]+?)(?:\.git)?\/?$/);
+  return match ? match[1] : repoUrl;
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Run, RunEvent, Stage } from "@/lib/pipeline/types";
+import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import {
   CATEGORY_LABELS,
   CHECK_STATUS_LABELS,
@@ -9,6 +10,8 @@ import {
   type CheckStatus,
   type Severity,
 } from "@/lib/catalog/types";
+import { computeRiskSummary } from "@/lib/checks/riskSummary";
+import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
 
 type Source = "rule" | "ai";
 
@@ -63,8 +66,8 @@ const CHECK_STATUS_STYLES: Record<CheckStatus, string> = {
   pass: "bg-green-100 text-green-800",
   fail: "bg-red-100 text-red-800",
   review: "bg-yellow-100 text-yellow-800",
-  skip: "bg-slate-100 text-slate-600",
-  not_automated: "bg-slate-100 text-slate-400",
+  skip: "bg-slate-100 text-[var(--color-muted)]",
+  not_automated: "bg-slate-100 text-[var(--color-muted)]",
 };
 
 const SEVERITY_STYLES: Record<Severity, string> = {
@@ -76,7 +79,7 @@ const SEVERITY_STYLES: Record<Severity, string> = {
 
 const SOURCE_LABELS: Record<Source, string> = { rule: "룰 기반", ai: "AI 분석" };
 const SOURCE_STYLES: Record<Source, string> = {
-  rule: "bg-slate-100 text-slate-600",
+  rule: "bg-slate-100 text-[var(--color-muted)]",
   ai: "bg-violet-100 text-violet-700",
 };
 
@@ -88,14 +91,14 @@ const STEPPER_CIRCLE_STYLES: Record<NodeState, string> = {
   done: "bg-green-500 text-white",
   current: "bg-blue-500 text-white animate-[scan-pulse-ring_1.8s_infinite]",
   failed: "bg-red-500 text-white",
-  pending: "bg-white border-2 border-slate-200 text-slate-400",
+  pending: "bg-white border-2 border-[var(--color-border)] text-[var(--color-muted)]",
 };
 
 const STEPPER_LABEL_STYLES: Record<NodeState, string> = {
   done: "text-green-800 font-medium",
   current: "text-blue-700 font-bold",
   failed: "text-red-700 font-medium",
-  pending: "text-slate-400 font-medium",
+  pending: "text-[var(--color-muted)] font-medium",
 };
 
 function computeNodeStates(stage: Stage, status: Run["status"]): NodeState[] {
@@ -113,14 +116,6 @@ function groupSummaryText(checks: CheckResultView[]): string {
   const fail = checks.filter((c) => c.status === "fail").length;
   const review = checks.filter((c) => c.status === "review").length;
   return `양호 ${pass} · 취약 ${fail} · 검토 ${review}`;
-}
-
-// A run currently scans exactly one repo, so "asset" grouping collapses to a
-// single group named after that repo. Once a run can cover multiple assets,
-// only this function needs to change.
-function getRepoDisplayName(repoUrl: string): string {
-  const match = repoUrl.match(/([^/]+\/[^/]+?)(?:\.git)?\/?$/);
-  return match ? match[1] : repoUrl;
 }
 
 function buildCategoryGroups(checks: CheckResultView[]): CheckGroup[] {
@@ -173,7 +168,7 @@ export function RunStatus({ runId }: { runId: string }) {
   }, [runId]);
 
   if (notFound) return <p className="text-red-600">해당 실행을 찾을 수 없습니다.</p>;
-  if (!run) return <p className="text-slate-500">불러오는 중…</p>;
+  if (!run) return <p className="text-[var(--color-muted)]">불러오는 중…</p>;
 
   function toggleCheck(id: string) {
     setExpandedChecks((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -216,7 +211,13 @@ export function RunStatus({ runId }: { runId: string }) {
           ✦ 룰 + Claude AI 하이브리드 분석
         </span>
       </div>
-      <p className="mt-1.5 break-all text-sm text-slate-500">{run.repoUrl}</p>
+      <p className="mt-1.5 break-all text-sm text-[var(--color-muted)]">{run.repoUrl}</p>
+
+      {hasChecks && (
+        <div className="mt-5">
+          <RiskSummaryBar summary={computeRiskSummary(checks)} />
+        </div>
+      )}
 
       <div className="mt-9 flex items-start">
         {STAGES.map((stage, i) => {
@@ -251,7 +252,7 @@ export function RunStatus({ runId }: { runId: string }) {
         })}
       </div>
 
-      <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3.5 text-sm leading-relaxed text-slate-700">
+      <div className="mt-5 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-slate-700">
         <div
           className={`font-semibold ${
             run.status === "failed"
@@ -276,7 +277,7 @@ export function RunStatus({ runId }: { runId: string }) {
       </div>
 
       {run.errorMessage && (
-        <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+        <pre className="mt-3 whitespace-pre-wrap rounded-[var(--radius-nh)] border border-red-200 bg-red-50 p-3 text-xs text-red-800">
           {run.errorMessage}
         </pre>
       )}
@@ -304,27 +305,27 @@ export function RunStatus({ runId }: { runId: string }) {
           </div>
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-2.5">
-            <h2 className="text-sm font-semibold text-slate-500">
+            <h2 className="text-sm font-semibold text-[var(--color-muted)]">
               점검 결과 <span className="font-normal">({checks.length}개)</span>
             </h2>
             <div className="flex items-center gap-2">
-              <div className="flex overflow-hidden rounded-md border border-slate-200">
+              <div className="flex overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)]">
                 <button
                   onClick={() => changeGroupBy("category")}
                   className={`px-3 py-1 text-[12.5px] ${
                     groupBy === "category"
                       ? "bg-blue-50 font-semibold text-blue-700"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
+                      : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
                   }`}
                 >
                   카테고리
                 </button>
                 <button
                   onClick={() => changeGroupBy("asset")}
-                  className={`border-l border-slate-200 px-3 py-1 text-[12.5px] ${
+                  className={`border-l border-[var(--color-border)] px-3 py-1 text-[12.5px] ${
                     groupBy === "asset"
                       ? "bg-blue-50 font-semibold text-blue-700"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
+                      : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
                   }`}
                 >
                   자산
@@ -332,7 +333,7 @@ export function RunStatus({ runId }: { runId: string }) {
               </div>
               <button
                 onClick={toggleAll}
-                className="rounded-md border border-slate-200 bg-white px-3 py-1 text-[12.5px] text-slate-700 hover:bg-slate-50"
+                className="rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-white px-3 py-1 text-[12.5px] text-slate-700 hover:bg-[var(--color-surface)]"
               >
                 {allExpanded ? "전체 접기" : "전체 펼치기"}
               </button>
@@ -346,18 +347,18 @@ export function RunStatus({ runId }: { runId: string }) {
                 <div key={group.key}>
                   <button
                     onClick={() => toggleGroup(group.key)}
-                    className="flex w-full items-center gap-2 rounded px-1 py-2 text-left hover:bg-slate-50"
+                    className="flex w-full items-center gap-2 rounded px-1 py-2 text-left hover:bg-[var(--color-surface)]"
                   >
                     <span
-                      className={`inline-block text-[11px] text-slate-400 transition-transform duration-150 ${
+                      className={`inline-block text-[11px] text-[var(--color-muted)] transition-transform duration-150 ${
                         collapsed ? "" : "rotate-90"
                       }`}
                     >
                       ▸
                     </span>
                     <span className="text-[13.5px] font-semibold">{group.label}</span>
-                    <span className="text-[12.5px] text-slate-400">{group.checks.length}개</span>
-                    <span className="ml-auto text-xs text-slate-400">
+                    <span className="text-[12.5px] text-[var(--color-muted)]">{group.checks.length}개</span>
+                    <span className="ml-auto text-xs text-[var(--color-muted)]">
                       {groupSummaryText(group.checks)}
                     </span>
                   </button>
@@ -379,17 +380,17 @@ export function RunStatus({ runId }: { runId: string }) {
           </div>
         </>
       ) : (
-        <p className="mt-8 text-[13px] text-slate-400 italic">
+        <p className="mt-8 text-[13px] text-[var(--color-muted)] italic">
           아직 점검 결과가 없습니다 — 파이프라인이 진행되면 이 영역에 표시됩니다.
         </p>
       )}
 
-      <h2 className="mt-10 text-sm font-semibold text-slate-500">진행 이력</h2>
+      <h2 className="mt-10 text-sm font-semibold text-[var(--color-muted)]">진행 이력</h2>
       <div className="mt-2.5 flex flex-col gap-1.5">
         {events.map((event) => (
           <div key={event.id} className="flex gap-2.5 text-[12.5px]">
-            <span className="font-mono text-slate-400">{event.createdAt}</span>
-            <span className="text-slate-600">
+            <span className="font-mono text-[var(--color-muted)]">{event.createdAt}</span>
+            <span className="text-[var(--color-muted)]">
               {STAGE_LABELS[event.stage]} → {STATUS_LABELS[event.status]}
             </span>
           </div>
@@ -409,19 +410,19 @@ function CheckCard({
   onToggle: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
+    <div className="overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)]">
       <button
         onClick={onToggle}
-        className="flex w-full flex-wrap items-center gap-2 px-3.5 py-2.5 text-left hover:bg-slate-50"
+        className="flex w-full flex-wrap items-center gap-2 px-3.5 py-2.5 text-left hover:bg-[var(--color-surface)]"
       >
         <span
-          className={`inline-block w-2.5 text-[11px] text-slate-400 transition-transform duration-150 ${
+          className={`inline-block w-2.5 text-[11px] text-[var(--color-muted)] transition-transform duration-150 ${
             expanded ? "rotate-90" : ""
           }`}
         >
           ▸
         </span>
-        <span className="font-mono text-xs text-slate-500">{check.id}</span>
+        <span className="font-mono text-xs text-[var(--color-muted)]">{check.id}</span>
         <span className="text-[13.5px]">{check.title}</span>
         {check.severity && (
           <span
@@ -441,14 +442,14 @@ function CheckCard({
           {SOURCE_LABELS[check.source]}
         </span>
       </button>
-      <div className="px-3.5 pb-3 pl-10 text-[13px] text-slate-600">Evidence: {check.evidence}</div>
+      <div className="px-3.5 pb-3 pl-10 text-[13px] text-[var(--color-muted)]">Evidence: {check.evidence}</div>
       {expanded && (
         <div className="flex flex-col gap-2 border-t border-slate-100 px-3.5 pt-2 pb-4 pl-10">
           {check.reason && (
             <div className="mt-2.5">
               <span
                 className={`text-[11px] font-bold tracking-wide ${
-                  check.source === "ai" ? "text-violet-700" : "text-slate-400"
+                  check.source === "ai" ? "text-violet-700" : "text-[var(--color-muted)]"
                 }`}
               >
                 {check.source === "ai" ? "AI 분석 근거" : "룰 기반 판단 근거"}
@@ -463,7 +464,7 @@ function CheckCard({
             </p>
           )}
           {check.example && (
-            <pre className="rounded-md border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs whitespace-pre-wrap text-slate-700">
+            <pre className="rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2.5 font-mono text-xs whitespace-pre-wrap text-slate-700">
               {check.example}
             </pre>
           )}

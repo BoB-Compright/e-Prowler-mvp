@@ -33,23 +33,26 @@ export function StartRunForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
+    <form onSubmit={handleSubmit} className="mt-1.5 flex flex-col gap-2 sm:flex-row">
       <input
         type="text"
         required
+        spellCheck={false}
         placeholder="https://github.com/owner/repo.git"
         value={repoUrl}
         onChange={(e) => setRepoUrl(e.target.value)}
-        className="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm"
+        className="flex-1 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 font-mono text-[13px] text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
       />
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+        className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "시작 중…" : "점검 시작"}
       </button>
-      {error && <p className="text-sm text-red-600 sm:ml-2 sm:self-center">{error}</p>}
+      {error && (
+        <p className="text-sm text-[var(--color-fail)] sm:ml-2 sm:self-center">{error}</p>
+      )}
     </form>
   );
 }
