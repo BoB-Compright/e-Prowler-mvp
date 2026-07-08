@@ -6,7 +6,7 @@ import { buildImage } from "./build";
 import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
 import { updateRunStage } from "./runs";
-import { runFirstWaveChecks } from "@/lib/checks";
+import { runAllChecks } from "@/lib/checks";
 import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 
@@ -17,7 +17,7 @@ export interface PipelineDeps {
   startSandbox: typeof startSandbox;
   stopSandbox: typeof stopSandbox;
   scheduleSandboxTimeout: typeof scheduleSandboxTimeout;
-  runChecks: typeof runFirstWaveChecks;
+  runChecks: typeof runAllChecks;
   analyzeChecks: typeof analyzeAndSaveChecks;
 }
 
@@ -28,7 +28,7 @@ const defaultDeps: PipelineDeps = {
   startSandbox,
   stopSandbox,
   scheduleSandboxTimeout,
-  runChecks: runFirstWaveChecks,
+  runChecks: runAllChecks,
   analyzeChecks: analyzeAndSaveChecks,
 };
 
@@ -36,8 +36,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-// Drives a run through clone -> build -> sandbox. Later issues (#39-#40) will
-// extend this with ansible/rule_eval/claude stages, reusing updateRunStage.
+// Drives a run through clone -> build -> sandbox -> ansible -> rule_eval -> claude -> done.
 export async function runPipeline(
   runId: string,
   repoUrl: string,
