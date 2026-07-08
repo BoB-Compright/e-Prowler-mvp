@@ -617,3 +617,27 @@
         else echo __MISSING__; fi; true'
       register: web26_result
       changed_when: false
+
+    - name: "nginx document root scan (internal)"
+      # Shared by WEB-07 (leftover install/sample files) and WEB-14
+      # (world-writable files) -- both need filesystem access under whatever
+      # `root`/`alias` directives the config declares, which (like WEB-03's
+      # password file) is a dynamic path only known after parsing the
+      # effective config, so both scans happen in one combined task.
+      # Output lines are prefixed LEFTOVER:/WRITABLE: so the two evaluators
+      # can each filter out their half.
+      ansible.builtin.raw: >-
+        sh -c 'if command -v nginx >/dev/null 2>&1; then
+        ROOTS=$(nginx -T 2>/dev/null | grep -E "^[[:space:]]*(root|alias)[[:space:]]" | awk "{print \$2}" | tr -d ";" | sort -u);
+        if [ -z "$ROOTS" ]; then echo __MISSING__;
+        else
+        for r in $ROOTS; do
+        if [ -d "$r" ]; then
+        find "$r" -maxdepth 3 \( -iname "phpinfo.php" -o -iname "install.php" -o -iname "readme*" -o -iname "changelog*" -o -iname "license*" -o -iname ".git" -o -iname ".svn" -o -iname ".env" \) 2>/dev/null | sed "s/^/LEFTOVER:/";
+        find "$r" -maxdepth 5 -type f -perm -0002 2>/dev/null | sed "s/^/WRITABLE:/";
+        fi;
+        done;
+        fi;
+        else echo __MISSING__; fi; true'
+      register: web_docroot_scan_result
+      changed_when: false

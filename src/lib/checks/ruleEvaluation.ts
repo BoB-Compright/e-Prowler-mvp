@@ -1722,6 +1722,309 @@ function isAtMostOwnerOnly(mode: string): boolean {
   return group === 0 && other === 0;
 }
 
+// WEB-01/WEB-02: nginx has no built-in admin account system, only opaque
+// HTTP basic auth (auth_basic + a hashed htpasswd file). The account name
+// and password strength both live inside that hashed file, invisible to
+// config-only inspection -- so the honest automated outcome is "review" once
+// auth_basic is in use, not a guessed pass/fail, and "skip" when there's no
+// authentication surface (and therefore no "admin account") at all.
+function hasActiveBasicAuth(config: string): boolean {
+  return config
+    .split("\n")
+    .filter(isActiveLine)
+    .some((line) => /^auth_basic\s+/.test(line.trim()) && !/^auth_basic\s+off\s*;/.test(line.trim()));
+}
+
+export function evaluateWEB01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-01");
+
+  if (!hasActiveBasicAuth(config)) {
+    return { id: "WEB-01", status: "skip", evidence: "nginx에 관리자 인증(auth_basic) 구간이 설정되어 있지 않음" };
+  }
+  return {
+    id: "WEB-01",
+    status: "review",
+    evidence: "auth_basic 인증이 설정되어 있으나 계정명은 htpasswd 파일 내부에 있어 기본 계정명 사용 여부를 자동 판정할 수 없음 — 수동 확인 필요",
+  };
+}
+
+export function evaluateWEB02(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-02");
+
+  if (!hasActiveBasicAuth(config)) {
+    return { id: "WEB-02", status: "skip", evidence: "nginx에 비밀번호 기반 인증(auth_basic)이 설정되어 있지 않음" };
+  }
+  return {
+    id: "WEB-02",
+    status: "review",
+    evidence: "auth_basic 인증이 설정되어 있으나 비밀번호는 해시로 저장되어 복잡도를 자동 판정할 수 없음 — 수동 확인 필요",
+  };
+}
+
+// WEB-05: nginx doesn't run CGI/ISAPI directly -- script execution goes
+// through fastcgi_pass/scgi_pass/uwsgi_pass. "Restricted to a designated
+// location" is approximated here by whether at least one location block
+// scopes execution to a specific extension (`location ~ \.php$`) rather than
+// passing everything under a broad prefix location straight to the
+// interpreter.
+export function evaluateWEB05(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-05");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const hasScriptHandler = lines.some((line) => /\b(fastcgi_pass|scgi_pass|uwsgi_pass)\b/.test(line));
+  if (!hasScriptHandler) {
+    return { id: "WEB-05", status: "skip", evidence: "CGI/FastCGI 실행 설정이 발견되지 않음" };
+  }
+
+  const hasExtensionScopedLocation = lines.some((line) => /location\s*~\*?\s*\\\.[a-zA-Z0-9|()]+\$/.test(line));
+  return {
+    id: "WEB-05",
+    status: hasExtensionScopedLocation ? "pass" : "fail",
+    evidence: hasExtensionScopedLocation
+      ? "CGI/FastCGI 실행이 특정 확장자로 제한된 location 블록에서만 이루어짐"
+      : "CGI/FastCGI 실행을 특정 확장자로 제한하는 location(~ \\.ext$) 블록이 발견되지 않음",
+  };
+}
+
+// WEB-06: the classic nginx "off-by-slash" alias misconfiguration -- a
+// `location` prefix that doesn't end in "/" paired with an `alias` that does
+// lets a request like "/files..%2f/etc/passwd" escape the intended
+// directory. This is the concrete, nginx-native equivalent of Apache's
+// "../" parent-directory-traversal item; nginx's own path normalization
+// otherwise blocks literal ".." traversal by default.
+export function evaluateWEB06(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-06");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const offByOne: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const locMatch = lines[i].trim().match(/^location\s+([^\s{]+)/);
+    if (!locMatch) continue;
+    for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+      if (lines[j].includes("}")) break;
+      const aliasMatch = lines[j].trim().match(/^alias\s+(\S+);/);
+      if (!aliasMatch) continue;
+      const [, locPath] = locMatch;
+      const [, aliasPath] = aliasMatch;
+      if (!locPath.endsWith("/") && aliasPath.endsWith("/")) {
+        offByOne.push(`${locPath} -> ${aliasPath}`);
+      }
+      break;
+    }
+  }
+
+  return {
+    id: "WEB-06",
+    status: offByOne.length === 0 ? "pass" : "fail",
+    evidence:
+      offByOne.length === 0
+        ? "상위 디렉터리 접근을 유발하는 location/alias 트레일링 슬래시 불일치가 발견되지 않음"
+        : `location/alias 트레일링 슬래시 불일치(경로 탈출 위험) 발견: ${offByOne.join(", ")}`,
+  };
+}
+
+function getDocRootScan(tasks: AnsibleTaskOutput[]): { leftovers: string[]; writable: string[]; missing: boolean } {
+  const task = findExactTaskOutput(tasks, "nginx document root scan (internal)");
+  const stdout = task?.stdout.trim() ?? "";
+  // No task output at all, or the explicit "no root/alias directives found"
+  // marker, means we can't scan -- but a legitimately empty scan (roots
+  // found, nothing suspicious in them) also reports empty stdout and must
+  // NOT be treated the same as "couldn't scan".
+  if (!task || stdout === MISSING_MARKER) return { leftovers: [], writable: [], missing: true };
+
+  const lines = stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+  return {
+    leftovers: lines.filter((line) => line.startsWith("LEFTOVER:")).map((line) => line.slice("LEFTOVER:".length)),
+    writable: lines.filter((line) => line.startsWith("WRITABLE:")).map((line) => line.slice("WRITABLE:".length)),
+    missing: false,
+  };
+}
+
+export function evaluateWEB07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-07");
+
+  const { leftovers, missing } = getDocRootScan(tasks);
+  if (missing) {
+    return { id: "WEB-07", status: "skip", evidence: "웹 루트 디렉터리(root/alias)를 확인할 수 없음" };
+  }
+  return {
+    id: "WEB-07",
+    status: leftovers.length === 0 ? "pass" : "fail",
+    evidence:
+      leftovers.length === 0
+        ? "웹 루트 디렉터리에 설치 시 기본 생성되는 불필요한 파일/디렉터리가 발견되지 않음"
+        : `불필요한 파일/디렉터리 발견: ${summarizeList(leftovers)}`,
+  };
+}
+
+// WEB-10: nginx being used as a reverse proxy isn't itself a finding -- the
+// concrete misconfiguration this catches is a `proxy_pass` target built from
+// client-controlled input (a forwarded-host header, a query parameter),
+// which lets a client redirect the proxy to an arbitrary destination (SSRF).
+export function evaluateWEB10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-10");
+
+  const proxyLines = config
+    .split("\n")
+    .filter(isActiveLine)
+    .filter((line) => /^proxy_pass\s+/.test(line.trim()));
+  if (proxyLines.length === 0) {
+    return { id: "WEB-10", status: "skip", evidence: "프록시(proxy_pass) 설정이 발견되지 않음" };
+  }
+
+  const clientControlled = proxyLines.filter((line) => /\$(http_host|http_x_forwarded_host|arg_\w+|http_\w+)/i.test(line));
+  return {
+    id: "WEB-10",
+    status: clientControlled.length === 0 ? "pass" : "fail",
+    evidence:
+      clientControlled.length === 0
+        ? "proxy_pass 대상이 클라이언트 입력값에 의존하지 않음"
+        : `proxy_pass 대상이 클라이언트가 제어 가능한 헤더/파라미터에 의존함 (SSRF 위험): ${summarizeList(clientControlled)}`,
+  };
+}
+
+// WEB-11: "web path separated from other business areas" is approximated as
+// "the docroot isn't a top-level system directory" -- a blunt but concrete,
+// automatable proxy for a check that's otherwise about organizational
+// intent we can't observe from a container alone.
+const DANGEROUS_WEB_ROOTS = new Set(["/", "/etc", "/root", "/home", "/var", "/usr", "/bin", "/sbin"]);
+
+export function evaluateWEB11(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-11");
+
+  const rootPaths = config
+    .split("\n")
+    .filter(isActiveLine)
+    .filter((line) => /^root\s+/.test(line.trim()))
+    .map((line) => line.trim().split(/\s+/)[1]?.replace(/;$/, "").replace(/\/$/, ""))
+    .filter((path): path is string => Boolean(path));
+  if (rootPaths.length === 0) {
+    return { id: "WEB-11", status: "skip", evidence: "root 지시어가 설정되어 있지 않음" };
+  }
+
+  const dangerous = rootPaths.filter((path) => DANGEROUS_WEB_ROOTS.has(path));
+  return {
+    id: "WEB-11",
+    status: dangerous.length === 0 ? "pass" : "fail",
+    evidence:
+      dangerous.length === 0
+        ? `웹 루트 경로가 시스템 영역과 분리됨: ${summarizeList(rootPaths)}`
+        : `웹 루트가 시스템 영역과 분리되지 않음(위험 경로 사용): ${summarizeList(dangerous)}`,
+  };
+}
+
+export function evaluateWEB12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-12");
+
+  const disabled = config
+    .split("\n")
+    .filter(isActiveLine)
+    .some((line) => /^disable_symlinks\s+(on|if_not_owner)\b/.test(line.trim()));
+
+  return {
+    id: "WEB-12",
+    status: disabled ? "pass" : "fail",
+    evidence: disabled
+      ? "disable_symlinks 설정으로 심볼릭 링크 사용이 제한됨"
+      : "disable_symlinks 설정이 없어 기본값(심볼릭 링크 허용)이 적용됨",
+  };
+}
+
+export function evaluateWEB14(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-14");
+
+  const { writable, missing } = getDocRootScan(tasks);
+  if (missing) {
+    return { id: "WEB-14", status: "skip", evidence: "웹 루트 디렉터리(root/alias)를 확인할 수 없음" };
+  }
+  return {
+    id: "WEB-14",
+    status: writable.length === 0 ? "pass" : "fail",
+    evidence:
+      writable.length === 0
+        ? "웹 루트 경로 내 world-writable 파일이 발견되지 않음"
+        : `일반 사용자 쓰기 권한이 있는 파일 발견: ${summarizeList(writable)}`,
+  };
+}
+
+// WEB-15 heuristic: multiple distinct script-handler extensions mapped at
+// once (e.g. both .php and .cgi active) is a signal of leftover/legacy
+// mappings, not a confirmed vulnerability -- whether each is actually still
+// needed depends on the application, so this surfaces "review" rather than
+// an outright fail.
+export function evaluateWEB15(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-15");
+
+  const extensions = new Set<string>();
+  for (const line of config.split("\n").filter(isActiveLine)) {
+    const match = line.match(/location\s*~\*?\s*\\\.\(?([a-zA-Z0-9|]+)\)?\$/);
+    if (match) {
+      for (const ext of match[1].split("|")) extensions.add(ext.toLowerCase());
+    }
+  }
+  if (extensions.size === 0) {
+    return { id: "WEB-15", status: "skip", evidence: "확장자 기반 스크립트 매핑이 발견되지 않음" };
+  }
+
+  const many = extensions.size > 1;
+  return {
+    id: "WEB-15",
+    status: many ? "review" : "pass",
+    evidence: many
+      ? `여러 스크립트 확장자 매핑이 발견됨 — 실제 사용 여부 수동 확인 필요: ${[...extensions].join(", ")}`
+      : `단일 스크립트 확장자만 매핑됨: ${[...extensions].join(", ")}`,
+  };
+}
+
+export function evaluateWEB17(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-17");
+
+  const aliasCount = config
+    .split("\n")
+    .filter(isActiveLine)
+    .filter((line) => /^alias\s+/.test(line.trim())).length;
+  if (aliasCount === 0) {
+    return { id: "WEB-17", status: "pass", evidence: "alias 기반 추가 가상 경로가 없음" };
+  }
+  return {
+    id: "WEB-17",
+    status: "review",
+    evidence: `alias 기반 추가 경로 ${aliasCount}개 발견 — 실제 필요 여부는 수동 확인이 필요함`,
+  };
+}
+
+export function evaluateWEB24(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("WEB-24");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const uploadLocationIdx = lines.findIndex((line) => /location\s+\S*\/(upload|uploads|files)\b/i.test(line));
+  if (uploadLocationIdx === -1) {
+    return { id: "WEB-24", status: "skip", evidence: "별도의 업로드 경로(location)가 설정되어 있지 않음" };
+  }
+
+  const nearby = lines.slice(uploadLocationIdx, uploadLocationIdx + 8);
+  const hasScriptExec = nearby.some((line) => /\b(fastcgi_pass|scgi_pass|uwsgi_pass)\b/.test(line));
+  return {
+    id: "WEB-24",
+    status: hasScriptExec ? "fail" : "pass",
+    evidence: hasScriptExec
+      ? "업로드 경로 내에서 스크립트 실행(fastcgi_pass 등)이 제한되지 않음"
+      : "업로드 경로가 별도로 지정되어 있고 해당 경로 내 스크립트 실행이 발견되지 않음",
+  };
+}
+
 export function evaluateWEB03(tasks: AnsibleTaskOutput[]): CheckResult {
   const { present } = getNginxState(tasks);
   if (!present) return skipNoNginx("WEB-03");
@@ -2097,18 +2400,30 @@ export function evaluateAllChecks(
     evaluateU65(tasks),
     evaluateU66(tasks),
     evaluateU67(tasks),
+    evaluateWEB01(tasks),
+    evaluateWEB02(tasks),
     evaluateWEB03(tasks),
     evaluateWEB04(tasks),
+    evaluateWEB05(tasks),
+    evaluateWEB06(tasks),
+    evaluateWEB07(tasks),
     evaluateWEB08(tasks),
     evaluateWEB09(tasks),
+    evaluateWEB10(tasks),
+    evaluateWEB11(tasks),
+    evaluateWEB12(tasks),
     evaluateWEB13(tasks),
+    evaluateWEB14(tasks),
+    evaluateWEB15(tasks),
     evaluateWEB16(tasks),
+    evaluateWEB17(tasks),
     evaluateWEB18(tasks),
     evaluateWEB19(tasks),
     evaluateWEB20(tasks),
     evaluateWEB21(tasks),
     evaluateWEB22(tasks),
     evaluateWEB23(tasks),
+    evaluateWEB24(tasks),
     evaluateWEB25(tasks),
     evaluateWEB26(tasks),
   ];
