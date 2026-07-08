@@ -32,4 +32,15 @@ describe("schema", () => {
       .map((r) => (r as { name: string }).name);
     expect(runColumns).toContain("batch_id");
   });
+
+  it("creates installed_packages, cve_matches, nvd_query_cache tables", () => {
+    const db = createInMemoryDb();
+    const tables = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table'`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(tables).toContain("installed_packages");
+    expect(tables).toContain("cve_matches");
+    expect(tables).toContain("nvd_query_cache");
+  });
 });

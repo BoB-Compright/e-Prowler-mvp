@@ -136,6 +136,8 @@ export function deleteAsset(id: string, db: Database = getDb()): void {
     throw new AssetInUseError("실행 중인 점검이 있어 삭제할 수 없습니다");
   }
   const deleteTransaction = db.transaction(() => {
+    db.prepare(`DELETE FROM cve_matches WHERE asset_id = ?`).run(id);
+    db.prepare(`DELETE FROM installed_packages WHERE asset_id = ?`).run(id);
     const runIds = (
       db.prepare(`SELECT id FROM runs WHERE asset_id = ?`).all(id) as { id: string }[]
     ).map((row) => row.id);

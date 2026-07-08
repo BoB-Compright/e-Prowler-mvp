@@ -77,6 +77,38 @@ CREATE TABLE IF NOT EXISTS scan_batches (
   project_id TEXT NOT NULL REFERENCES projects(id),
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS installed_packages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  asset_id TEXT NOT NULL REFERENCES assets(id),
+  name TEXT NOT NULL,
+  version TEXT NOT NULL,
+  collected_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cve_matches (
+  id TEXT PRIMARY KEY,
+  asset_id TEXT NOT NULL REFERENCES assets(id),
+  package_name TEXT NOT NULL,
+  package_version TEXT NOT NULL,
+  cve_id TEXT NOT NULL,
+  cvss_score REAL,
+  severity TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  published_at TEXT,
+  first_seen_at TEXT NOT NULL,
+  checked_at TEXT NOT NULL,
+  dismissed INTEGER NOT NULL DEFAULT 0,
+  ai_impact TEXT,
+  ai_remediation TEXT,
+  UNIQUE(asset_id, cve_id)
+);
+
+CREATE TABLE IF NOT EXISTS nvd_query_cache (
+  package_name TEXT PRIMARY KEY,
+  raw_response TEXT NOT NULL,
+  fetched_at TEXT NOT NULL
+);
 `;
 
 // Existing on-disk databases predate the "source_type" column; ADD COLUMN

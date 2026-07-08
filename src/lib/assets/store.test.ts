@@ -5,6 +5,12 @@ import { randomBytes } from "crypto";
 import { createInMemoryDb } from "@/lib/db";
 import { createRun } from "@/lib/pipeline/runs";
 import {
+  listCveMatches,
+  listInstalledPackages,
+  replaceInstalledPackages,
+  upsertCveMatch,
+} from "@/lib/cve/store";
+import {
   AssetInUseError,
   DuplicateAssetError,
   createRepoAsset,
@@ -95,5 +101,23 @@ describe("deleteAsset", () => {
     db.prepare(`UPDATE runs SET asset_id = ?, status = 'done' WHERE id = ?`).run(asset.id, run.id);
     deleteAsset(asset.id, db);
     expect(db.prepare(`SELECT * FROM runs WHERE id = ?`).get(run.id)).toBeUndefined();
+  });
+
+  it("cascades installed_packages and cve_matches deletion when an asset is deleted", () => {
+    const asset = createServerAsset(
+      { displayName: "srv", hostIp: "10.0.0.9", hostname: "h", sshPort: 22, authType: "password", username: "root", secret: "pw" },
+      db,
+    );
+    replaceInstalledPackages(asset.id, [{ name: "openssl", version: "1.1.1f" }], new Date(), db);
+    upsertCveMatch(
+      { assetId: asset.id, packageName: "openssl", packageVersion: "1.1.1f", entry: { cveId: "CVE-2024-0001", cvssScore: 9.1, severity: "critical", summary: "s", publishedAt: null, versionRange: {} } },
+      new Date(),
+      db,
+    );
+
+    deleteAsset(asset.id, db);
+
+    expect(listInstalledPackages(asset.id, db)).toEqual([]);
+    expect(listCveMatches(asset.id, db)).toEqual([]);
   });
 });
