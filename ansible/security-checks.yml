@@ -19,3 +19,134 @@
         sh -c 'if [ -e /etc/passwd ]; then stat -c "%U:%G %a" /etc/passwd; else echo __MISSING__; fi'
       register: u16_result
       changed_when: false
+
+    - name: "C-03: listening ports"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v ss >/dev/null 2>&1; then ss -tln;
+        elif command -v netstat >/dev/null 2>&1; then netstat -tln;
+        else echo __MISSING__; fi'
+      register: c03_result
+      changed_when: false
+
+    - name: "C-05: dangerous packages present"
+      ansible.builtin.raw: >-
+        sh -c 'for c in curl wget gcc cc make apt apt-get; do
+        command -v "$c" >/dev/null 2>&1 && echo "$c"; done; true'
+      register: c05_result
+      changed_when: false
+
+    - name: "C-06: setuid setgid binaries"
+      # find exits non-zero when it hits any permission-denied subtree while
+      # walking /, which would otherwise abort the rest of the play — force
+      # success since 2>/dev/null already discards the noise we don't care about.
+      ansible.builtin.raw: >-
+        sh -c 'find / -xdev \( -perm -4000 -o -perm -2000 \) -type f 2>/dev/null; true'
+      register: c06_result
+      changed_when: false
+
+    - name: "C-07: root filesystem writability"
+      # Read the actual mount options for "/" from /proc/mounts instead of a
+      # touch-test — touch-testing a path the running (often non-root) user
+      # doesn't own would report "readonly" even when the mount itself is rw.
+      ansible.builtin.raw: >-
+        sh -c 'grep " / " /proc/mounts 2>/dev/null | head -1; true'
+      register: c07_result
+      changed_when: false
+
+    # U-01..U-13 (KISA guide, account management): every task below only
+    # extracts raw evidence (file existence + relevant lines); all pass/fail
+    # interpretation happens in ruleEvaluation.ts. Every task ends with
+    # `; true` because `grep` with no match exits 1, which would otherwise
+    # abort the rest of the play for that host (see C-06 fix above).
+    - name: "U-01: sshd PermitRootLogin setting"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/ssh/sshd_config ]; then grep -i PermitRootLogin /etc/ssh/sshd_config;
+        else echo __MISSING__; fi; true'
+      register: u01_result
+      changed_when: false
+
+    - name: "U-02: login.defs password aging policy"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/login.defs ]; then grep -E "PASS_MAX_DAYS|PASS_MIN_LEN" /etc/login.defs;
+        else echo __MISSING__; fi; true'
+      register: u02_result
+      changed_when: false
+
+    - name: "U-03: account lockout PAM module"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/pam.d/common-auth ]; then cat /etc/pam.d/common-auth;
+        elif [ -e /etc/pam.d/system-auth ]; then cat /etc/pam.d/system-auth;
+        else echo __MISSING__; fi; true'
+      register: u03_result
+      changed_when: false
+
+    - name: "U-04: passwd password field protection"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then cut -d: -f2 /etc/passwd;
+        else echo __MISSING__; fi; true'
+      register: u04_result
+      changed_when: false
+
+    - name: "U-05: accounts with UID 0"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then cut -d: -f1,3 /etc/passwd;
+        else echo __MISSING__; fi; true'
+      register: u05_result
+      changed_when: false
+
+    - name: "U-06: su restricted via pam_wheel"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/pam.d/su ]; then cat /etc/pam.d/su;
+        else echo __MISSING__; fi; true'
+      register: u06_result
+      changed_when: false
+
+    - name: "U-07: unnecessary default accounts"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then cut -d: -f1 /etc/passwd;
+        else echo __MISSING__; fi; true'
+      register: u07_result
+      changed_when: false
+
+    - name: "U-08: admin group membership"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/group ]; then grep -E "^(root|wheel|sudo):" /etc/group;
+        else echo __MISSING__; fi; true'
+      register: u08_result
+      changed_when: false
+
+    - name: "U-09: passwd GIDs missing from group file"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ] && [ -e /etc/group ]; then
+        echo __PASSWD__; cut -d: -f4 /etc/passwd; echo __GROUP__; cut -d: -f3 /etc/group;
+        else echo __MISSING__; fi; true'
+      register: u09_result
+      changed_when: false
+
+    - name: "U-10: duplicate UIDs"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then cut -d: -f3 /etc/passwd;
+        else echo __MISSING__; fi; true'
+      register: u10_result
+      changed_when: false
+
+    - name: "U-11: system account shells"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then cut -d: -f1,3,7 /etc/passwd;
+        else echo __MISSING__; fi; true'
+      register: u11_result
+      changed_when: false
+
+    - name: "U-12: shell session TMOUT"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/profile ]; then grep -i TMOUT /etc/profile;
+        else echo __MISSING__; fi; true'
+      register: u12_result
+      changed_when: false
+
+    - name: "U-13: password hashing algorithm"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/login.defs ]; then grep -i ENCRYPT_METHOD /etc/login.defs;
+        else echo __MISSING__; fi; true'
+      register: u13_result
+      changed_when: false
