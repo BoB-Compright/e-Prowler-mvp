@@ -75,4 +75,17 @@ describe("verifyShareAccess", () => {
     const { shareToken } = regenerateShareLink(project.id, "new-pw", db);
     expect(verifyShareAccess(shareToken, "new-pw", db)).toEqual(expect.objectContaining({ ok: true }));
   });
+
+  it("gives a fresh attempt budget after a lock naturally expires", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "correct-pw" }, db);
+    for (let i = 0; i < 5; i++) verifyShareAccess(project.shareToken, "wrong", db);
+    // Simulate the lock having expired by moving it into the past directly in the DB.
+    db.prepare(`UPDATE projects SET share_locked_until = ? WHERE id = ?`).run(
+      new Date(Date.now() - 1000).toISOString(),
+      project.id,
+    );
+    // One wrong attempt right after expiry should NOT immediately re-lock.
+    const result = verifyShareAccess(project.shareToken, "still-wrong", db);
+    expect(result).toEqual({ ok: false, reason: "wrong_password" });
+  });
 });

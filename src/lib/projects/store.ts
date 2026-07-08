@@ -120,6 +120,13 @@ export function verifyShareAccess(
     return { ok: false, reason: "locked" };
   }
 
+  if (row.share_locked_until) {
+    // The lock existed but has since expired — give the caller a fresh
+    // attempt budget instead of carrying the stale count forward.
+    row.share_failed_attempts = 0;
+    db.prepare(`UPDATE projects SET share_failed_attempts = 0, share_locked_until = NULL WHERE id = ?`).run(row.id);
+  }
+
   if (!verifySharePassword(password, row.share_password_hash)) {
     const attempts = row.share_failed_attempts + 1;
     const lockedUntil = attempts >= MAX_ATTEMPTS ? new Date(Date.now() + LOCK_DURATION_MS).toISOString() : null;
