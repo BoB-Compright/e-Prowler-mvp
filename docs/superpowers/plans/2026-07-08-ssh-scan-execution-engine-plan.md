@@ -745,6 +745,14 @@ git add -A
 git commit -m "fix: ansible-playbook-reviewer 지적 사항 반영 (서버 SSH 실행 안전성)"
 ```
 
+**실행 결과 (2026-07-08):** `ansible-playbook-reviewer` 서브에이전트 실행. CONFIRMED 2건, PLAUSIBLE 3건 발견.
+
+- CONFIRMED — 미분류 오류(특히 `execFile` 타임아웃)가 `ConnectionFailureError`로 분류되지 않아 재시도 대상에서 빠지고 원본 커맨드/stderr가 `run.error_message`에 그대로 저장됨: `ansibleRunner.ts`의 `classifyAnsibleError`가 Node의 timeout 에러 형태(`err.killed === true`, 메시지에 "timed out" 문구 없음)를 놓치고 있었음을 확인 → **수정함** (구조적으로 `killed` 플래그를 검사하도록 `classifyAnsibleError` 보강, 유닛 테스트 추가). 커밋: 다음 커밋 참고.
+- CONFIRMED — SSH 호스트 키 검증이 `ANSIBLE_HOST_KEY_CHECKING=false`로 항상 비활성화되어 MITM에 노출됨: 이는 Global Constraints에 이미 "host key 체크는 MVP상 비활성"으로 명시된 의도적 설계 결정이며, 이번 구현이 새로 만든 결함이 아님. known_hosts/TOFU 관리는 Task 2/4/6/8 범위를 벗어나는 별도 기능이므로 이번에는 구현하지 않고, xlsx 미패치 취약점과 동일하게 **리스크 수용으로 기록**한다 (프로덕션 서버 대상 배포 전 반드시 재검토 필요).
+- PLAUSIBLE — `command -v` 기반 서비스 탐지(U-2x/3x/4x/5x 다수)가 SSH 점검 계정의 `$PATH`에 `/sbin`, `/usr/sbin`이 빠져 있으면 오탐(false negative, 실제 설치되어 있어도 "없음"으로 보고)할 수 있음. 대상 서버의 계정 설정에 따라 다르므로 현 단계에서는 미수정, 실제 서버 대상 점검 시 계정의 PATH 구성을 확인할 것.
+- PLAUSIBLE — `find /` 전체 스캔류 태스크(C-06, U-15, U-25, U-33)가 실제 운영 서버(대용량 디스크)에서 5분 타임아웃/10MB stdout 버퍼 한계에 근접할 수 있음. 컨테이너 기준으로 설정된 값이라 실서버 규모에 따라 조정이 필요할 수 있음 — 실사용 데이터로 확인 후 필요 시 타임아웃/버퍼 상향 또는 스캔 범위 제한 검토.
+- PLAUSIBLE — 일부 `stat` 기반 태스크(U-16/18/19/22/29/67 등)가 다른 태스크들의 관례(U-06/07/63)와 달리 `; true` 안전장치가 없음. 현재는 저위험(비루트 계정에서도 대체로 성공)이나, 향후 유사 패턴을 `cat`/`grep` 태스크로 확장할 때는 일관되게 `; true`를 적용할 것.
+
 ---
 
 ## Self-Review 메모

@@ -2,7 +2,8 @@ import { randomBytes } from "crypto";
 import { describe, expect, it } from "vitest";
 import type { Asset } from "@/lib/assets/types";
 import { encryptSecret } from "@/lib/crypto/secretCipher";
-import { buildServerRunPlan, findTaskOutput } from "./ansibleRunner";
+import { AuthFailureError, ConnectionFailureError } from "./retry";
+import { buildServerRunPlan, classifyAnsibleError, findTaskOutput } from "./ansibleRunner";
 
 describe("findTaskOutput", () => {
   it("matches a task by its catalog id prefix", () => {
@@ -49,5 +50,42 @@ describe("buildServerRunPlan", () => {
     const plan = buildServerRunPlan(asset);
     expect(plan.needsKeyFile).toBe(true);
     expect(plan.decryptedSecret).toBe("-----KEY-----");
+  });
+});
+
+describe("classifyAnsibleError", () => {
+  it("classifies a process-level timeout (execFile's `killed` shape) as a connection failure", () => {
+    // This is what Node's execFile actually rejects with when its `timeout`
+    // option expires — no "timed out" text anywhere in stderr/message.
+    const err = Object.assign(new Error("Command failed: ansible-playbook -i 10.0.0.5, ..."), {
+      killed: true,
+      signal: "SIGTERM",
+      stderr: "",
+    });
+    const classified = classifyAnsibleError(err);
+    expect(classified).toBeInstanceOf(ConnectionFailureError);
+    expect(classified.message).toBe("연결 실패");
+  });
+
+  it("classifies stderr auth failures as AuthFailureError with a fixed message", () => {
+    const err = Object.assign(new Error("Command failed"), {
+      stderr: "Permission denied (publickey,password).",
+    });
+    const classified = classifyAnsibleError(err);
+    expect(classified).toBeInstanceOf(AuthFailureError);
+    expect(classified.message).toBe("인증 실패");
+  });
+
+  it("classifies stderr connection failures as ConnectionFailureError", () => {
+    const err = Object.assign(new Error("Command failed"), {
+      stderr: "ssh: connect to host 10.0.0.5 port 22: Connection refused",
+    });
+    const classified = classifyAnsibleError(err);
+    expect(classified).toBeInstanceOf(ConnectionFailureError);
+  });
+
+  it("leaves an unrecognized error as-is", () => {
+    const err = new Error("stdout was not valid JSON");
+    expect(classifyAnsibleError(err)).toBe(err);
   });
 });

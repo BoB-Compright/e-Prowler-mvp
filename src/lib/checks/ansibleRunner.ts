@@ -93,19 +93,43 @@ export function buildServerRunPlan(asset: Asset): ServerRunPlan {
 // connection failures get retried. The classified error message is a fixed
 // Korean string, never the raw stderr — this is the boundary that keeps SSH
 // credentials and low-level connection details out of run.error_message.
-function classifyAnsibleError(err: unknown): Error {
-  const stderr =
-    typeof err === "object" && err !== null && "stderr" in err
-      ? String((err as { stderr?: unknown }).stderr ?? "")
-      : "";
+export function classifyAnsibleError(err: unknown): Error {
+  const execErr =
+    typeof err === "object" && err !== null
+      ? (err as { stderr?: unknown; killed?: unknown; signal?: unknown; code?: unknown })
+      : undefined;
+  const stderr = typeof execErr?.stderr === "string" ? execErr.stderr : "";
   const haystack = `${stderr} ${err instanceof Error ? err.message : ""}`;
 
   if (/permission denied|invalid\/incorrect password|authentication failed|auth fail/i.test(haystack)) {
     return new AuthFailureError("인증 실패");
   }
-  if (/timed out|timeout|connection refused|no route to host|unreachable/i.test(haystack)) {
+
+  // Node's execFile `timeout` option kills the child process on expiry —
+  // the rejected error has `killed: true` (and usually a `signal`, e.g.
+  // "SIGTERM") but its message is just "Command failed: ...", with none of
+  // the "timed out"/"unreachable" wording matched below. Detecting it
+  // structurally (not by message pattern) is required so a real SSH
+  // timeout is retried as a connection failure per the "연결 실패만 재시도"
+  // constraint, instead of falling through to the generic branch — which
+  // would both skip the retry and store the raw command/stderr verbatim in
+  // run.error_message.
+  const isProcessTimeout = execErr?.killed === true;
+  if (
+    isProcessTimeout ||
+    /timed out|timeout|connection refused|no route to host|unreachable|ETIMEDOUT|EHOSTUNREACH|ECONNREFUSED/i.test(
+      haystack,
+    )
+  ) {
     return new ConnectionFailureError("연결 실패");
   }
+
+  // Anything else (unexpected ansible-playbook crash, maxBuffer overflow,
+  // malformed JSON callback output, ...) isn't a failure mode this module
+  // knows how to retry or attribute to auth/connection — it's neither
+  // classified nor blindly retried, but it also isn't the credential/
+  // connection-detail case the constraints above are guarding, so the
+  // original message is preserved for operability.
   return err instanceof Error ? err : new Error(String(err));
 }
 
