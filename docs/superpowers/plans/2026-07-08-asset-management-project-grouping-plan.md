@@ -545,7 +545,7 @@ describe("deleteAsset", () => {
 });
 ```
 
-> **주의:** 이 테스트는 `createRun`의 시그니처가 `(source, sourceType, db)`임을 가정한다. Task 14 Step 1에서 `createRun`에 `assetId` 인자가 추가되면 시그니처가 `(source, sourceType, assetId, db)`로 바뀐다. Task 5를 Task 14보다 먼저 실행하는 경우 위 테스트의 `createRun(asset.repoUrl!, "git", db)` 호출은 현재 시그니처 그대로 두고, Task 14 완료 후 `createRun(asset.repoUrl!, "git", null, db)`로 갱신한다.
+> **주의:** 이 테스트는 `createRun`의 시그니처가 `(source, sourceType, db)`임을 가정한다. Task 8 Step 2에서 `createRun`에 `assetId` 인자가 추가되면 시그니처가 `(source, sourceType, assetId, db)`로 바뀐다. Task 5를 Task 8보다 먼저 실행하는 경우 위 테스트의 `createRun(asset.repoUrl!, "git", db)` 호출은 현재 시그니처 그대로 두고, Task 8 완료 후 `createRun(asset.repoUrl!, "git", null, db)`로 갱신한다.
 
 - [ ] **Step 2: 테스트 실패 확인**
 
