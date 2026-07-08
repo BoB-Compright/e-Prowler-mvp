@@ -18,25 +18,33 @@ const defaultDeps: SchedulerDeps = {
 
 const CHECK_INTERVAL_MS = 60_000;
 
+let isChecking = false;
+
 export async function checkDueSchedules(
   now: Date = new Date(),
   deps: SchedulerDeps = defaultDeps,
   db: Database = getDb(),
 ): Promise<void> {
-  const due = listDueSchedules(now, db);
-  for (const schedule of due) {
-    const asset = getAsset(schedule.assetId, db);
-    if (!asset) {
-      // 정상 경로라면 Task 5의 cascade 삭제로 이 상태가 발생하지 않지만 방어적으로 처리한다.
-      recordSkipped(schedule.id, "연결된 자산을 찾을 수 없음", now, db);
-      continue;
+  if (isChecking) return;
+  isChecking = true;
+  try {
+    const due = listDueSchedules(now, db);
+    for (const schedule of due) {
+      const asset = getAsset(schedule.assetId, db);
+      if (!asset) {
+        // 정상 경로라면 Task 5의 cascade 삭제로 이 상태가 발생하지 않지만 방어적으로 처리한다.
+        recordSkipped(schedule.id, "연결된 자산을 찾을 수 없음", now, db);
+        continue;
+      }
+      if (deps.hasActiveRun(asset.id, db)) {
+        recordSkipped(schedule.id, "이미 진행 중인 run 존재", now, db);
+        continue;
+      }
+      await deps.triggerRunForAsset(asset, "scheduled", db);
+      recordTriggered(schedule.id, now, db);
     }
-    if (deps.hasActiveRun(asset.id, db)) {
-      recordSkipped(schedule.id, "이미 진행 중인 run 존재", now, db);
-      continue;
-    }
-    await deps.triggerRunForAsset(asset, "scheduled", db);
-    recordTriggered(schedule.id, now, db);
+  } finally {
+    isChecking = false;
   }
 }
 
