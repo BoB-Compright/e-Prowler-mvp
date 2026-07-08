@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "crypto";
 import { getDb } from "@/lib/db";
-import type { Run, RunEvent, RunSourceType, RunStatus, Stage } from "./types";
+import type { Run, RunEvent, RunSourceType, RunStatus, RunTriggerType, Stage } from "./types";
 
 interface RunRow {
   id: string;
@@ -14,6 +14,7 @@ interface RunRow {
   error_message: string | null;
   asset_id: string | null;
   batch_id: string | null;
+  trigger_type: RunTriggerType;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,7 @@ function toRun(row: RunRow): Run {
     errorMessage: row.error_message,
     assetId: row.asset_id,
     batchId: row.batch_id,
+    triggerType: row.trigger_type,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -56,6 +58,7 @@ export function createRun(
     errorMessage: null,
     assetId,
     batchId: null,
+    triggerType: "manual",
     createdAt: now,
     updatedAt: now,
   };
@@ -140,4 +143,12 @@ export function listRunEvents(runId: string, db: Database = getDb()): RunEvent[]
     message: row.message,
     createdAt: row.created_at,
   }));
+}
+
+export function markRunTriggerType(
+  runId: string,
+  triggerType: RunTriggerType,
+  db: Database = getDb(),
+): void {
+  db.prepare(`UPDATE runs SET trigger_type = ? WHERE id = ?`).run(triggerType, runId);
 }
