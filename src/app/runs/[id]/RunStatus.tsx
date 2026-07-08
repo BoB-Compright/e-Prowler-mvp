@@ -33,6 +33,26 @@ function ClaudeSparkleIcon() {
   );
 }
 
+// Success checkmark for the completion banner — always the "pass" accent
+// color, since it marks the scan process finishing, not the findings.
+function CheckCircleIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="stroke-[var(--color-pass)] flex-none"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 11.1V12a10 10 0 1 1-5.9-9.1" />
+      <path d="M22 4 12 14.01l-3-3" />
+    </svg>
+  );
+}
+
 interface CheckGroup {
   key: string;
   label: string;
@@ -237,6 +257,12 @@ export function RunStatus({ runId }: { runId: string }) {
   const progressPct = Math.round(
     (nodeStates.filter((s) => s === "done").length / STAGES.length) * 100,
   );
+  // The fill line spans from the first circle's center to the last circle's
+  // center, not the full container width — each circle owns an equal share
+  // of the row, so its center sits half a share in from each edge.
+  const edgeMarginPct = 100 / (STAGES.length * 2);
+  const fillSpanPct = 100 - edgeMarginPct * 2;
+  const fillWidthPct = (fillSpanPct * progressPct) / 100;
 
   return (
     <div>
@@ -312,15 +338,20 @@ export function RunStatus({ runId }: { runId: string }) {
       </div>
 
       {timelineVariant === "horizontal" ? (
-        <div className="mt-4 flex items-start">
-          {STAGES.map((stage, i) => {
-            const state = nodeStates[i];
-            return (
-              <div key={stage} className="flex min-w-0 flex-1 flex-col items-center">
-                <div className="flex w-full items-center">
-                  <div
-                    className={`h-0.5 flex-1 transition-colors duration-500 ${i === 0 ? "bg-transparent" : connectorColor(nodeStates[i - 1])}`}
-                  />
+        <div className="relative mt-6">
+          <div
+            className="absolute top-4 h-0.5 bg-[var(--color-border)]"
+            style={{ left: `${edgeMarginPct}%`, right: `${edgeMarginPct}%` }}
+          />
+          <div
+            className="absolute top-4 h-0.5 bg-[var(--color-pass)] transition-[width] duration-500 ease-out"
+            style={{ left: `${edgeMarginPct}%`, width: `${fillWidthPct}%` }}
+          />
+          <div className="relative z-[1] flex items-start">
+            {STAGES.map((stage, i) => {
+              const state = nodeStates[i];
+              return (
+                <div key={stage} className="flex min-w-0 flex-1 flex-col items-center">
                   <div
                     className={`relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
                   >
@@ -332,18 +363,15 @@ export function RunStatus({ runId }: { runId: string }) {
                     )}
                   </div>
                   <div
-                    className={`h-0.5 flex-1 transition-colors duration-500 ${i === STAGES.length - 1 ? "bg-transparent" : connectorColor(state)}`}
-                  />
+                    className={`mt-2 flex max-w-[76px] items-center justify-center gap-1 text-center text-[11.5px] leading-tight ${STEPPER_LABEL_STYLES[state]}`}
+                  >
+                    {STAGE_SHORT_LABELS[stage]}
+                    {stage === "claude" && <ClaudeSparkleIcon />}
+                  </div>
                 </div>
-                <div
-                  className={`mt-2 flex max-w-[76px] items-center justify-center gap-1 text-center text-[11.5px] leading-tight ${STEPPER_LABEL_STYLES[state]}`}
-                >
-                  {STAGE_SHORT_LABELS[stage]}
-                  {stage === "claude" && <ClaudeSparkleIcon />}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="mt-4 flex flex-col">
@@ -412,14 +440,35 @@ export function RunStatus({ runId }: { runId: string }) {
       </div>
 
       {hasChecks && (
+        <div className="mt-5">
+          <RiskSummaryBar summary={riskSummary} />
+        </div>
+      )}
+
+      {hasChecks && run.status !== "running" && (
         <div
-          className="mt-5 flex flex-col gap-2 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5"
+          className="mt-3.5 flex items-center gap-3.5 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3.5"
           style={{ borderLeft: `3px solid ${OUTCOME_BORDER_COLOR[riskOutcome]}` }}
         >
-          <RiskSummaryBar summary={riskSummary} />
+          <CheckCircleIcon />
+          <div className="flex-1">
+            <div className="font-bold">점검 완료 · {getRepoDisplayName(run.repoUrl)}</div>
+            <div className="text-xs text-[var(--color-muted)]">
+              {checks.length}개 항목 점검 ·{" "}
+              <b className="text-[var(--color-fail)]">심각 {riskSummary.severityCounts.Critical}</b> ·{" "}
+              <b className="text-[var(--color-review)]">높음 {riskSummary.severityCounts.High}</b> 발견 ·{" "}
+              {aiCount > 0 ? (
+                <span className="inline-flex items-center gap-1 align-[-2px] text-[var(--color-secondary)]">
+                  개선안 생성됨 <ClaudeSparkleIcon />
+                </span>
+              ) : (
+                "룰 기반 판정 완료"
+              )}
+            </div>
+          </div>
           <Link
             href={`/runs/${runId}/report`}
-            className="self-end text-[12.5px] font-semibold text-[var(--color-primary)] hover:underline"
+            className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold whitespace-nowrap text-white hover:opacity-90"
           >
             상세 리포트 보기 →
           </Link>
