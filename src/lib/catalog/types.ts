@@ -6,9 +6,16 @@ export type Severity = "Critical" | "High" | "Medium" | "Low";
 // Distinct from CheckStatus, which is the per-run outcome of that rule.
 export type AutomationStatus = "automated" | "not_automated";
 
+export interface Framework {
+  id: string;
+  name: string;
+  docVersion?: string;
+}
+
 export interface CatalogItem {
   id: string;
   category: Category;
+  frameworkId: string;
   title: string;
   severity: Severity;
   automationStatus: AutomationStatus;

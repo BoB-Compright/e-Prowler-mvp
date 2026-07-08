@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCatalog, getCatalogItem, getCatalogSummary } from "./index";
+import { getCatalog, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
   it("loads all 102 items across the three categories", () => {
@@ -32,5 +32,24 @@ describe("catalog", () => {
     expect(getCatalogItem("C-01")?.automationStatus).toBe("automated");
     expect(getCatalogItem("C-02")?.automationStatus).toBe("automated");
     expect(getCatalogItem("U-16")?.automationStatus).toBe("automated");
+  });
+
+  it("tags every item with a frameworkId registered in getFrameworks()", () => {
+    const registeredIds = new Set(getFrameworks().map((framework) => framework.id));
+    for (const item of getCatalog()) {
+      expect(registeredIds.has(item.frameworkId)).toBe(true);
+    }
+  });
+
+  it("registers KISA as the only framework, covering all 102 items", () => {
+    const frameworks = getFrameworks();
+    expect(frameworks).toHaveLength(1);
+    expect(frameworks[0]).toMatchObject({
+      id: "kisa",
+      name: "KISA 주요정보통신기반시설 가이드",
+    });
+
+    const summary = getCatalogSummary();
+    expect(summary.byFramework.kisa).toBe(102);
   });
 });
