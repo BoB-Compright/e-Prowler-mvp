@@ -538,6 +538,490 @@ export function evaluateU16(tasks: AnsibleTaskOutput[]): CheckResult {
   };
 }
 
+// Shared by every U-1x/U-2x "owner + mode" check below (U-18..U-22, U-24,
+// U-29, U-31): neither group nor other should have write permission. Same
+// bit logic as isSafePasswdMode (U-16) but kept separate/generic since it's
+// reused across many unrelated files/dirs, not just /etc/passwd.
+function hasNoGroupOrOtherWrite(mode: string): boolean {
+  if (!/^[0-7]{3,4}$/.test(mode)) return false;
+  const [group, other] = mode.slice(-3).split("").map(Number).slice(1);
+  return (group & 2) === 0 && (other & 2) === 0;
+}
+
+// U-18 (/etc/shadow) needs a stricter bar than hasNoGroupOrOtherWrite: only
+// the owner (and optionally a trusted group, e.g. Debian's "shadow" group)
+// should have any access at all — "other" must have zero permissions.
+function isSafeShadowMode(mode: string): boolean {
+  if (!/^[0-7]{3,4}$/.test(mode)) return false;
+  const [group, other] = mode.slice(-3).split("").map(Number).slice(1);
+  return other === 0 && (group & 2) === 0;
+}
+
+// Caps long file-list evidence (U-15/U-23/U-25/U-26/U-33 can each turn up
+// many hits on a real image) so evidence strings stay readable.
+function summarizeList(items: string[], max = 10): string {
+  if (items.length <= max) return items.join(", ");
+  return `${items.slice(0, max).join(", ")} 외 ${items.length - max}건`;
+}
+
+export function evaluateU14(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-14")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-14", status: "skip", evidence: "대상 컨테이너에 /root 디렉터리가 존재하지 않음" };
+  }
+
+  const lines = stdout.split("\n").filter(Boolean);
+  const [ownerGroup, mode] = (lines[0] ?? "").trim().split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root";
+  const isSafeMode = hasNoGroupOrOtherWrite(mode ?? "");
+
+  const pathLines = lines.slice(1).filter(isActiveLine);
+  const pathValues = pathLines.map((line) => line.split("=").slice(1).join("=").trim());
+  // "." (or an empty component, e.g. a leading/trailing/doubled ":") in PATH
+  // means "current directory", which lets an attacker-planted binary in a
+  // cwd shadow a real command.
+  const hasCurrentDirInPath = pathValues.some((value) =>
+    value.split(":").some((component) => component === "." || component === ""),
+  );
+
+  const fail = !isRootOwned || !isSafeMode || hasCurrentDirInPath;
+
+  return {
+    id: "U-14",
+    status: fail ? "fail" : "pass",
+    evidence:
+      `root 홈 디렉터리 소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}` +
+      (hasCurrentDirInPath ? " / PATH에 현재 디렉터리(.) 포함됨" : " / PATH에 현재 디렉터리 없음"),
+  };
+}
+
+export function evaluateU15(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-15")?.stdout.trim() ?? "";
+  const offenders = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+
+  if (offenders.length === 0) {
+    return { id: "U-15", status: "pass", evidence: "소유자/그룹이 없는 파일 또는 디렉터리가 없음" };
+  }
+  return {
+    id: "U-15",
+    status: "fail",
+    evidence: `소유자 또는 그룹이 존재하지 않는 파일 발견: ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU17(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-17")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-17", status: "skip", evidence: "/etc/init.d가 존재하지 않음 (init 스크립트 미사용)" };
+  }
+
+  const offenders = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+  return {
+    id: "U-17",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "시스템 시작 스크립트 소유자/권한이 안전함"
+        : `소유자가 root가 아니거나 그룹/전체 쓰기 권한이 있는 시작 스크립트: ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU18(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-18")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-18", status: "skip", evidence: "대상 컨테이너에 /etc/shadow가 존재하지 않음" };
+  }
+
+  const [ownerGroup, mode] = stdout.split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root" || ownerGroup === "root:shadow";
+  // Classic KISA guidance is "400 or stricter", but Debian/Ubuntu ship
+  // root:shadow 640 by default (group-readable only by the trusted "shadow"
+  // group, used by setgid passwd/chsh/etc.) — that's an equally secure,
+  // widely-deployed standard, not a misconfiguration. Require: no write for
+  // group, and zero access at all for other.
+  const isSafeMode = isSafeShadowMode(mode ?? "");
+  const fail = !isRootOwned || !isSafeMode;
+
+  return {
+    id: "U-18",
+    status: fail ? "fail" : "pass",
+    evidence: `소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}`,
+  };
+}
+
+export function evaluateU19(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-19")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-19", status: "skip", evidence: "대상 컨테이너에 /etc/hosts가 존재하지 않음" };
+  }
+
+  const [ownerGroup, mode] = stdout.split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root";
+  const isSafeMode = hasNoGroupOrOtherWrite(mode ?? "");
+  const fail = !isRootOwned || !isSafeMode;
+
+  return {
+    id: "U-19",
+    status: fail ? "fail" : "pass",
+    evidence: `소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}`,
+  };
+}
+
+function parseNamedStatLines(stdout: string): { name: string; ownerGroup: string; mode: string }[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, ownerGroup, mode] = line.split(/\s+/);
+      return { name, ownerGroup, mode };
+    });
+}
+
+export function evaluateU20(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-20")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-20", status: "skip", evidence: "(x)inetd.conf가 존재하지 않음 ((x)inetd 미사용)" };
+  }
+
+  const entries = parseNamedStatLines(stdout);
+  const offenders = entries.filter(
+    ({ ownerGroup, mode }) => ownerGroup !== "root:root" || !hasNoGroupOrOtherWrite(mode),
+  );
+
+  return {
+    id: "U-20",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? `점검 대상 소유자/권한 안전함: ${entries.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`
+        : `소유자/권한 미흡: ${offenders.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`,
+  };
+}
+
+export function evaluateU21(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-21")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-21", status: "skip", evidence: "(r)syslog.conf가 존재하지 않음 (syslog 미사용)" };
+  }
+
+  const entries = parseNamedStatLines(stdout);
+  const offenders = entries.filter(
+    ({ ownerGroup, mode }) => ownerGroup !== "root:root" || !hasNoGroupOrOtherWrite(mode),
+  );
+
+  return {
+    id: "U-21",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? `점검 대상 소유자/권한 안전함: ${entries.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`
+        : `소유자/권한 미흡: ${offenders.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`,
+  };
+}
+
+export function evaluateU22(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-22")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-22", status: "skip", evidence: "대상 컨테이너에 /etc/services가 존재하지 않음" };
+  }
+
+  const [ownerGroup, mode] = stdout.split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root";
+  const isSafeMode = hasNoGroupOrOtherWrite(mode ?? "");
+  const fail = !isRootOwned || !isSafeMode;
+
+  return {
+    id: "U-22",
+    status: fail ? "fail" : "pass",
+    evidence: `소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}`,
+  };
+}
+
+export function evaluateU23(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-23")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-23", status: "skip", evidence: "world-writable 임시 디렉터리(/tmp, /var/tmp, /dev/shm)가 없음" };
+  }
+
+  const offenders = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+  return {
+    id: "U-23",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "world-writable 디렉터리 내 SUID/SGID/Sticky-bit 파일 없음"
+        : `world-writable 디렉터리 내 SUID/SGID/Sticky-bit 파일 발견: ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU24(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-24")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-24", status: "skip", evidence: "시스템 환경변수 파일(/etc/profile 등)이 존재하지 않음" };
+  }
+
+  const entries = parseNamedStatLines(stdout);
+  const offenders = entries.filter(
+    ({ ownerGroup, mode }) => ownerGroup !== "root:root" || !hasNoGroupOrOtherWrite(mode),
+  );
+
+  return {
+    id: "U-24",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? `환경변수 파일 소유자/권한 안전함: ${entries.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`
+        : `소유자/권한 미흡: ${offenders.map((e) => `${e.name} ${e.ownerGroup} ${e.mode}`).join(", ")}`,
+  };
+}
+
+export function evaluateU25(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-25")?.stdout.trim() ?? "";
+  const offenders = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+
+  if (offenders.length === 0) {
+    return { id: "U-25", status: "pass", evidence: "world-writable 파일이 발견되지 않음" };
+  }
+  return { id: "U-25", status: "fail", evidence: `world-writable 파일 발견: ${summarizeList(offenders)}` };
+}
+
+// Device nodes Docker itself always bind-mounts into every container. On
+// some Docker host setups (e.g. Docker Desktop's virtualized Linux VM),
+// `find -type f` misreports these as regular files even though `stat`
+// correctly reports them as character devices — a stat/statx quirk of the
+// bind mount, not a real "irregular file" finding. Same allowlist idea as
+// EXPECTED_SETUID_BINARIES for C-06.
+const EXPECTED_DEV_ENTRIES = new Set([
+  "/dev/console",
+  "/dev/tty",
+  "/dev/ptmx",
+  "/dev/null",
+  "/dev/zero",
+  "/dev/full",
+  "/dev/random",
+  "/dev/urandom",
+]);
+
+export function evaluateU26(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-26")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-26", status: "skip", evidence: "대상 컨테이너에 /dev 디렉터리가 존재하지 않음" };
+  }
+
+  const offenders = (stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : []).filter(
+    (path) => !EXPECTED_DEV_ENTRIES.has(path),
+  );
+  return {
+    id: "U-26",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "/dev 내 비정상적인(일반 파일 형태) 장치 파일이 없음"
+        : `/dev 내 정상적이지 않은 파일 발견: ${summarizeList(offenders)}`,
+  };
+}
+
+export function evaluateU27(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-27")?.stdout.trim() ?? "";
+  const [, equivSection = "", afterEquiv = stdout] = stdout.split(/__EQUIV_START__|__EQUIV_END__/);
+  const hasEquivRule = equivSection.split("\n").some(isActiveLine);
+  const rhostsFiles = afterEquiv
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line !== "__EQUIV_START__" && line !== "__EQUIV_END__");
+
+  const fail = hasEquivRule || rhostsFiles.length > 0;
+
+  return {
+    id: "U-27",
+    status: fail ? "fail" : "pass",
+    evidence: fail
+      ? `신뢰 관계 설정 발견: ${hasEquivRule ? "/etc/hosts.equiv에 활성 항목 있음" : ""}${
+          hasEquivRule && rhostsFiles.length > 0 ? " / " : ""
+        }${rhostsFiles.length > 0 ? `.rhosts 파일: ${summarizeList(rhostsFiles)}` : ""}`
+      : "/etc/hosts.equiv 미사용 및 $HOME/.rhosts 파일 없음",
+  };
+}
+
+export function evaluateU28(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-28")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return {
+      id: "U-28",
+      status: "skip",
+      evidence: "접속 제어 메커니즘(hosts.allow/deny, iptables)이 확인되지 않음",
+    };
+  }
+
+  const allowMatch = stdout.match(/__ALLOW_START__([\s\S]*?)__ALLOW_END__/);
+  const denyMatch = stdout.match(/__DENY_START__([\s\S]*?)__DENY_END__/);
+  const iptablesMatch = stdout.match(/__IPTABLES_START__([\s\S]*?)__IPTABLES_END__/);
+
+  const hasAllowDenyRule =
+    (allowMatch?.[1].split("\n").some(isActiveLine) ?? false) ||
+    (denyMatch?.[1].split("\n").some(isActiveLine) ?? false);
+
+  const iptablesRuleLines = (iptablesMatch?.[1] ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^(ACCEPT|DROP|REJECT|LOG)\b/.test(line));
+
+  const fail = !hasAllowDenyRule && iptablesRuleLines.length === 0;
+
+  return {
+    id: "U-28",
+    status: fail ? "fail" : "pass",
+    evidence: fail
+      ? "hosts.allow/deny와 iptables 어디에도 접속 IP/포트 제한 규칙이 없음"
+      : `접속 제한 규칙 발견 (${hasAllowDenyRule ? "hosts.allow/deny" : ""}${
+          hasAllowDenyRule && iptablesRuleLines.length > 0 ? ", " : ""
+        }${iptablesRuleLines.length > 0 ? "iptables" : ""})`,
+  };
+}
+
+export function evaluateU29(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-29")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "U-29", status: "skip", evidence: "/etc/hosts.lpd가 존재하지 않음 (LPD 미사용)" };
+  }
+
+  const [ownerGroup, mode] = stdout.split(/\s+/);
+  const isRootOwned = ownerGroup === "root:root";
+  const isSafeMode = hasNoGroupOrOtherWrite(mode ?? "");
+  const fail = !isRootOwned || !isSafeMode;
+
+  return {
+    id: "U-29",
+    status: fail ? "fail" : "pass",
+    evidence: `소유자: ${ownerGroup ?? "확인 불가"}, 권한: ${mode ?? "확인 불가"}`,
+  };
+}
+
+export function evaluateU30(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-30")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-30", status: "skip", evidence: "UMASK을 설정할 시스템 파일이 존재하지 않음" };
+  }
+
+  const activeLines = stdout.split("\n").filter(isActiveLine).filter((line) => /umask/i.test(line));
+  if (activeLines.length === 0) {
+    return { id: "U-30", status: "fail", evidence: "UMASK 설정이 없어 기본값을 신뢰할 수 없음" };
+  }
+
+  const lastValue = activeLines[activeLines.length - 1].trim().split(/\s+/).pop() ?? "";
+  const mask = /^[0-7]{3,4}$/.test(lastValue) ? parseInt(lastValue, 8) : NaN;
+  // Secure UMASK must remove write permission for both group and other
+  // (i.e. include at least the 022 bits) for newly created files.
+  const fail = Number.isNaN(mask) || (mask & 0o022) !== 0o022;
+
+  return {
+    id: "U-30",
+    status: fail ? "fail" : "pass",
+    evidence: `UMASK=${lastValue || "확인 불가"}`,
+  };
+}
+
+export function evaluateU31(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-31")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-31", status: "skip", evidence: "/etc/passwd가 존재하지 않음" };
+  }
+
+  // Only interactive (login-capable) accounts' home directories matter here
+  // — system/service accounts commonly have loosely-owned or shared homes
+  // (e.g. /nonexistent, /) that aren't a real misconfiguration.
+  const offenders: string[] = [];
+  for (const line of stdout.split("\n")) {
+    // Each line is "name:shell:owner mode" (see U-31 task in security-checks.yml).
+    const match = line.trim().match(/^([^:]*):([^:]*):(\S+) (\S+)$/);
+    if (!match) continue;
+    const [, accountName, accountShell, owner, homeMode] = match;
+    if (NOLOGIN_SHELLS.has(accountShell)) continue;
+    if (owner !== accountName || !hasNoGroupOrOtherWrite(homeMode)) {
+      offenders.push(`${accountName}(소유자:${owner}, 권한:${homeMode})`);
+    }
+  }
+
+  return {
+    id: "U-31",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "로그인 가능 계정의 홈 디렉터리 소유자/권한이 안전함"
+        : `홈 디렉터리 소유자/권한 미흡: ${offenders.join(", ")}`,
+  };
+}
+
+export function evaluateU32(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-32")?.stdout.trim() ?? "";
+  if (stdout === MISSING_MARKER) {
+    return { id: "U-32", status: "skip", evidence: "/etc/passwd가 존재하지 않음" };
+  }
+
+  const offenders = stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, , home, shell] = line.split(":");
+      return { name, home, shell: shell ?? "" };
+    })
+    .filter(({ shell }) => !NOLOGIN_SHELLS.has(shell));
+
+  return {
+    id: "U-32",
+    status: offenders.length === 0 ? "pass" : "fail",
+    evidence:
+      offenders.length === 0
+        ? "모든 로그인 계정의 홈 디렉터리가 실제로 존재함"
+        : `홈 디렉터리가 존재하지 않는 계정: ${offenders.map((o) => `${o.name}(${o.home})`).join(", ")}`,
+  };
+}
+
+// Legitimate dotfiles/dirs commonly created by base images and interactive
+// shells — everything else under a hidden name in these paths is treated as
+// suspicious (a well-known technique for hiding payloads is naming a file
+// "...", ".. " or similar so it's invisible to a casual `ls`).
+const EXPECTED_HIDDEN_ENTRIES = new Set([
+  ".bashrc",
+  ".bash_profile",
+  ".bash_logout",
+  ".bash_history",
+  ".profile",
+  ".cache",
+  ".config",
+  ".local",
+  ".ssh",
+  ".gnupg",
+  ".vim",
+  ".viminfo",
+  ".wget-hsts",
+  ".npm",
+  ".docker",
+  ".lesshst",
+  ".ansible",
+]);
+
+export function evaluateU33(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stdout = findTaskOutput(tasks, "U-33")?.stdout.trim() ?? "";
+  const entries = stdout ? stdout.split("\n").map((line) => line.trim()).filter(Boolean) : [];
+  const suspicious = entries.filter((entryPath) => {
+    const base = entryPath.split("/").pop() ?? "";
+    return !EXPECTED_HIDDEN_ENTRIES.has(base);
+  });
+
+  if (suspicious.length === 0) {
+    return { id: "U-33", status: "pass", evidence: "표준적이지 않은 숨겨진 파일/디렉터리가 발견되지 않음" };
+  }
+  return {
+    id: "U-33",
+    status: "fail",
+    evidence: `점검이 필요한 숨겨진 파일/디렉터리 발견: ${summarizeList(suspicious)}`,
+  };
+}
+
 // Composition point: every check the pipeline runs gets added here (C/U/W).
 // findings is null for the local-image fallback path (#41) — see evaluateC01.
 export function evaluateAllChecks(
@@ -568,5 +1052,24 @@ export function evaluateAllChecks(
     evaluateU12(tasks),
     evaluateU13(tasks),
     evaluateU16(tasks),
+    evaluateU14(tasks),
+    evaluateU15(tasks),
+    evaluateU17(tasks),
+    evaluateU18(tasks),
+    evaluateU19(tasks),
+    evaluateU20(tasks),
+    evaluateU21(tasks),
+    evaluateU22(tasks),
+    evaluateU23(tasks),
+    evaluateU24(tasks),
+    evaluateU25(tasks),
+    evaluateU26(tasks),
+    evaluateU27(tasks),
+    evaluateU28(tasks),
+    evaluateU29(tasks),
+    evaluateU30(tasks),
+    evaluateU31(tasks),
+    evaluateU32(tasks),
+    evaluateU33(tasks),
   ];
 }
