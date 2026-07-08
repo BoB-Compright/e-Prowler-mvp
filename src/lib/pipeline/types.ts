@@ -22,8 +22,6 @@ export type Stage =
 
 export type RunStatus = "running" | "succeeded" | "failed";
 
-export type RunTriggerType = "manual" | "scheduled";
-
 // "local_image" is the fallback path (#41): re-scan an already-built image
 // instead of cloning/building, skipping straight to sandbox. "server" (A2) is
 // an SSH-scanned server asset run, driven by the connect/ansible_scan/... stages.
@@ -40,7 +38,6 @@ export interface Run {
   errorMessage: string | null;
   assetId: string | null;
   batchId: string | null;
-  triggerType: RunTriggerType;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
-import { appendEvent, createRun, getRun, listRunEvents, listRuns, markRunTriggerType, updateRunStage } from "./runs";
+import { appendEvent, createRun, getRun, listRunEvents, listRuns, updateRunStage } from "./runs";
 
 let db: Database;
 
@@ -71,14 +71,5 @@ describe("run store", () => {
 
     const listed = listRuns(db).find((r) => r.id === run.id);
     expect(listed?.assetId).toBe("asset-1");
-  });
-
-  it("defaults triggerType to manual and can be marked scheduled", () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
-    expect(run.triggerType).toBe("manual");
-
-    markRunTriggerType(run.id, "scheduled", db);
-
-    expect(getRun(run.id, db)!.triggerType).toBe("scheduled");
   });
 });
