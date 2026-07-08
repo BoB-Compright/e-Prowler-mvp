@@ -17,5 +17,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const assets = listAssets({ projectId: result.project.id });
   const assetIds = new Set(assets.map((asset) => asset.id));
   const runs = listRuns().filter((run) => run.assetId && assetIds.has(run.assetId));
-  return NextResponse.json({ project: result.project, assets, runs });
+
+  const publicProject = { name: result.project.name, pmName: result.project.pmName };
+  const publicAssets = assets.map((asset) => ({
+    id: asset.id,
+    displayName: asset.displayName,
+    type: asset.type,
+  }));
+
+  return NextResponse.json({ project: publicProject, assets: publicAssets, runs });
 }
