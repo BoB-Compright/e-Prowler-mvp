@@ -15,8 +15,14 @@ function formatTimestamp(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
 }
 
-export default function RunsPage() {
-  const runs = listRuns();
+export default async function RunsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ repo?: string }>;
+}) {
+  const { repo } = await searchParams;
+  const allRuns = listRuns();
+  const runs = repo ? allRuns.filter((run) => run.repoUrl === repo) : allRuns;
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-10">
@@ -25,10 +31,24 @@ export default function RunsPage() {
         <span className="text-xs text-[var(--color-muted)]">레포별 최근 점검 결과 · 심각도 요약 비교</span>
       </div>
 
-      {runs.length === 0 ? (
+      {repo && (
+        <div className="mb-3 flex items-center gap-2 text-xs text-[var(--color-muted)]">
+          <span>
+            <span className="font-mono font-bold text-[var(--color-text)]">{getRepoDisplayName(repo)}</span>
+            {" "}이력만 표시 중 · {runs.length}건
+          </span>
+          <Link href="/runs" className="font-semibold text-[var(--color-primary)] hover:underline">
+            전체 보기
+          </Link>
+        </div>
+      )}
+
+      {allRuns.length === 0 ? (
         <p className="text-[13px] text-[var(--color-muted)] italic">
           아직 실행된 점검이 없습니다 — 점검 실행 탭에서 레포 URL을 입력해 첫 점검을 시작하세요.
         </p>
+      ) : runs.length === 0 ? (
+        <p className="text-[13px] text-[var(--color-muted)] italic">이 레포에 대한 점검 이력이 없습니다.</p>
       ) : (
         <div className="overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)]">
           <table className="w-full border-collapse text-sm">
@@ -74,7 +94,13 @@ export default function RunsPage() {
                       >
                         {getRepoDisplayName(run.repoUrl)}
                       </Link>
-                      <div className="font-mono text-[11px] text-[var(--color-muted)]">{run.repoUrl}</div>
+                      <Link
+                        href={`/runs?repo=${encodeURIComponent(run.repoUrl)}`}
+                        className="block font-mono text-[11px] text-[var(--color-muted)] hover:text-[var(--color-primary)] hover:underline"
+                        title="이 레포의 이력만 보기"
+                      >
+                        {run.repoUrl}
+                      </Link>
                     </td>
                     <td className="px-3.5 py-2.5 font-mono text-[var(--color-muted)]">
                       {formatTimestamp(run.updatedAt)}
