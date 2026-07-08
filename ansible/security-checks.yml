@@ -309,6 +309,266 @@
       register: u33_result
       changed_when: false
 
+    # U-34..U-67 (KISA guide, service/patch/log management, #46). Same idioms
+    # as U-01..U-33: existence/binary-guarded checks, `echo __MISSING__` for
+    # "nothing to evaluate", trailing `; true` on any command that can exit
+    # non-zero (grep/find with no match). Most of U-34..U-61 ask "is this
+    # legacy/unnecessary service installed at all" -- on a minimal container
+    # image the correct, expected outcome is overwhelmingly "skip" (the
+    # service was never installed), not a false "pass" or "fail". Several
+    # items share detection/config-dump helper tasks (mirroring the
+    # nginx-detection idiom from #47) so the many U-53..U-61 FTP/SNMP items
+    # don't each re-implement "is FTP/SNMP even present" from scratch.
+    - name: "U-34: finger service presence"
+      ansible.builtin.raw: >-
+        sh -c 'for c in fingerd in.fingerd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        if [ -d /etc/xinetd.d ]; then for f in finger; do [ -e "/etc/xinetd.d/$f" ] && echo "CONF:$f"; done; fi;
+        if [ -e /etc/inetd.conf ]; then grep -i "^finger" /etc/inetd.conf 2>/dev/null | sed "s/^/CONF:/"; fi; true'
+      register: u34_result
+      changed_when: false
+
+    - name: "U-35: shared service anonymous access"
+      # "공유 서비스" here covers the classic KISA anonymous-access surfaces:
+      # Samba guest access and NFS's no_root_squash/insecure export options.
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        if [ -e /etc/samba/smb.conf ]; then found=1; grep -iE "guest ok|map to guest" /etc/samba/smb.conf 2>/dev/null | sed "s/^/SMB:/"; fi;
+        if [ -e /etc/exports ]; then found=1; grep -E "no_root_squash|insecure" /etc/exports 2>/dev/null | sed "s/^/NFS:/"; fi;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u35_result
+      changed_when: false
+
+    - name: "U-36: r-series services (rsh/rlogin/rexec)"
+      ansible.builtin.raw: >-
+        sh -c 'for c in rshd rlogind rexecd in.rshd in.rlogind in.rexecd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        if [ -d /etc/xinetd.d ]; then for f in shell login exec rsh rlogin rexec; do [ -e "/etc/xinetd.d/$f" ] && echo "CONF:$f"; done; fi;
+        if [ -e /etc/inetd.conf ]; then grep -iE "^(shell|login|exec)\b" /etc/inetd.conf 2>/dev/null | sed "s/^/CONF:/"; fi; true'
+      register: u36_result
+      changed_when: false
+
+    - name: "U-37: crontab configuration file permissions"
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        if [ -e /etc/crontab ]; then stat -c "FILE /etc/crontab %U:%G %a" /etc/crontab; found=1; fi;
+        if [ -d /etc/cron.d ]; then stat -c "FILE /etc/cron.d %U:%G %a" /etc/cron.d; found=1; fi;
+        if [ -d /var/spool/cron ]; then stat -c "FILE /var/spool/cron %U:%G %a" /var/spool/cron; found=1; fi;
+        if [ -d /var/spool/cron/crontabs ]; then stat -c "FILE /var/spool/cron/crontabs %U:%G %a" /var/spool/cron/crontabs; found=1; fi;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u37_result
+      changed_when: false
+
+    - name: "U-38: DoS-prone inetd services (echo/discard/daytime/chargen)"
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        if [ -d /etc/xinetd.d ]; then for f in echo echo-udp discard discard-udp daytime daytime-udp chargen chargen-udp; do
+        if [ -e "/etc/xinetd.d/$f" ]; then found=1;
+        if grep -qiE "^[[:space:]]*disable[[:space:]]*=[[:space:]]*no" "/etc/xinetd.d/$f" 2>/dev/null; then echo "ACTIVE:$f"; else echo "PRESENT:$f"; fi; fi; done; fi;
+        if [ -e /etc/inetd.conf ]; then found=1; grep -iE "^(echo|discard|daytime|chargen)\b" /etc/inetd.conf 2>/dev/null | sed "s/^/ACTIVE:/"; fi;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u38_result
+      changed_when: false
+
+    - name: "U-39: unnecessary NFS service"
+      ansible.builtin.raw: >-
+        sh -c 'for c in rpc.nfsd nfsd rpc.mountd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        for f in nfs nfs-server nfs-kernel-server; do [ -e "/etc/init.d/$f" ] && echo "SVC:$f"; done; true'
+      register: u39_result
+      changed_when: false
+
+    - name: "U-40: NFS export access control"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/exports ]; then cat /etc/exports; else echo __MISSING__; fi; true'
+      register: u40_result
+      changed_when: false
+
+    - name: "U-41: unnecessary automountd"
+      ansible.builtin.raw: >-
+        sh -c 'for c in automount autofs; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        [ -e /etc/init.d/autofs ] && echo "SVC:autofs"; true'
+      register: u41_result
+      changed_when: false
+
+    - name: "U-42: unnecessary RPC services"
+      ansible.builtin.raw: >-
+        sh -c 'for c in rpcbind portmap rpc.statd rpc.lockd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done; true'
+      register: u42_result
+      changed_when: false
+
+    - name: "U-43: NIS/NIS+ service"
+      ansible.builtin.raw: >-
+        sh -c 'for c in ypserv ypbind ypxfrd rpc.yppasswdd ypcat ypmatch; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        [ -e /etc/yp.conf ] && echo "CONF:yp.conf"; true'
+      register: u43_result
+      changed_when: false
+
+    - name: "U-44: tftp/talk services"
+      ansible.builtin.raw: >-
+        sh -c 'for c in tftpd in.tftpd talkd in.talkd ntalkd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        if [ -d /etc/xinetd.d ]; then for f in tftp talk ntalk; do [ -e "/etc/xinetd.d/$f" ] && echo "CONF:$f"; done; fi;
+        if [ -e /etc/inetd.conf ]; then grep -iE "^(tftp|talk|ntalk)\b" /etc/inetd.conf 2>/dev/null | sed "s/^/CONF:/"; fi; true'
+      register: u44_result
+      changed_when: false
+
+    - name: "mail service detection (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v postconf >/dev/null 2>&1; then echo postfix;
+        elif command -v sendmail >/dev/null 2>&1; then echo sendmail;
+        elif command -v exim >/dev/null 2>&1 || command -v exim4 >/dev/null 2>&1; then echo exim;
+        else echo absent; fi; true'
+      register: mail_detect_result
+      changed_when: false
+
+    - name: "U-45: mail service version"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v postconf >/dev/null 2>&1; then echo "postfix $(postconf -d mail_version 2>/dev/null)";
+        elif command -v sendmail >/dev/null 2>&1; then sendmail -d0.1 -bt </dev/null 2>/dev/null | grep -i version;
+        elif command -v exim >/dev/null 2>&1; then exim -bV 2>/dev/null | head -1;
+        else echo __MISSING__; fi; true'
+      register: u45_result
+      changed_when: false
+
+    - name: "U-46: mail queue access restriction"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/mail/sendmail.cf ]; then grep -i "^O PrivacyOptions" /etc/mail/sendmail.cf; fi; true'
+      register: u46_result
+      changed_when: false
+
+    - name: "U-47: mail relay restriction"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/postfix/main.cf ]; then grep -E "^(mynetworks|smtpd_relay_restrictions|smtpd_recipient_restrictions)" /etc/postfix/main.cf;
+        elif [ -e /etc/mail/access ]; then cat /etc/mail/access; fi; true'
+      register: u47_result
+      changed_when: false
+
+    - name: "U-48: SMTP EXPN/VRFY command restriction"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/postfix/main.cf ]; then grep -E "^disable_vrfy_command" /etc/postfix/main.cf;
+        elif [ -e /etc/mail/sendmail.cf ]; then grep -i "^O PrivacyOptions" /etc/mail/sendmail.cf; fi; true'
+      register: u48_result
+      changed_when: false
+
+    - name: "dns service detection (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v named >/dev/null 2>&1; then echo present; else echo absent; fi; true'
+      register: dns_detect_result
+      changed_when: false
+
+    - name: "dns effective config (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/bind/named.conf.options ]; then cat /etc/bind/named.conf.options;
+        elif [ -e /etc/named.conf ]; then cat /etc/named.conf;
+        else echo __MISSING__; fi; true'
+      register: dns_config_result
+      changed_when: false
+
+    - name: "U-49: DNS service version"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v named >/dev/null 2>&1; then named -v 2>&1; else echo __MISSING__; fi; true'
+      register: u49_result
+      changed_when: false
+
+    - name: "U-52: telnet service"
+      ansible.builtin.raw: >-
+        sh -c 'for c in telnetd in.telnetd; do command -v "$c" >/dev/null 2>&1 && echo "BIN:$c"; done;
+        if [ -e /etc/xinetd.d/telnet ]; then echo "CONF:telnet"; fi;
+        if [ -e /etc/inetd.conf ]; then grep -i "^telnet" /etc/inetd.conf 2>/dev/null | sed "s/^/CONF:/"; fi; true'
+      register: u52_result
+      changed_when: false
+
+    - name: "ftp service detection (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v vsftpd >/dev/null 2>&1; then echo vsftpd;
+        elif command -v proftpd >/dev/null 2>&1; then echo proftpd;
+        elif command -v pure-ftpd >/dev/null 2>&1; then echo pure-ftpd;
+        else echo absent; fi; true'
+      register: ftp_detect_result
+      changed_when: false
+
+    - name: "ftp effective config (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/vsftpd.conf ]; then cat /etc/vsftpd.conf;
+        elif [ -e /etc/vsftpd/vsftpd.conf ]; then cat /etc/vsftpd/vsftpd.conf;
+        elif [ -e /etc/proftpd/proftpd.conf ]; then cat /etc/proftpd/proftpd.conf;
+        else echo __MISSING__; fi; true'
+      register: ftp_config_result
+      changed_when: false
+
+    - name: "U-55: FTP account shell restriction"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then grep -E "^ftp:" /etc/passwd; else echo __MISSING__; fi; true'
+      register: u55_result
+      changed_when: false
+
+    - name: "U-57: ftpusers file configuration"
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        for f in /etc/ftpusers /etc/vsftpd/ftpusers /etc/vsftpd.ftpusers /etc/vsftpd/user_list; do
+        if [ -e "$f" ]; then found=1; echo "FILE:$f"; cat "$f"; fi; done;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u57_result
+      changed_when: false
+
+    - name: "snmp service detection (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v snmpd >/dev/null 2>&1 || [ -e /etc/snmp/snmpd.conf ]; then echo present; else echo absent; fi; true'
+      register: snmp_detect_result
+      changed_when: false
+
+    - name: "snmp effective config (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/snmp/snmpd.conf ]; then cat /etc/snmp/snmpd.conf; else echo __MISSING__; fi; true'
+      register: snmp_config_result
+      changed_when: false
+
+    - name: "U-62: login warning banner"
+      ansible.builtin.raw: >-
+        sh -c 'echo __ISSUE_NET__; cat /etc/issue.net 2>/dev/null; echo __ISSUE__; cat /etc/issue 2>/dev/null; true'
+      register: u62_result
+      changed_when: false
+
+    - name: "U-63: sudo command access management"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/sudoers ]; then cat /etc/sudoers; else echo __MISSING__; fi; true'
+      register: u63_result
+      changed_when: false
+
+    - name: "U-64: periodic security patch application"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v apt-get >/dev/null 2>&1 || command -v dpkg >/dev/null 2>&1; then echo "PKG:apt/dpkg";
+        elif command -v yum >/dev/null 2>&1 || command -v rpm >/dev/null 2>&1; then echo "PKG:yum/rpm";
+        elif command -v apk >/dev/null 2>&1; then echo "PKG:apk";
+        else echo "PKG:unknown"; fi; true'
+      register: u64_result
+      changed_when: false
+
+    - name: "U-65: NTP and time synchronization"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v chronyd >/dev/null 2>&1 || [ -e /etc/chrony.conf ] || [ -e /etc/chrony/chrony.conf ]; then
+        echo __CHRONY__; cat /etc/chrony.conf /etc/chrony/chrony.conf 2>/dev/null;
+        elif command -v ntpd >/dev/null 2>&1 || [ -e /etc/ntp.conf ]; then
+        echo __NTPD__; cat /etc/ntp.conf 2>/dev/null;
+        elif [ -e /etc/systemd/timesyncd.conf ]; then
+        echo __TIMESYNCD__; cat /etc/systemd/timesyncd.conf;
+        else echo __MISSING__; fi; true'
+      register: u65_result
+      changed_when: false
+
+    - name: "U-66: system logging policy"
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        if [ -e /etc/rsyslog.conf ]; then found=1; cat /etc/rsyslog.conf; fi;
+        if [ -e /etc/syslog.conf ]; then found=1; cat /etc/syslog.conf; fi;
+        if [ -d /etc/rsyslog.d ]; then found=1; cat /etc/rsyslog.d/*.conf 2>/dev/null; fi;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u66_result
+      changed_when: false
+
+    - name: "U-67: log directory ownership and permissions"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -d /var/log ]; then stat -c "%U:%G %a" /var/log; else echo __MISSING__; fi'
+      register: u67_result
+      changed_when: false
+
     # W-01..W-26 (KISA guide, web service): nginx-only for MVP scope (#47).
     # The two tasks below are internal helpers, not tied to a single catalog
     # id -- they're matched by exact task name (not the `<id>:` prefix
