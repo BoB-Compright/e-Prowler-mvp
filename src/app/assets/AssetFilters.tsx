@@ -16,13 +16,13 @@ export function AssetFilters({ projects }: { projects: Project[] }) {
 
   return (
     <div className="mb-4 flex gap-3 text-sm">
-      <select defaultValue={searchParams.get("projectId") ?? ""} onChange={(e) => updateParam("projectId", e.target.value)}
+      <select value={searchParams.get("projectId") ?? ""} onChange={(e) => updateParam("projectId", e.target.value)}
         className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1">
         <option value="">전체 프로젝트</option>
         <option value="unassigned">미분류</option>
         {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
       </select>
-      <select defaultValue={searchParams.get("type") ?? ""} onChange={(e) => updateParam("type", e.target.value)}
+      <select value={searchParams.get("type") ?? ""} onChange={(e) => updateParam("type", e.target.value)}
         className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1">
         <option value="">전체 타입</option>
         <option value="repo">레포</option>
