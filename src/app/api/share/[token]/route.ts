@@ -24,6 +24,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     displayName: asset.displayName,
     type: asset.type,
   }));
+  const publicRuns = runs.map((run) => ({
+    id: run.id,
+    status: run.status,
+    createdAt: run.createdAt,
+    assetId: run.assetId,
+  }));
 
-  return NextResponse.json({ project: publicProject, assets: publicAssets, runs });
+  return NextResponse.json({ project: publicProject, assets: publicAssets, runs: publicRuns });
 }
