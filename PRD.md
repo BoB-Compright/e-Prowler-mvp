@@ -1,271 +1,497 @@
-# PRD: AI-Powered Infrastructure Security Scanning Tool (MVP)
 
-**Version:** 2.0  
-**Date:** 2026-06-24  
-**Status:** Ready for Development  
-**Team:** 3 junior developers  
-**Timeline:** 20 days (actual available time: 10-12 days)
+# AI 기반 컨테이너 보안 점검 파이프라인 - MVP Spec v2 Revised
 
----
-
-## Problem Statement
-
-Security teams managing large-scale infrastructure (IDC-level, hundreds to thousands of servers) face critical challenges:
-
-1. **Manual vulnerability assessment** — Infrastructure security checks are performed manually, consuming significant time and resources
-2. **CVE monitoring bottleneck** — Keeping up with daily CVE updates across the entire server fleet is impractical without automation
-3. **Inefficient large-scale operations** — Traditional scan-and-report workflows don't scale to IDC-level deployments
-4. **No centralized visibility** — Security teams lack a unified view of vulnerabilities across the fleet and cannot quickly correlate CVE impacts
-
-This results in delayed vulnerability identification, increased risk exposure, and manual overhead in security operations.
+**작성일:** 2026-07-01
+**기준 문서:** `spec_container_security_v2.md`
+**수정 기준:** v2 구조를 유지하되, v1/PRD에 있던 실제 점검 항목을 반영
+**기간:** 3주 (~7/15). 개발은 본인 단독 진행, 하루 평균 3~5h
+**한 줄 요약:** GitHub 레포 → Docker 자동 빌드 → Sandbox 실행 → Ansible 보안 점검 → Claude 분석 → Web Dashboard로 이어지는 자동 컨테이너 보안 점검 파이프라인
 
 ---
 
-## Solution
+## 0. 이번 수정의 핵심
 
-An AI-powered infrastructure security scanning tool that:
+이번 버전은 기존 v2를 기준으로 아래 두 가지를 반영한 수정본이다.
 
-1. **Automates OS information collection** — Automatically extracts detailed OS, package, and security configuration data from Linux servers via Ansible/SSH
-2. **Analyzes vulnerabilities with AI** — Uses Claude API to intelligently analyze extracted information, identify vulnerabilities, and suggest remediation (in Korean)
-3. **Matches CVE data** — Correlates collected OS/package information with NVD CVE database to identify applicable vulnerabilities on each server
-4. **Provides unified visibility** — Presents vulnerabilities via a web dashboard with severity filtering, server-impact analysis, and remediation guidance
+1. v1/PRD에 포함되어 있던 실제 점검 항목을 v2에 반영한다.
+   - 컨테이너/이미지 하드닝 9개: C-01~C-09
+   - KISA 「주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드」 기반 Unix 서버 점검 항목 67개: U-01~U-67
+   - KISA 「주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드」 기반 웹서비스 점검 항목 27개: W-01~W-27
+   - 총 카탈로그 기준 103개 항목
+2. “KISA 판정”, “KISA 기준 판정”, “KISA 룰 판정”이라는 표현은 사용하지 않는다.
+   - 이유: KISA가 직접 시스템을 판정하는 것처럼 오해될 수 있기 때문이다.
+   - 대체 표현:
+     - “KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 점검 항목”
+     - “가이드 기반 점검 결과”
+     - “가이드 기반 룰 평가”
+     - “Ansible evidence 기반 룰 평가”
 
-The MVP focuses on the core "spine" (3 critical user stories) to validate the approach within 20 days with a junior team.
-
----
-
-## User Stories
-
-### Asset Management
-
-1. As a Security Engineer, I want to import a CSV file containing server IP, hostname, OS type, and credentials, so that I can quickly populate the scanning system with my infrastructure inventory
-2. As a Security Engineer, I want to upload an Excel (.xlsx) file with the same asset data, so that I can use my existing asset tracking spreadsheets
-3. As a Security Engineer, I want to upload a JSON file with asset definitions, so that I can integrate with my infrastructure-as-code tools
-4. As a System Admin, I want to see which rows from my upload failed and why, so that I can fix data quality issues
-5. As a System Admin, I want to see a summary of the upload result (N successfully imported, M failed), so that I can verify the import worked correctly
-6. As a Security Engineer, I want to add a server manually in the dashboard, so that I can update inventory without re-uploading files
-7. As a Security Engineer, I want to edit an existing server's details (IP, hostname, credentials), so that I can keep my inventory up to date
-8. As a Security Engineer, I want to delete a server from the inventory, so that I can remove decommissioned systems
-9. As a Security Engineer, I want to view all servers in the system with their IP, hostname, OS type, and last scan timestamp, so that I can monitor scan coverage
-10. As a Security Engineer, I want to see the status of each server (Normal/Warning/Risk) at a glance, so that I can prioritize which ones need attention
-
-### Credential Security & Authentication
-
-11. As a System Admin, I want passwords and SSH private keys to be stored in encrypted form (AES-256), so that credentials are protected at rest
-12. As a System Admin, I want the encryption key to be loaded from an environment variable (INFRA_SECURITY_MASTER_KEY), so that I can manage keys securely outside the application
-13. As a Security Engineer, I want credentials to be decrypted only during active scans, so that they're not exposed in logs or UI
-14. As a System Admin, I want only Admin users to view encrypted credentials (even in encrypted form), so that access is properly controlled
-15. As a user, I want a secure login page (username/password) to authenticate to the system, so that unauthorized people cannot access vulnerability data
-16. As an Admin, I want to create and manage user accounts, so that I can control who has access
-
-### OS Information Collection (Core MVP Feature)
-
-17. As a Security Engineer, I want to scan Linux servers (5-10 initially) via Ansible/SSH on port 22, so that I can collect infrastructure baselines
-18. As a Security Engineer, I want the system to collect OS version and kernel version information, so that I can identify outdated base systems
-19. As a Security Engineer, I want the system to collect CPU, memory, and disk information, so that I can correlate capacity with vulnerability risks
-20. As a Security Engineer, I want the system to collect the hostname and IP configuration, so that I can understand the network topology
-21. As a Security Engineer, I want the system to extract the complete list of installed packages and their versions, so that I can match against CVE databases
-22. As a Security Engineer, I want the system to identify major services and their running status, so that I can understand the attack surface
-23. As a Security Engineer, I want the system to extract firewall rules and status, so that I can understand network segmentation
-24. As a Security Engineer, I want the system to extract SSH configuration, so that I can audit access controls
-25. As a Security Engineer, I want the system to extract user permission settings, so that I can identify privilege escalation risks
-26. As a Security Engineer, I want the system to check SELinux status, so that I can understand the security module configuration
-27. As a Security Engineer, I want sensitive data (passwords, API keys, private keys) to be masked with **** before storage, so that sensitive info is not exposed
-28. As a Security Engineer, I want to scan up to 10 servers in parallel, so that collection completes quickly
-29. As a Security Engineer, I want failed server scans to be retried up to 3 times with 30-second intervals, so that transient network issues don't block the scan
-30. As a Security Engineer, I want failed servers to be skipped gracefully so that I can scan the rest of the fleet
-31. As a Security Engineer, I want each server scan to timeout after 5 minutes, so that hung connections don't block the entire job
-32. As a Security Engineer, I want detailed logs of which servers succeeded and failed, so that I can troubleshoot collection issues
-
-### AI-Based Vulnerability Analysis (Core MVP Feature)
-
-33. As a Security Engineer, I want the system to analyze collected OS information using Claude API, so that I can identify vulnerabilities using AI reasoning
-34. As a Security Engineer, I want vulnerabilities to be classified by CVSS severity (Critical, High, Medium, Low) based on CVSS v3.1 scores, so that I can prioritize remediation
-35. As a Security Engineer, I want the AI analysis to explain the root cause in Korean, so that my team can understand the technical details
-36. As a Security Engineer, I want the AI to provide remediation steps in Korean, so that my team can act on the findings
-37. As a Security Engineer, I want AI analysis results to include affected servers, so that I know which systems need attention
-38. As a Security Engineer, I want each vulnerability to include a remediation priority score, so that I can efficiently allocate resources
-39. As a Security Engineer, I want the analysis results to reference CVE IDs, so that I can look up additional context
-40. As a Security Engineer, I want the system to automatically match collected packages against CVE databases, so that I identify applicable vulnerabilities
-
-### CVE Database Integration (Core MVP Feature)
-
-41. As a Security Engineer, I want the system to integrate with the NVD CVE API, so that I have access to current vulnerability data
-42. As a Security Engineer, I want the system to automatically match my infrastructure's installed packages against the CVE database, so that I know which systems are affected
-43. As a Security Engineer, I want the system to update the CVE database automatically every day (or on-demand), so that I have current threat intelligence
-44. As a Security Engineer, I want the system to cache CVE data locally, so that scans work even if the NVD API is temporarily down
-45. As a Security Engineer, I want to see the CVE ID, title, description, and CVSS score for each identified vulnerability
-
-### Web Dashboard (Core MVP Feature)
-
-46. As a Security Engineer, I want to see a KPI card showing the total number of servers, so that I understand my scan scope
-47. As a Security Engineer, I want to see a KPI card showing how many servers are in Normal, Warning, or Risk status, so that I can assess fleet health at a glance
-48. As a Security Engineer, I want to see a KPI card showing the count of Critical, High, Medium, and Low vulnerabilities, so that I can understand severity distribution
-49. As a Security Engineer, I want to see a pie chart showing vulnerability distribution by severity, so that I can understand the risk profile visually
-50. As a Security Engineer, I want to view a list of all scanned servers with their IP, hostname, OS, and last scan time, so that I can track coverage
-51. As a Security Engineer, I want to click on a server to see its detailed vulnerability list, so that I can understand which issues affect that system
-52. As a Security Engineer, I want to filter vulnerabilities by severity (Critical, High, Medium, Low), so that I can focus on the most urgent issues
-53. As a Security Engineer, I want to view each vulnerability's CVE ID, title, severity, and CVSS score, so that I have the information needed to triage
-54. As a Security Engineer, I want to view affected servers for each vulnerability, so that I know the scope of impact
-55. As a Security Engineer, I want to view remediation steps in Korean, so that my team can understand how to fix the issues
-56. As a Security Engineer, I want to see references to CVE details (NVD links), so that I can research vulnerabilities further
-57. As a Security Engineer, I want the dashboard to auto-refresh every 1 minute, so that I see the latest scan results
-58. As a Security Engineer, I want a manual refresh button on the dashboard, so that I can get the latest data on-demand
-59. As an Admin user, I want to view all servers and all vulnerabilities, so that I have complete visibility
-60. As a Viewer user, I want to view only servers assigned to my team/department, so that I see only relevant data
-
-### Scan Execution & Data Flow
-
-61. As a Security Engineer, I want to initiate a manual scan from the dashboard, so that I can control when data is collected
-62. As a Security Engineer, I want to see real-time progress as servers are scanned, so that I know the scan is working
-63. As a Security Engineer, I want scan results to be stored in the database, so that I have a permanent record
-64. As a Security Engineer, I want each scan to have a timestamp, so that I can track when information was collected
+> 이 문서에서 말하는 평가 결과는 KISA가 직접 판정한 결과가 아니다. 정적 카탈로그로 사전 정리한 가이드 항목과 Ansible 점검 evidence를 바탕으로, 본 시스템이 내부 룰에 따라 산출하는 점검 결과다.
 
 ---
 
-## Implementation Decisions
+## 1. 문제 정의
 
-### Technology Stack
+**현재 상황 (보안 담당자 본인):**
 
-- **Backend:** Python + FastAPI (async, high performance for parallel operations)
-- **Frontend:** React (component-based, good for dashboard visualization)
-- **Database:** PostgreSQL (relational schema for assets, vulnerabilities, CVE data)
-- **OS Information Collection:** Ansible (orchestration) + SSH (remote execution on Linux)
-- **AI Analysis:** Claude API (intelligent reasoning about vulnerabilities)
-- **CVE Database:** NVD API (public, free, comprehensive)
-- **Encryption:** AES-256 (credentials at rest), bcrypt (password hashing)
-- **Deployment:** Docker containers or local server deployment
+- 개발팀이 올린 레포/컨테이너의 보안 설정을 수동으로 점검하고 있음
+- 점검 항목이 사람마다·시점마다 달라 일관성이 없음
+- Dockerfile 하드닝, 실행 중인 컨테이너의 OS/Web baseline을 각각 따로 확인해야 해서 느리고 누락이 생김
+- 점검 결과(raw 로그)를 해석하고 개선안을 정리하는 데 시간이 많이 듦
+- 여러 레포의 점검 결과를 한 곳에서 비교·관리하기 어려움
 
-### Database Schema
+**해결하려는 것:**
 
-Core entities:
-- **Assets** — IP, hostname, OS type, account credentials (encrypted), last scan timestamp
-- **Vulnerabilities** — CVE ID, title, severity, CVSS score, root cause (Korean), remediation (Korean), affected servers (foreign key), references
-- **CVE Cache** — Local copy of CVE data from NVD API for offline matching
-- **Users** — username, hashed password, role (Admin/Viewer), team assignment
-- **Scan Results** — timestamp, asset ID, success/failure status, collected OS info (JSON), analysis results
-
-### API Contracts (FastAPI)
-
-Key endpoints:
-- `POST /assets/upload` — Accept CSV/Excel/JSON file, parse, validate, store
-- `GET /assets` — List all assets (with pagination)
-- `POST /assets/{id}/scan` — Initiate scan for a single asset
-- `POST /scan` — Initiate fleet-wide scan (parallel)
-- `GET /vulnerabilities` — List vulnerabilities (with filtering, pagination)
-- `GET /vulnerabilities/{cve_id}` — Get details of a specific CVE
-- `GET /dashboard/metrics` — KPI metrics for dashboard
-- `POST /auth/login` — User authentication
-- `POST /cve/update` — Manually trigger CVE database update
-
-### Architectural Decisions
-
-1. **Parallel OS Collection** — Use asyncio in Python to collect from multiple servers concurrently (pool of 5-10 workers) to reduce total collection time
-2. **Credential Encryption at Application Layer** — Encrypt/decrypt credentials in the app (not relying on database encryption alone) for granular control
-3. **Ansible Playbook Generation** — Generate Ansible playbooks dynamically from asset data to collect OS info (simplifies updates, leverages Ansible's SSH abstraction)
-4. **Async AI Analysis** — Call Claude API asynchronously after OS data collection completes, so the UI doesn't block
-5. **CVE Matching Logic** — Match packages by name + version range (e.g., if CVE affects 1.1.0-1.1.1g and server has 1.1.1a, flag it)
-6. **Dashboard Real-time Updates** — Use WebSocket or polling (1-min interval) to push new scan results to the frontend
-
-### Team Role Allocation (Recommended)
-
-- **Developer 1:** Backend (FastAPI) + Ansible orchestration (OS info collection)
-- **Developer 2:** AI analysis logic (Claude API) + CVE database integration
-- **Developer 3:** React frontend + dashboard + basic UI
+- 레포 URL 하나만 넣으면 빌드 → 실행 → 점검 → 분석까지 자동으로 한 바퀴 돌게 함
+- 일관된 점검 기준을 Ansible playbook과 정적 카탈로그로 고정함
+- 점검 기준은 CIS 발췌가 아니라 KISA 「주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드」 기반 점검 항목을 사용함
+- Claude가 raw 결과를 사람이 읽을 수 있는 취약점 설명·심각도·개선안으로 변환함
+- 여러 레포의 점검 결과를 대시보드에서 한눈에 비교·관리함
 
 ---
 
-## Testing Decisions
+## 2. 핵심 사용자 (페르소나)
 
-### What Makes a Good Test
+**주요 사용자:** 보안 담당자 (본인) — 도구를 직접 개발하고 직접 사용
 
-- Tests should verify **external behavior**, not implementation details
-- Tests should be **integration-level** where possible — testing the full data flow from asset to vulnerability report
-- Tests should use real or realistic test data (e.g., actual Linux VMs if available, or mocked Ansible output that matches real Ansible behavior)
-- Tests should not mock the Claude API (use a fixture with known outputs instead)
+- 여러 개발 레포의 컨테이너 보안 상태를 혼자서 점검·관리해야 함
+- CLI 로그를 읽는 데 익숙하지만, 반복적·수동적 점검에 지쳐 있음
+- 필요한 것: “레포 넣고 → 커피 한 잔 → 정리된 리포트 확인”
 
-### Modules & Testing Strategy
-
-1. **Asset Management Module**
-   - Test: CSV/Excel/JSON parsing with valid and invalid data
-   - Test: Credential encryption/decryption round-trip
-   - Test: CRUD operations (create, read, update, delete assets)
-   - Prior art: Use pytest fixtures for sample CSV/Excel files; parametrize tests for different file formats
-
-2. **OS Collection Module (Ansible Integration)**
-   - Test: Ansible playbook generation from asset data
-   - Test: Parallel execution with 5-10 servers (use test VMs or Ansible mocks)
-   - Test: Retry logic (simulate transient failures, verify 3 retries)
-   - Test: Timeout handling (verify scan stops after 5 minutes per server)
-   - Test: Sensitive data masking (verify passwords/keys are masked in results)
-   - Prior art: Use ansible-test or mock Ansible runs; parametrize for success/failure scenarios
-
-3. **AI Analysis Module**
-   - Test: Claude API calls with sample OS data
-   - Test: Vulnerability classification by CVSS score
-   - Test: Korean language output (verify response structure, not just translations)
-   - Prior art: Use fixtures for Claude API responses; mock the HTTP client
-
-4. **CVE Matching Module**
-   - Test: Package version matching logic (e.g., does "openssl 1.1.1a" match CVE for 1.1.0-1.1.1g?)
-   - Test: NVD API integration (mock API responses)
-   - Test: CVE cache fallback (verify system works without live API)
-   - Prior art: Use pytest fixtures for CVE data; parametrize for different package/CVE scenarios
-
-5. **API Endpoints**
-   - Test: `/assets/upload` with valid/invalid files
-   - Test: `/scan` endpoint (trigger full fleet scan, verify all servers queued)
-   - Test: `/vulnerabilities` filtering by severity, pagination
-   - Test: Authentication (valid/invalid credentials)
-   - Prior art: Use FastAPI TestClient; parametrize for different input types
-
-6. **Dashboard Data Flows**
-   - Test: Dashboard KPI calculations (count servers by status, count vuln by severity)
-   - Test: Vulnerability detail page (verify all required fields present)
-   - Test: Filtering on client side (React tests with Vitest or Jest)
-   - Prior art: Use React Testing Library for component tests
-
-### Testing Seams
-
-**High-level seam (preferred):** Mock at the Ansible execution layer and Claude API layer. Integration tests at the FastAPI endpoint level. This allows testing the full flow (asset → collection → analysis → storage → API response) without external dependencies.
+> 개발도 본인 단독으로 순차 진행한다. 개인 PC 로컬 사용을 전제로 하며, 멀티유저·권한·협업 기능은 이번 MVP 범위가 아니다.
 
 ---
 
-## Out of Scope (MVP)
+## 3. 핵심 기능 (MVP) — 5개
 
-The following features are explicitly out of scope for this MVP and planned for future phases:
+전체를 얇게라도 End-to-End 한 바퀴 도는 것이 목표다. 각 단계는 “동작하는 최소 버전”으로 구현한다.
 
-- **Windows Server Support** — WinRM-based Windows OS data collection
-- **Scheduled Scanning** — Cron-based automated scans (MVP: manual scans only)
-- **Email/Slack Alerts** — CVE notifications via email or messaging (next phase)
-- **Automated Report Generation** — PDF/Excel report exports (next phase)
-- **Detailed Remediation Tracking** — Assignment of remediation tasks, status tracking, re-scanning (next phase)
-- **Long-term Data Archival** — Retention policies beyond immediate scan results (next phase)
-- **Complex RBAC** — Multiple roles, fine-grained permissions (MVP: Admin/Viewer only)
-- **Cloud Integration** — AWS, Azure, GCP connector plugins
-- **Auto-Remediation** — Automatic patching or config fixes
-- **ML-based Prediction** — Predictive risk scoring based on historical data
-- **LDAP/AD Integration** — Directory service authentication
+> **완주 안전장치:** 전체 카탈로그는 103개 항목으로 구성하되, 먼저 C-01, C-02, U-16 세 항목으로 파이프라인을 끝까지 배선한다. 이후 C 전체 → U 계정/파일권한 → U 서비스/패치/로그 → W 웹서비스 순서로 확장한다.
 
----
+| #  | 기능                         | 설명                                                                                                                                                                | 검증                                             |
+| -- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| F1 | 레포 입력 & Docker 자동 빌드 | 대시보드에 GitHub URL 입력 → clone → Dockerfile 감지 →`docker build`                                                                                           | 유효한 Dockerfile 레포에서 이미지가 생성됨       |
+| F2 | Sandbox 격리 실행            | 빌드된 이미지를 리소스·권한 제한 하에 실행                                                                                                                         | 컨테이너가 격리된 채로 뜨고 점검용으로 접근 가능 |
+| F3 | Ansible 보안 점검            | 실행 중인 컨테이너 대상 Ansible playbook 실행. 컨테이너/이미지 하드닝 + KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 Unix/Web 점검 항목 적용 | 항목별 JSON 점검 결과 산출                       |
+| F4 | Claude API 분석              | Ansible raw 결과와 가이드 기반 룰 평가 결과를 Claude에 전달해 취약점 설명·심각도·개선안 생성                                                                      | fail/review 항목마다 구조화된 리포트 생성        |
+| F5 | Web Dashboard                | 레포별 점검 실행 이력, 심각도 요약, 항목별 Claude 리포트를 통합 조회                                                                                                | 여러 레포 결과를 목록·상세로 확인 가능          |
 
-## Further Notes
+### F3 점검 기준 상세
 
-1. **AI Utilization Strategy** — Claude API is used for two critical tasks: (a) analyzing collected OS data to identify potential vulnerabilities, and (b) generating human-readable, Korean-language remediation steps. This leverages AI's reasoning capabilities without requiring complex ML pipeline infrastructure.
+- 컨테이너/이미지 하드닝: Dockerfile 정적 분석 + 실행 컨테이너 점검
+- Unix/Web 점검: KISA 「주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드」 기반 점검 항목을 정적 CSV/JSON 카탈로그로 관리
+- playbook은 읽기 전용 점검만 수행하며 시스템을 변경하지 않음
+- 각 항목은 `{id, category, severity, status(pass/fail/review/skip/not_automated), evidence}` 형태로 산출
+- Claude는 기준을 만들거나 평가 결과를 바꾸지 않고, 이미 산출된 evidence와 룰 평가 결과를 설명하는 역할만 수행
 
-2. **Success Criteria (Minimal for MVP)** — The MVP is deemed successful if:
-   - Assets can be imported from CSV, OS info collected from 5-10 Linux servers via Ansible with >80% success rate
-   - AI analysis produces severity-classified vulnerability reports with remediation steps in Korean
-   - Web dashboard displays vulnerability list with basic filtering and severity distribution chart
+### Skip-safe 규칙
 
-3. **Team Skill Assumptions** — The team consists of junior developers with Python/JavaScript/React basics. Heavy reliance on Claude Code for generating Ansible playbooks and FastAPI boilerplate to accelerate development within the 20-day timeline.
+배포판을 사전에 고정하지 않는다. Unix(U)·웹(W) 항목은 대상 컨테이너에 해당 파일·서비스·데몬이 존재하지 않으면 `status: skip`으로 처리하고, evidence에 사유를 기록한다.
 
-4. **Security Posture** — This is an internal security tool; data is not intended for external consumption. Encryption focuses on credential protection at rest and in transit (HTTPS). No data exfiltration prevention measures (assume trusted internal network).
-
-5. **Performance Baseline** — Initial target: scan 10 Linux servers in <5 minutes, analyze findings in <30 seconds, dashboard load in <2 seconds. Optimization is explicitly out of MVP scope.
-
-6. **Risk Mitigation** — Biggest risk is Ansible learning curve for the team. Mitigated by: (a) 1 hour of Ansible training upfront, (b) using Claude Code to generate playbooks, (c) extensive testing with real test VMs before going to production.
+최소화된 컨테이너 특성상 Finger, NFS, NIS, RPC, DNS, SNMP, FTP, 메일, Telnet, IIS 등 서비스 중심 항목은 `skip`으로 집계될 수 있으며 이는 정상 동작이다. 컨테이너에 실제로 존재하는 계정 관리·파일/디렉터리 권한 항목이 pass/fail의 주된 대상이 된다.
 
 ---
 
-**Ready for:** Development sprints, issue creation, architecture deep-dive
+## 4. 점검 결과 상태값
+
+내부 상태와 화면 표시값은 분리한다.
+
+| 내부 status       | UI 표시        | 의미                                                            |
+| ----------------- | -------------- | --------------------------------------------------------------- |
+| `pass`          | 양호           | 명확한 증거로 기준을 만족함                                     |
+| `fail`          | 취약           | 명확한 증거로 기준을 위반함                                     |
+| `review`        | 검토           | 증거가 부족하거나 환경 의존적이라 자동 평가가 어려움            |
+| `skip`          | 제외/해당 없음 | 대상 컨테이너에 해당 파일·서비스·데몬이 없어 점검 대상이 아님 |
+| `not_automated` | 자동화 전      | 카탈로그에는 있으나 MVP 자동 점검 대상이 아님                   |
+
+원칙은 다음과 같다.
+
+- `skip`은 실패가 아니다.
+- `review`는 자동 점검 실패가 아니라 수동 확인이 필요한 상태다.
+- 명확한 evidence가 있으면 `review`보다 `pass` 또는 `fail`을 우선한다.
+- 아직 자동화되지 않은 항목은 카탈로그에는 표시하지만 취약점 통계에는 포함하지 않는다.
+
+---
+
+## 5. 점검 체크리스트
+
+### 5.1 점검 범위 요약
+
+| 구분                                                                                    |      범위 | 항목 수 | MVP 처리 방식                                             |
+| --------------------------------------------------------------------------------------- | --------: | ------: | --------------------------------------------------------- |
+| 컨테이너/이미지 하드닝                                                                  | C-01~C-09 |       9 | 1차 자동화 대상                                           |
+| KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 Unix 서버 점검 항목 | U-01~U-67 |      67 | 카탈로그 전체 포함, 계정/파일권한 우선 자동화             |
+| KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 웹서비스 점검 항목  | W-01~W-27 |      27 | 카탈로그 전체 포함, nginx/httpd 매핑 가능 항목부터 자동화 |
+| 총합                                                                                    | C + U + W |     103 | 자동화 전 항목은`not_automated` 또는 `skip`으로 분리  |
+
+### 5.2 1차 자동화 Slice
+
+먼저 아래 3개 항목으로 End-to-End를 완성한다.
+
+| ID                                           | 이유                                                     |
+| -------------------------------------------- | -------------------------------------------------------- |
+| C-01 root(UID 0) 실행                        | 컨테이너 보안 데모 효과가 크고 runtime evidence가 명확함 |
+| C-02 하드코딩 시크릿                         | Dockerfile 정적 분석 데모 효과가 큼                      |
+| U-16`/etc/passwd` 파일 소유자 및 권한 설정 | Unix 계열 가이드 항목 중 컨테이너에서 확인 가능성이 높음 |
+
+### 5.3 컨테이너/이미지 하드닝 — Dockerfile 정적 분석(D) + 실행 컨테이너(R)
+
+| ID   | 항목                    |  심각도  | 방법 | fail 기준                                     |
+| ---- | ----------------------- | :------: | :--: | --------------------------------------------- |
+| C-01 | root(UID 0) 실행        |   High   | D+R | `USER` 미지정 or 실행 UID=0                 |
+| C-02 | 하드코딩 시크릿         | Critical |  D  | `ENV`/`ARG`에 password·token·key 패턴   |
+| C-03 | 불필요한 노출 포트      |  Medium  | D+R | 관리·DB 포트(22, 3306 등)`EXPOSE`/LISTEN   |
+| C-04 | base 이미지 태그 미고정 |  Medium  |  D  | `:latest` 또는 태그 없음                    |
+| C-05 | 위험 패키지 잔존        |  Medium  |  R  | curl/wget/gcc/apt 등 빌드·네트워크 도구 상주 |
+| C-06 | setuid/setgid 바이너리  |   High   |  R  | 예상 외 setuid/setgid 바이너리 존재           |
+| C-07 | 쓰기 가능 루트 FS       |  Medium  |  R  | `--read-only` 미적용 시 쓰기 가능           |
+| C-08 | HEALTHCHECK 부재        |   Low   |  D  | `HEALTHCHECK` 없음                          |
+| C-09 | ADD 원격 사용           |   Low   |  D  | `COPY` 대신 원격 URL `ADD`                |
+
+### 5.4 KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 Unix 서버 점검 항목 — U-01~U-67
+
+실행 컨테이너 대상(R)으로 점검한다. 컨테이너에 해당 파일·서비스·데몬이 없으면 `skip`으로 처리한다.
+
+#### 계정 관리
+
+| ID   | 심각도 | 항목                                 |
+| ---- | :----: | ------------------------------------ |
+| U-01 |   상   | root 계정 원격 접속 제한             |
+| U-02 |   상   | 비밀번호 관리정책 설정               |
+| U-03 |   상   | 계정 잠금 임계값 설정                |
+| U-04 |   상   | 비밀번호 파일 보호                   |
+| U-05 |   상   | root 이외의 UID가 '0' 금지           |
+| U-06 |   상   | 사용자 계정 su 기능 제한             |
+| U-07 |   하   | 불필요한 계정 제거                   |
+| U-08 |   중   | 관리자 그룹에 최소한의 계정 포함     |
+| U-09 |   하   | 계정이 존재하지 않는 GID 금지        |
+| U-10 |   중   | 동일한 UID 금지                      |
+| U-11 |   하   | 사용자 Shell 점검                    |
+| U-12 |   하   | 세션 종료 시간 설정                  |
+| U-13 |   중   | 안전한 비밀번호 암호화 알고리즘 사용 |
+
+#### 파일 및 디렉터리 관리
+
+| ID   | 심각도 | 항목                                             |
+| ---- | :----: | ------------------------------------------------ |
+| U-14 |   상   | root 홈, 패스 디렉터리 권한 및 패스 설정         |
+| U-15 |   상   | 파일 및 디렉터리 소유자 설정                     |
+| U-16 |   상   | /etc/passwd 파일 소유자 및 권한 설정             |
+| U-17 |   상   | 시스템 시작 스크립트 권한 설정                   |
+| U-18 |   상   | /etc/shadow 파일 소유자 및 권한 설정             |
+| U-19 |   상   | /etc/hosts 파일 소유자 및 권한 설정              |
+| U-20 |   상   | /etc/(x)inetd.conf 파일 소유자 및 권한 설정      |
+| U-21 |   상   | /etc/(r)syslog.conf 파일 소유자 및 권한 설정     |
+| U-22 |   상   | /etc/services 파일 소유자 및 권한 설정           |
+| U-23 |   상   | SUID, SGID, Sticky bit 설정 파일 점검            |
+| U-24 |   상   | 사용자, 시스템 환경변수 파일 소유자 및 권한 설정 |
+| U-25 |   상   | world writable 파일 점검                         |
+| U-26 |   상   | /dev에 존재하지 않는 device 파일 점검            |
+| U-27 |   상   | $HOME/.rhosts, hosts.equiv 사용 금지             |
+| U-28 |   상   | 접속 IP 및 포트 제한                             |
+| U-29 |   하   | hosts.lpd 파일 소유자 및 권한 설정               |
+| U-30 |   중   | UMASK 설정 관리                                  |
+| U-31 |   중   | 홈 디렉토리 소유자 및 권한 설정                  |
+| U-32 |   중   | 홈 디렉토리로 지정한 디렉토리의 존재 관리        |
+| U-33 |   하   | 숨겨진 파일 및 디렉토리 검색 및 제거             |
+
+#### 서비스 관리
+
+| ID   | 심각도 | 항목                                        |
+| ---- | :----: | ------------------------------------------- |
+| U-34 |   상   | Finger 서비스 비활성화                      |
+| U-35 |   상   | 공유 서비스에 대한 익명 접근 제한 설정      |
+| U-36 |   상   | r계열 서비스 비활성화                       |
+| U-37 |   상   | crontab 설정파일 권한 설정 미흡             |
+| U-38 |   상   | DoS 공격에 취약한 서비스 비활성화           |
+| U-39 |   상   | 불필요한 NFS 서비스 비활성화                |
+| U-40 |   상   | NFS 접근 통제                               |
+| U-41 |   상   | 불필요한 automountd 제거                    |
+| U-42 |   상   | 불필요한 RPC 서비스 비활성화                |
+| U-43 |   상   | NIS, NIS+ 점검                              |
+| U-44 |   상   | tftp, talk 서비스 비활성화                  |
+| U-45 |   상   | 메일 서비스 버전 점검                       |
+| U-46 |   상   | 일반 사용자의 메일 서비스 실행 방지         |
+| U-47 |   상   | 스팸 메일 릴레이 제한                       |
+| U-48 |   중   | expn, vrfy 명령어 제한                      |
+| U-49 |   상   | DNS 보안 버전 패치                          |
+| U-50 |   상   | DNS Zone Transfer 설정                      |
+| U-51 |   중   | DNS 서비스의 취약한 동적 업데이트 설정 금지 |
+| U-52 |   중   | Telnet 서비스 비활성화                      |
+| U-53 |   하   | FTP 서비스 정보 노출 제한                   |
+| U-54 |   중   | 암호화되지 않는 FTP 서비스 비활성화         |
+| U-55 |   중   | FTP 계정 Shell 제한                         |
+| U-56 |   하   | FTP 서비스 접근 제어 설정                   |
+| U-57 |   중   | Ftpusers 파일 설정                          |
+| U-58 |   중   | 불필요한 SNMP 서비스 구동 점검              |
+| U-59 |   상   | 안전한 SNMP 버전 사용                       |
+| U-60 |   중   | SNMP Community String 복잡성 설정           |
+| U-61 |   상   | SNMP Access Control 설정                    |
+| U-62 |   하   | 로그인 시 경고 메시지 설정                  |
+| U-63 |   중   | sudo 명령어 접근 관리                       |
+
+#### 패치 관리
+
+| ID   | 심각도 | 항목                                   |
+| ---- | :----: | -------------------------------------- |
+| U-64 |   상   | 주기적 보안 패치 및 벤더 권고사항 적용 |
+
+#### 로그 관리
+
+| ID   | 심각도 | 항목                              |
+| ---- | :----: | --------------------------------- |
+| U-65 |   중   | NTP 및 시각 동기화 설정           |
+| U-66 |   중   | 정책에 따른 시스템 로깅 설정      |
+| U-67 |   중   | 로그 디렉터리 소유자 및 권한 설정 |
+
+### 5.5 KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 웹서비스 점검 항목 — W-01~W-27
+
+컨테이너가 웹서버(Apache/IIS/nginx 등)를 포함할 때만 적용한다. IIS 항목(W-11~W-19)은 Windows/IIS 전용 성격이 강하므로 Linux 컨테이너에서는 대부분 `skip`으로 처리한다. nginx는 Apache 항목과 1:1 대응되지 않는 경우가 있으므로, 일반 웹서버 보안 설정으로 합리적으로 매핑 가능한 항목만 자동화하고 나머지는 `review` 또는 `not_automated`로 둔다.
+
+| ID   | 심각도 | 항목                                   |
+| ---- | :----: | -------------------------------------- |
+| W-01 |   상   | Apache 디렉토리 리스팅 제거            |
+| W-02 |   상   | Apache 웹 프로세스 권한 제한           |
+| W-03 |   상   | Apache 상위 디렉토리 접근 제한         |
+| W-04 |   상   | Apache 불필요한 파일 제거              |
+| W-05 |   상   | Apache 링크 사용 금지                  |
+| W-06 |   상   | Apache 파일 업로드 및 다운로드 제한    |
+| W-07 |   상   | Apache 웹 서비스 영역의 분리           |
+| W-08 |   상   | Apache 웹서비스 로그 설정              |
+| W-09 |   상   | Apache 웹서버 에러 메시지 통제         |
+| W-10 |   중   | Apache 웹서비스 가상 디렉토리 점검     |
+| W-11 |   상   | IIS 디렉터리 리스팅 제거               |
+| W-12 |   상   | IIS 웹 프로세스 권한 제한              |
+| W-13 |   상   | IIS 상위 디렉터리 접근 제한            |
+| W-14 |   상   | IIS 불필요한 파일 제거                 |
+| W-15 |   상   | IIS 파일 업로드 및 다운로드 제한       |
+| W-16 |   상   | IIS 웹 서비스 영역의 분리              |
+| W-17 |   상   | IIS 웹서비스 로그 설정                 |
+| W-18 |   상   | IIS 웹서버 에러 메시지 통제            |
+| W-19 |   중   | IIS 웹서비스 가상 디렉터리 점검        |
+| W-20 |   상   | 웹서버 기본 계정의 패스워드 변경       |
+| W-21 |   상   | 웹서버 서비스 데몬 실행 권한 제한      |
+| W-22 |   상   | 웹 서비스 환경설정 파일 보호           |
+| W-23 |   상   | 웹서비스 디렉토리 access control 설정  |
+| W-24 |   상   | 웹서비스 불필요한 확장자 매핑 제거     |
+| W-25 |   상   | 웹서비스 불필요한 HTTP Method 제한     |
+| W-26 |   상   | 웹서비스 헤더 정보 노출 제한           |
+| W-27 |   상   | 웹서버 최신 보안 패치 및 업데이트 적용 |
+
+### 5.6 심각도 매핑
+
+| 가이드 등급                                                        | MVP severity       |
+| ------------------------------------------------------------------ | ------------------ |
+| 상                                                                 | High               |
+| 중                                                                 | Medium             |
+| 하                                                                 | Low                |
+| 하드코딩 secret, 빈 패스워드, UID 0 등 명백한 고위험 컨테이너 항목 | Critical 상향 가능 |
+
+---
+
+## 6. Claude API 분석 원칙
+
+Claude는 보안 기준을 생성하지 않는다. Claude는 Ansible evidence와 가이드 기반 룰 평가 결과를 사람이 이해하기 쉬운 설명으로 바꾸는 역할만 한다.
+
+신뢰 경계는 다음 순서다.
+
+```text
+Ansible evidence
+→ 가이드 기반 룰 평가
+→ Claude explanation
+→ Dashboard display
+```
+
+Claude가 하면 안 되는 것:
+
+- 가이드에 없는 보안 기준을 새로 만드는 것
+- 이미 `fail`로 산출된 항목을 임의로 `pass`로 바꾸는 것
+- 이미 `pass`로 산출된 항목을 근거 없이 취약점으로 만드는 것
+- evidence가 부족한데 확정적인 취약점으로 단정하는 것
+
+Claude가 해야 하는 것:
+
+- 취약점 설명
+- 위험도 설명
+- evidence 해석
+- 원인 설명
+- 조치방안 제시
+- 설정 예시 제시
+
+### Claude 입력 Sanitization
+
+Claude API로 전달하기 전 다음 값을 제거 또는 마스킹한다.
+
+- GitHub PAT
+- token, secret, password, key 패턴
+- private Repository URL에 포함된 인증정보
+- 환경변수 중 민감 패턴
+- Authorization header
+- SSH private key, certificate secret
+- 필요 시 내부 IP/hostname
+
+### Claude 출력 스키마
+
+```json
+{
+  "id": "C-01",
+  "status": "fail",
+  "severity": "High",
+  "title": "컨테이너가 root 사용자로 실행됨",
+  "evidence": "Container runtime UID is 0",
+  "reason": "root 권한으로 실행되는 컨테이너는 침해 시 호스트 자원 접근 위험을 키울 수 있다.",
+  "remediation": "Dockerfile에 non-root 사용자를 생성하고 USER 지시어로 전환한다.",
+  "example": "RUN useradd -r appuser\nUSER appuser"
+}
+```
+
+---
+
+## 7. 제외 범위 (이번엔 안 함)
+
+범위가 크므로 데모 성공에 필수가 아닌 것은 의도적으로 제외한다.
+
+- 실시간 CVE DB 연동
+- 자동 remediation(수정 적용)
+- 멀티유저 / 인증 / 권한 관리
+- CI/CD 웹훅 자동 트리거·스케줄링
+- 대규모 IDC 병렬 점검
+- Kubernetes / 오케스트레이션 / 레지스트리 푸시
+- Dockerfile 없는 레포 자동 대응
+- KISA PDF runtime 파싱
+- 외부 사이트 scraping
+- U-01~U-67, W-01~W-27 전체 항목의 완전 자동화
+- Windows OS 자체 점검
+- DB 이미지 보안 점검
+- 실제 표준 이미지 약 20개 전체 자동 점검
+
+---
+
+## 8. 성공 기준 (시연)
+
+시연에서 아래 두 가지가 모두 보이면 성공이다.
+
+### A. E2E 자동 파이프라인
+
+1. 대시보드에 준비된 GitHub 레포 URL 입력 후 “점검 시작”
+2. 진행 상태가 단계별로 표시됨: `Clone → Build → Sandbox 실행 → Ansible 점검 → 가이드 기반 룰 평가 → Claude 분석 → 완료`
+3. 별도 수동 개입 없이 결과 화면까지 자동 도달
+4. GitHub clone 또는 Docker Build가 실패해도 로컬 이미지 fallback으로 핵심 점검 흐름을 계속 시연 가능
+
+### B. Claude 분석 품질
+
+1. 최소 한 개 이상의 의도적으로 심어둔 취약 설정을 탐지
+   - 예: root 실행, 노출 포트, 하드코딩 시크릿, `/etc/passwd` 권한 문제
+2. 각 취약점에 대해 심각도, 왜 위험한지, 구체적 개선 방법이 사람이 읽기 좋게 출력
+3. 안전하게 설정된 “좋은 레포”는 취약점이 적게 나와 대비가 드러남
+4. Claude 설명이 가이드 기반 룰 평가 결과를 뒤집지 않음
+
+---
+
+## 9. 기술 스택 (v2 기준 유지)
+
+이미 Next.js 기반 프로젝트(`ax-hub-app`)이 있으므로 대시보드는 그대로 활용한다. 개발은 본인 단독, 개인 PC 로컬 환경 기준이다.
+
+| 레이어               | 선택                           | 비고                                                                                              |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Dashboard (Frontend) | Next.js + React                | 레포 입력·진행 상태·결과 조회 UI                                                                |
+| Orchestration / API  | Next.js API Routes (Node/TS)   | 파이프라인 단계 조율, 상태 관리                                                                   |
+| 빌드 & 실행          | Docker CLI 또는`dockerode`   | `docker build` / 제한된 `docker run`                                                          |
+| Sandbox 격리         | Docker 런타임 옵션             | `--network none`, `--read-only`, `--cap-drop ALL`, `--memory`, `--pids-limit`, 타임아웃 |
+| 보안 점검            | Ansible (`ansible-playbook`) | 컨테이너 하드닝 + 가이드 기반 점검 항목                                                           |
+| AI 분석              | Claude API                     | raw 결과 → 구조화 리포트, JSON 강제 출력                                                         |
+| 저장소               | SQLite 또는 로컬 JSON/파일     | 점검 이력·결과 저장. 단일 사용자라 경량                                                          |
+
+---
+
+## 10. 아키텍처 개요
+
+```text
+[사용자]
+   │ 레포 URL 입력
+   ▼
+[Next.js Dashboard] ──▶ [API: Pipeline Orchestrator]
+                              │
+        ┌─────────────────────┼───────────────────────────────┐
+        ▼                     ▼                               ▼
+  1. git clone         2. docker build              3. sandbox run
+                                                    (제한된 docker run)
+                                                          │
+                                                          ▼
+                                                4. ansible-playbook
+                                         (하드닝 + 가이드 기반 점검)
+                                                          │ raw JSON
+                                                          ▼
+                                             5. guide-rule evaluation
+                                      (pass/fail/review/skip 정규화)
+                                                          │
+                                                          ▼
+                                                6. Claude API 분석
+                                       (취약점·심각도·개선안 설명)
+                                                          │
+                                                          ▼
+                                                [SQLite 저장] ──▶ [Dashboard 결과]
+```
+
+---
+
+## 11. 일정 (3주 기준, 솔로 · 하루 3~5h)
+
+| 주차   | 목표                                                                             | verify                                    |
+| ------ | -------------------------------------------------------------------------------- | ----------------------------------------- |
+| 1주    | 레포 clone + Docker build 자동화, 파이프라인 상태 모델, Sandbox 격리 실행 골격   | 준비된 레포로 이미지 빌드·격리 실행 성공 |
+| 1주 말 | Ansible 골격 + C-01·C-02·U-16으로 E2E 한 바퀴                                  | 브라우저에서 3개 항목으로 E2E 관통        |
+| 2주    | C 전체 + U 계정/파일권한 중심 확장, skip-safe 적용, Claude 분석 리포트 품질 개선 | C-01~C-09 + 주요 U 항목 결과 생성         |
+| 2주 말 | Dashboard 입력·진행상태·결과 상세·이력 통합, 여러 레포 비교 뷰                | 여러 레포 결과를 목록·상세로 조회        |
+| 3주    | U 서비스/패치/로그와 W 항목 일부 확장, 취약/안전 데모 레포 준비, 리허설          | 시연 시나리오 A+B 재현                    |
+
+버퍼가 있으면 다음 순서로 추가한다.
+
+1. 진행 상태 실시간 스트리밍(SSE)
+2. 심각도 대시보드 차트
+3. nginx 웹 항목 W-01, W-08, W-09, W-21, W-22, W-25, W-26 자동화
+4. httpd/tomcat 지원
+
+---
+
+## 12. 기술 결정 / 남은 리스크
+
+### 확정된 결정
+
+- **Docker 실행 방식:** 호스트 Docker 소켓 마운트(`/var/run/docker.sock`)로 호스트 데몬을 사용해 build/run한다. DinD보다 단순하고 데모가 안정적이다. 단, 소켓 마운트는 권한 리스크가 있으므로 로컬·단일 사용자 전제에서만 사용한다.
+- **Ansible ↔ 컨테이너 연결:** `community.docker.docker` connection plugin 또는 `docker exec` 기반 접근을 우선한다. SSH·에이전트 설치 없이 실행 컨테이너에 직접 붙어 점검한다.
+- **Claude 출력 안정성:** structured output 또는 엄격한 JSON schema 검증으로 `{id, severity, title, evidence, reason, remediation, example}` 형태를 강제한다.
+- **배포판:** 사전 고정하지 않는다. 대신 경로·명령 부재 시 `skip` 처리해 파이프라인이 깨지지 않게 한다.
+
+### 남은 리스크와 완화책
+
+| 리스크                             | 설명                                                           | 완화책                                                |
+| ---------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| 점검 항목 과다                     | 총 103개 항목으로 범위가 큼                                    | C-01·C-02·U-16으로 E2E 먼저 완성                    |
+| KISA 가이드 항목의 컨테이너 부적합 | 가이드는 완전한 서버 기준이라 컨테이너에 맞지 않는 항목이 있음 | container_applicability와 skip-safe 적용              |
+| 서비스 항목 대량 skip              | 최소 컨테이너에는 NFS, SNMP, FTP, Telnet 등이 없음             | skip을 정상 상태로 표시하고 통계 분리                 |
+| 빌드 시간                          | 무거운 이미지는 데모 시간 초과 가능                            | 시연 레포는 가벼운 것으로 선정, 사전 빌드로 캐시 워밍 |
+| Claude API 실패                    | 외부 API 불안정                                                | AI 실패와 점검 실패를 분리                            |
+| PAT 노출                           | 로그/AI payload/DB 유출 위험                                   | sanitizer + 보안 테스트 필수                          |
+| Docker socket 권한                 | 호스트 권한 리스크                                             | 로컬 단일 사용자 MVP 전제, 제품화 시 재설계           |
+
+---
+
+## 13. 용어 변경 요약
+
+아래 표현은 오해 소지가 있어 사용하지 않는다.
+
+| 기존 표현                      | 수정 표현                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| KISA 판정                      | 가이드 기반 점검 결과                                                       |
+| KISA 기준 판정                 | KISA 주요정보통신기반시설 기술적 취약점 분석·평가 상세 가이드 기반 룰 평가 |
+| KISA 룰 판정                   | 가이드 기반 룰 평가                                                         |
+| KISA judgement                 | guide-rule evaluation                                                       |
+| Ansible → KISA 판정 → Claude | Ansible evidence → 가이드 기반 룰 평가 → Claude 설명                      |
+
+최종 문서와 코드/화면에서도 다음 원칙을 적용한다.
+
+- 화면에는 “KISA가 판정했다”처럼 보이는 표현을 쓰지 않는다.
+- “KISA 가이드 기반 점검 항목”, “가이드 기반 점검 결과”, “가이드 기반 룰 평가”를 사용한다.
+- 내부 변수명은 `guide_rule_evaluation`, `rule_evaluation`, `check_result`처럼 명명한다.
+- `kisa_judgement`, `kisa_verdict`, `kisa_decision` 같은 명칭은 피한다.
