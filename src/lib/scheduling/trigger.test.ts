@@ -34,7 +34,7 @@ describe("triggerRunForAsset", () => {
     const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
     const deps: TriggerDeps = {
       runPipeline: vi.fn().mockResolvedValue(undefined),
-      scanServerAsset: vi.fn(),
+      runServerScanPipeline: vi.fn(),
     };
 
     const runId = await triggerRunForAsset(asset, "scheduled", deps, db);
@@ -45,28 +45,40 @@ describe("triggerRunForAsset", () => {
       undefined,
       db,
     );
-    expect(deps.scanServerAsset).not.toHaveBeenCalled();
+    expect(deps.runServerScanPipeline).not.toHaveBeenCalled();
     const run = getRun(runId, db)!;
     expect(run.assetId).toBe(asset.id);
     expect(run.triggerType).toBe("scheduled");
   });
 
-  it("delegates to scanServerAsset for a server asset and marks the resulting run", async () => {
+  it("creates a server run immediately without waiting for the scan to finish", async () => {
     const asset = createServerAsset(
       { displayName: "srv", hostIp: "10.0.0.1", hostname: "h", sshPort: 22, authType: "password", username: "root", secret: "pw" },
       db,
     );
-    const preCreatedRun = createRun(asset.hostIp!, "server", asset.id, db);
+    let resolveScan: () => void;
+    const scanPromise = new Promise<void>((resolve) => {
+      resolveScan = resolve;
+    });
     const deps: TriggerDeps = {
       runPipeline: vi.fn(),
-      scanServerAsset: vi.fn().mockResolvedValue(preCreatedRun.id),
+      runServerScanPipeline: vi.fn().mockReturnValue(scanPromise),
     };
 
     const runId = await triggerRunForAsset(asset, "scheduled", deps, db);
 
-    expect(deps.scanServerAsset).toHaveBeenCalledWith(asset.id, null);
+    // triggerRunForAsset already resolved even though scanPromise has not —
+    // proves the server path doesn't block on the scan.
+    expect(deps.runServerScanPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({ id: runId }),
+      expect.objectContaining({ id: asset.id }),
+      undefined,
+      db,
+    );
     expect(deps.runPipeline).not.toHaveBeenCalled();
-    expect(runId).toBe(preCreatedRun.id);
     expect(getRun(runId, db)!.triggerType).toBe("scheduled");
+
+    resolveScan!(); // cleanup: let the pending promise settle so it doesn't leak into other tests
+    await scanPromise;
   });
 });
