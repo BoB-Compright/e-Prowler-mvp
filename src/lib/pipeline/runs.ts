@@ -1,11 +1,12 @@
 import type { Database } from "better-sqlite3";
 import { randomUUID } from "crypto";
 import { getDb } from "@/lib/db";
-import type { Run, RunEvent, RunStatus, Stage } from "./types";
+import type { Run, RunEvent, RunSourceType, RunStatus, Stage } from "./types";
 
 interface RunRow {
   id: string;
   repo_url: string;
+  source_type: RunSourceType;
   stage: Stage;
   status: RunStatus;
   image_tag: string | null;
@@ -19,6 +20,7 @@ function toRun(row: RunRow): Run {
   return {
     id: row.id,
     repoUrl: row.repo_url,
+    sourceType: row.source_type,
     stage: row.stage,
     status: row.status,
     imageTag: row.image_tag,
@@ -29,11 +31,19 @@ function toRun(row: RunRow): Run {
   };
 }
 
-export function createRun(repoUrl: string, db: Database = getDb()): Run {
+// `source` is a git URL for sourceType "git", or an already-built local image
+// tag (e.g. "nginx:latest") for sourceType "local_image" — the fallback path
+// (#41) that re-scans an existing image when clone/build is unavailable.
+export function createRun(
+  source: string,
+  sourceType: RunSourceType = "git",
+  db: Database = getDb(),
+): Run {
   const now = new Date().toISOString();
   const run: Run = {
     id: randomUUID(),
-    repoUrl,
+    repoUrl: source,
+    sourceType,
     stage: "clone",
     status: "running",
     imageTag: null,
@@ -43,8 +53,8 @@ export function createRun(repoUrl: string, db: Database = getDb()): Run {
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO runs (id, repo_url, stage, status, image_tag, container_name, error_message, created_at, updated_at)
-     VALUES (@id, @repoUrl, @stage, @status, @imageTag, @containerName, @errorMessage, @createdAt, @updatedAt)`,
+    `INSERT INTO runs (id, repo_url, source_type, stage, status, image_tag, container_name, error_message, created_at, updated_at)
+     VALUES (@id, @repoUrl, @sourceType, @stage, @status, @imageTag, @containerName, @errorMessage, @createdAt, @updatedAt)`,
   ).run(run);
   appendEvent(run.id, run.stage, run.status, null, db);
   return run;

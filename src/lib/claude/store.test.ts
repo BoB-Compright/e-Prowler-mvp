@@ -27,7 +27,7 @@ function report(overrides: Partial<ClaudeAnalysis> = {}): ClaudeAnalysis {
 
 describe("analysis report store", () => {
   it("round-trips a saved report", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     saveAnalysisReport(run.id, report(), db);
 
     expect(listAnalysisReports(run.id, db)).toEqual([
@@ -42,8 +42,8 @@ describe("analysis report store", () => {
   });
 
   it("keeps reports scoped to their own run", () => {
-    const runA = createRun("https://github.com/owner/a.git", db);
-    const runB = createRun("https://github.com/owner/b.git", db);
+    const runA = createRun("https://github.com/owner/a.git", "git", db);
+    const runB = createRun("https://github.com/owner/b.git", "git", db);
     saveAnalysisReport(runA.id, report(), db);
 
     expect(listAnalysisReports(runB.id, db)).toEqual([]);
