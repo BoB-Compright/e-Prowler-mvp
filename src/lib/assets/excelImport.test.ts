@@ -1,0 +1,78 @@
+import type { Database } from "better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
+import { randomBytes } from "crypto";
+import * as XLSX from "xlsx";
+import { createInMemoryDb } from "@/lib/db";
+import { listAssets } from "./store";
+import { importAssetsFromWorkbook } from "./excelImport";
+
+let db: Database;
+
+function buildWorkbook(sheets: Record<string, Record<string, unknown>[]>): Buffer {
+  const workbook = XLSX.utils.book_new();
+  for (const [name, rows] of Object.entries(sheets)) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), name);
+  }
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+beforeEach(() => {
+  db = createInMemoryDb();
+  process.env.INFRA_SECURITY_MASTER_KEY = randomBytes(32).toString("base64");
+});
+
+describe("importAssetsFromWorkbook", () => {
+  it("imports valid repo rows and reports success per row", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a" },
+        { display_name: "b", repo_url: "https://github.com/x/b" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo).toHaveLength(2);
+    expect(result.repo.every((r) => r.ok)).toBe(true);
+    expect(listAssets({ type: "repo" }, db)).toHaveLength(2);
+  });
+
+  it("reports a per-row failure for missing required fields without aborting the batch", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a" },
+        { display_name: "no-url" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[0]).toMatchObject({ ok: true });
+    expect(result.repo[1]).toMatchObject({ ok: false });
+    expect(listAssets({ type: "repo" }, db)).toHaveLength(1);
+  });
+
+  it("reports a per-row failure for a duplicate repo_url", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a" },
+        { display_name: "dup", repo_url: "https://github.com/x/a" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[1]).toMatchObject({ ok: false });
+  });
+
+  it("imports valid server rows with encrypted secrets", () => {
+    const buffer = buildWorkbook({
+      server: [
+        { display_name: "web-01", host_ip: "10.0.0.5", hostname: "web-01", ssh_port: 22, auth_type: "password", username: "admin", secret: "pw" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server).toHaveLength(1);
+    expect(result.server[0]).toMatchObject({ ok: true });
+    expect(listAssets({ type: "server" }, db)).toHaveLength(1);
+  });
+
+  it("returns empty arrays for sheets that are absent", () => {
+    const buffer = buildWorkbook({ repo: [{ display_name: "a", repo_url: "https://github.com/x/a" }] });
+    expect(importAssetsFromWorkbook(buffer, null, db).server).toEqual([]);
+  });
+});
