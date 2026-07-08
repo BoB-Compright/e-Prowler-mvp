@@ -2,6 +2,11 @@
 // Rule evaluation -> Claude -> Done. This issue (#37) only ever drives the
 // pipeline through "build"; later issues (#38-#40) append the remaining stages
 // without needing to touch this type.
+//
+// "connect" | "ansible_scan" | "rule_evaluation" | "claude_analysis" are the
+// server (SSH) scan path's stages (A2): connect -> ansible_scan ->
+// rule_evaluation -> claude_analysis -> done, in place of the container
+// path's clone/build/sandbox/ansible/rule_eval/claude/done.
 export type Stage =
   | "clone"
   | "build"
@@ -9,13 +14,18 @@ export type Stage =
   | "ansible"
   | "rule_eval"
   | "claude"
+  | "connect"
+  | "ansible_scan"
+  | "rule_evaluation"
+  | "claude_analysis"
   | "done";
 
 export type RunStatus = "running" | "succeeded" | "failed";
 
 // "local_image" is the fallback path (#41): re-scan an already-built image
-// instead of cloning/building, skipping straight to sandbox.
-export type RunSourceType = "git" | "local_image";
+// instead of cloning/building, skipping straight to sandbox. "server" (A2) is
+// an SSH-scanned server asset run, driven by the connect/ansible_scan/... stages.
+export type RunSourceType = "git" | "local_image" | "server";
 
 export interface Run {
   id: string;
@@ -27,6 +37,7 @@ export interface Run {
   containerName: string | null;
   errorMessage: string | null;
   assetId: string | null;
+  batchId: string | null;
   createdAt: string;
   updatedAt: string;
 }

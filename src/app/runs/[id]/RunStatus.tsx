@@ -48,6 +48,11 @@ function CheckCircleIcon() {
 
 const STAGES: Stage[] = ["clone", "build", "sandbox", "ansible", "rule_eval", "claude", "done"];
 
+// connect/ansible_scan/rule_evaluation/claude_analysis are the server (SSH)
+// scan path's stages (A2). This component doesn't render them yet — its
+// STAGES/timeline are still the 7-stage container pipeline (A2 Task 7, not
+// yet implemented, will add the server-specific 4-stage timeline) — these
+// entries only exist so Record<Stage, string> stays exhaustive.
 const STAGE_LABELS: Record<Stage, string> = {
   clone: "레포 Clone",
   build: "Docker 빌드",
@@ -55,6 +60,10 @@ const STAGE_LABELS: Record<Stage, string> = {
   ansible: "Ansible 점검",
   rule_eval: "가이드 기반 룰 평가",
   claude: "Claude 분석",
+  connect: "SSH 연결",
+  ansible_scan: "Ansible 점검(서버)",
+  rule_evaluation: "가이드 기반 룰 평가",
+  claude_analysis: "Claude 분석",
   done: "완료",
 };
 
@@ -65,6 +74,10 @@ const STAGE_SHORT_LABELS: Record<Stage, string> = {
   ansible: "Ansible",
   rule_eval: "룰 평가",
   claude: "Claude",
+  connect: "연결",
+  ansible_scan: "Ansible",
+  rule_evaluation: "룰 평가",
+  claude_analysis: "Claude",
   done: "완료",
 };
 

@@ -13,6 +13,7 @@ interface RunRow {
   container_name: string | null;
   error_message: string | null;
   asset_id: string | null;
+  batch_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ function toRun(row: RunRow): Run {
     containerName: row.container_name,
     errorMessage: row.error_message,
     assetId: row.asset_id,
+    batchId: row.batch_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -53,6 +55,7 @@ export function createRun(
     containerName: null,
     errorMessage: null,
     assetId,
+    batchId: null,
     createdAt: now,
     updatedAt: now,
   };
