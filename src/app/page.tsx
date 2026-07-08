@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { getCatalogSummary } from "@/lib/catalog";
+import { listAssets } from "@/lib/assets/store";
 import { StartRunForm } from "./StartRunForm";
 
 export default function Home() {
   const summary = getCatalogSummary();
+  const assets = listAssets();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-24">
@@ -15,11 +17,11 @@ export default function Home() {
 
       <div className="mt-8 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <label className="block font-mono text-[11px] tracking-wide text-[var(--color-muted)] uppercase">
-          GitHub Repository URL
+          점검 대상 자산
         </label>
-        <StartRunForm />
+        <StartRunForm assets={assets} />
         <p className="mt-2 font-mono text-[11px] text-[var(--color-muted)]">
-          레포 URL을 입력하면 기본 브랜치를 자동 감지해 점검을 시작합니다
+          등록된 자산을 선택하면 기본 브랜치를 자동 감지해 점검을 시작합니다
         </p>
       </div>
 
