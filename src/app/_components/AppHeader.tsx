@@ -41,9 +41,29 @@ function CatalogIcon() {
   );
 }
 
+function AssetIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="6" rx="1.5" />
+      <rect x="3" y="14" width="18" height="6" rx="1.5" />
+      <path d="M7 7h.01M7 17h.01" />
+    </svg>
+  );
+}
+
+function ProjectIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  );
+}
+
 function buildTabs(latestRunId: string | null) {
   return [
     { href: "/", label: "점검 실행", icon: <ScanIcon /> },
+    { href: "/assets", label: "자산", icon: <AssetIcon /> },
+    { href: "/projects", label: "프로젝트", icon: <ProjectIcon /> },
     { href: "/runs", label: "점검 이력", icon: <HistoryIcon /> },
     {
       href: latestRunId ? `/runs/${latestRunId}/report` : "/runs",
