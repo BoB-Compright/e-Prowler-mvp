@@ -538,6 +538,195 @@ export function evaluateU16(tasks: AnsibleTaskOutput[]): CheckResult {
   };
 }
 
+// W-01..W-26 (KISA guide, web service): nginx-only for MVP scope (#47).
+// "nginx detection (internal)" and "nginx effective config (internal)" are
+// helper tasks in security-checks.yml with no catalog id of their own, so
+// they're matched by exact task name rather than the `<id>:` prefix
+// `findTaskOutput` relies on elsewhere in this file.
+function findExactTaskOutput(
+  tasks: AnsibleTaskOutput[],
+  taskName: string,
+): AnsibleTaskOutput | undefined {
+  return tasks.find((task) => task.taskName === taskName);
+}
+
+// Shared by every real W check: whether nginx is present, and (if so) its
+// fully-resolved `nginx -T` config text. When nginx isn't present, all 7
+// real W items evaluate to "skip" rather than pass/fail (issue #47).
+function getNginxState(tasks: AnsibleTaskOutput[]): { present: boolean; config: string } {
+  const present = findExactTaskOutput(tasks, "nginx detection (internal)")?.stdout.trim() === "present";
+  const rawConfig = findExactTaskOutput(tasks, "nginx effective config (internal)")?.stdout ?? "";
+  return { present, config: rawConfig.trim() === MISSING_MARKER ? "" : rawConfig };
+}
+
+function skipNoNginx(id: string): CheckResult {
+  return { id, status: "skip", evidence: "웹서버(nginx)가 감지되지 않음" };
+}
+
+export function evaluateW01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-01");
+
+  const hasAutoindexOn = config
+    .split("\n")
+    .filter(isActiveLine)
+    .some((line) => /\bautoindex\s+on\s*;/.test(line));
+
+  return {
+    id: "W-01",
+    status: hasAutoindexOn ? "fail" : "pass",
+    evidence: hasAutoindexOn
+      ? "유효 설정에서 autoindex on 지시어가 발견됨 (디렉토리 리스팅 노출)"
+      : "유효 설정에서 autoindex on 지시어가 발견되지 않음",
+  };
+}
+
+export function evaluateW08(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-08");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const accessLogDisabled = lines.some((line) => /\baccess_log\s+off\s*;/.test(line));
+  const hasAccessLog = lines.some((line) => /\baccess_log\s+\S/.test(line)) && !accessLogDisabled;
+  const hasErrorLog = lines.some((line) => /\berror_log\s+\S/.test(line));
+  const fail = !hasAccessLog || !hasErrorLog;
+
+  return {
+    id: "W-08",
+    status: fail ? "fail" : "pass",
+    evidence: `access_log: ${hasAccessLog ? "설정됨" : "미설정/off"}, error_log: ${hasErrorLog ? "설정됨" : "미설정"}`,
+  };
+}
+
+// W-09 heuristic: a custom error_page keeps stack traces/default framework
+// pages from leaking to visitors. Absent that, we fall back to whether
+// server_tokens is at least turned off -- the same directive W-26 checks --
+// since the single biggest "error message" leak on a default nginx error
+// page is the version string in the Server header/footer.
+export function evaluateW09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-09");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const hasCustomErrorPage = lines.some((line) => /^error_page\s+/.test(line.trim()));
+  const serverTokensOff = lines.some((line) => /\bserver_tokens\s+off\s*;/.test(line));
+  const pass = hasCustomErrorPage || serverTokensOff;
+
+  return {
+    id: "W-09",
+    status: pass ? "pass" : "fail",
+    evidence: `커스텀 error_page: ${hasCustomErrorPage ? "있음" : "없음"}, server_tokens: ${serverTokensOff ? "off" : "on(기본값)"}`,
+  };
+}
+
+// W-21: the nginx master process must run as root to bind privileged ports,
+// so checking the live process list (like C-01's UID check) would always
+// report root and produce a false fail. The `user` directive controls the
+// unprivileged worker processes that actually handle requests, so that's
+// what we check instead. A missing `user` directive is treated as a fail —
+// we can't positively confirm the compiled-in default is non-root.
+export function evaluateW21(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-21");
+
+  const userLine = config
+    .split("\n")
+    .filter(isActiveLine)
+    .find((line) => /^user\s+/.test(line.trim()));
+  const userValue = userLine?.trim().split(/\s+/)[1]?.replace(/;$/, "");
+  const isRoot = !userLine || userValue === "root";
+
+  return {
+    id: "W-21",
+    status: isRoot ? "fail" : "pass",
+    evidence: userLine
+      ? `user 지시어: ${userValue}`
+      : "user 지시어가 없어 워커 프로세스 실행 계정을 확인할 수 없음",
+  };
+}
+
+export function evaluateW22(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-22");
+
+  const stdout = findTaskOutput(tasks, "W-22")?.stdout.trim() ?? "";
+  if (!stdout || stdout === MISSING_MARKER) {
+    return { id: "W-22", status: "fail", evidence: "nginx 설정 파일 권한 정보를 확인할 수 없음" };
+  }
+
+  const worldWritable: string[] = [];
+  for (const line of stdout.split("\n").filter(Boolean)) {
+    // "<path> <owner>:<group> <mode>"
+    const [filePath, , mode] = line.trim().split(/\s+/);
+    if (filePath && mode && /^[0-7]{3,4}$/.test(mode) && Number(mode.slice(-1)) & 2) {
+      worldWritable.push(filePath);
+    }
+  }
+
+  return {
+    id: "W-22",
+    status: worldWritable.length === 0 ? "pass" : "fail",
+    evidence:
+      worldWritable.length === 0
+        ? "nginx 설정 파일 중 world-writable 항목이 없음"
+        : `world-writable 설정 파일 발견: ${worldWritable.join(", ")}`,
+  };
+}
+
+// W-25 heuristic: unlike Apache/IIS, nginx has no single global "allowed
+// methods" setting -- method restriction is normally expressed via
+// `limit_except` blocks (or an equivalent `if ($request_method ...)` map).
+// Absent either, we can't positively confirm dangerous methods (TRACE, PUT,
+// DELETE, ...) are blocked, so we fail conservatively. This is a soft
+// heuristic: app-layer method restriction (e.g. in the backend framework)
+// would not be visible here and could produce a false fail.
+export function evaluateW25(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-25");
+
+  const lines = config.split("\n").filter(isActiveLine);
+  const hasLimitExcept = lines.some((line) => /^limit_except\s+/.test(line.trim()));
+  const hasMethodGuard = lines.some((line) => /\$request_method\b/.test(line));
+  const pass = hasLimitExcept || hasMethodGuard;
+
+  return {
+    id: "W-25",
+    status: pass ? "pass" : "fail",
+    evidence: pass
+      ? "HTTP Method 제한 설정(limit_except 또는 $request_method 검사)이 발견됨"
+      : "HTTP Method를 제한하는 설정(limit_except 등)이 발견되지 않음 — 기본 상태에서는 모든 메서드가 허용될 수 있음",
+  };
+}
+
+export function evaluateW26(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { present, config } = getNginxState(tasks);
+  if (!present) return skipNoNginx("W-26");
+
+  const serverTokensOff = config
+    .split("\n")
+    .filter(isActiveLine)
+    .some((line) => /\bserver_tokens\s+off\s*;/.test(line));
+
+  return {
+    id: "W-26",
+    status: serverTokensOff ? "pass" : "fail",
+    evidence: serverTokensOff
+      ? "server_tokens off 설정됨"
+      : "server_tokens가 off로 설정되어 있지 않아 응답 헤더에 nginx 버전 정보가 노출될 수 있음",
+  };
+}
+
+// W-11..W-19 are IIS-only KISA items. IIS can never run on the Linux
+// containers this pipeline scans, so rather than silently omitting them
+// from the report, each always evaluates to "skip" (issue #47 acceptance
+// criteria). No ansible task or network call is needed — this is a pure
+// static check.
+export function evaluateIisOnly(id: string): CheckResult {
+  return { id, status: "skip", evidence: "IIS 전용 항목 — Linux 컨테이너에는 해당 없음" };
+}
+
+const IIS_ONLY_IDS = ["W-11", "W-12", "W-13", "W-14", "W-15", "W-16", "W-17", "W-18", "W-19"];
+
 // Composition point: every check the pipeline runs gets added here (C/U/W).
 // findings is null for the local-image fallback path (#41) — see evaluateC01.
 export function evaluateAllChecks(
@@ -568,5 +757,13 @@ export function evaluateAllChecks(
     evaluateU12(tasks),
     evaluateU13(tasks),
     evaluateU16(tasks),
+    evaluateW01(tasks),
+    evaluateW08(tasks),
+    evaluateW09(tasks),
+    ...IIS_ONLY_IDS.map((id) => evaluateIisOnly(id)),
+    evaluateW21(tasks),
+    evaluateW22(tasks),
+    evaluateW25(tasks),
+    evaluateW26(tasks),
   ];
 }
