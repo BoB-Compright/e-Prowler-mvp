@@ -160,7 +160,7 @@ describe("runPipeline", () => {
   });
 
   it("does not remove the build artifact for a build-stage failure (nothing was ever built)", async () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
     const deps = baseDeps();
     deps.build = vi.fn().mockRejectedValue(new Error("docker build exited 1"));
 
