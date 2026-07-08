@@ -308,3 +308,31 @@
         sh -c 'find /tmp /var/tmp /root /home -xdev -maxdepth 3 -name ".*" ! -name "." ! -name ".." 2>/dev/null; true'
       register: u33_result
       changed_when: false
+
+    # W-01..W-26 (KISA guide, web service): nginx-only for MVP scope (#47).
+    # The two tasks below are internal helpers, not tied to a single catalog
+    # id -- they're matched by exact task name (not the `<id>:` prefix
+    # convention) in ruleEvaluation.ts. When nginx isn't present, every real
+    # W item (W-01/08/09/21/22/25/26) evaluates to "skip".
+    - name: "nginx detection (internal)"
+      ansible.builtin.raw: >-
+        sh -c 'if command -v nginx >/dev/null 2>&1 && [ -e /etc/nginx/nginx.conf ]; then echo present;
+        else echo absent; fi; true'
+      register: nginx_detect_result
+      changed_when: false
+
+    - name: "nginx effective config (internal)"
+      # `nginx -T` prints the fully-resolved config (nginx.conf plus every
+      # included file) in one shot -- far simpler than walking `include`
+      # directives ourselves to reconstruct the effective config.
+      ansible.builtin.raw: >-
+        sh -c 'if command -v nginx >/dev/null 2>&1; then nginx -T 2>&1; else echo __MISSING__; fi; true'
+      register: nginx_config_result
+      changed_when: false
+
+    - name: "W-22: nginx config file permissions"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -d /etc/nginx ]; then find /etc/nginx -type f -exec stat -c "%n %U:%G %a" {} \; 2>/dev/null;
+        else echo __MISSING__; fi; true'
+      register: w22_result
+      changed_when: false
