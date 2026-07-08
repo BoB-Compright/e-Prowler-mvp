@@ -71,6 +71,12 @@ CREATE TABLE IF NOT EXISTS assets (
   encrypted_secret TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS scan_batches (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  created_at TEXT NOT NULL
+);
 `;
 
 // Existing on-disk databases predate the "source_type" column; ADD COLUMN
@@ -83,6 +89,9 @@ function migrate(db: Database.Database): void {
   }
   if (!runColumns.some((column) => column.name === "asset_id")) {
     db.exec(`ALTER TABLE runs ADD COLUMN asset_id TEXT REFERENCES assets(id)`);
+  }
+  if (!runColumns.some((column) => column.name === "batch_id")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN batch_id TEXT REFERENCES scan_batches(id)`);
   }
 }
 
