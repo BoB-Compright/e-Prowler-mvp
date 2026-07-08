@@ -29,6 +29,9 @@ export function encryptSecret(plain: string): string {
 export function decryptSecret(cipherText: string): string {
   const key = loadKey();
   const [ivB64, authTagB64, encryptedB64] = cipherText.split(":");
+  if (!ivB64 || !authTagB64 || !encryptedB64) {
+    throw new Error("저장된 자격증명 값의 형식이 올바르지 않습니다.");
+  }
   const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(ivB64, "base64"));
   decipher.setAuthTag(Buffer.from(authTagB64, "base64"));
   const decrypted = Buffer.concat([

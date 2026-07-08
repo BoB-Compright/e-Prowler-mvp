@@ -22,4 +22,9 @@ describe("secretCipher", () => {
     delete process.env.INFRA_SECURITY_MASTER_KEY;
     expect(() => encryptSecret("x")).toThrow(/INFRA_SECURITY_MASTER_KEY/);
   });
+
+  it("throws a clear error for malformed cipherText", () => {
+    expect(() => decryptSecret("onlyonepart")).toThrow(/형식/);
+    expect(() => decryptSecret("a:b")).toThrow(/형식/);
+  });
 });
