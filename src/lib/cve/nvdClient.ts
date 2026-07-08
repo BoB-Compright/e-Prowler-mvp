@@ -65,8 +65,14 @@ function readCache(packageName: string, db: Database): { entries: NvdCveEntry[];
     .prepare(`SELECT raw_response, fetched_at FROM nvd_query_cache WHERE package_name = ?`)
     .get(packageName) as { raw_response: string; fetched_at: string } | undefined;
   if (!row) return null;
+  let entries: NvdCveEntry[];
+  try {
+    entries = JSON.parse(row.raw_response) as NvdCveEntry[];
+  } catch {
+    return null;
+  }
   const fresh = Date.now() - new Date(row.fetched_at).getTime() <= CACHE_TTL_MS;
-  return { entries: JSON.parse(row.raw_response) as NvdCveEntry[], fresh };
+  return { entries, fresh };
 }
 
 function writeCache(packageName: string, entries: NvdCveEntry[], db: Database): void {

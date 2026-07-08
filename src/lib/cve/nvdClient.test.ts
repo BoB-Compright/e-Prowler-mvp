@@ -91,4 +91,22 @@ describe("queryPackageCves", () => {
     expect(entries).toHaveLength(1); // 만료됐어도 폴백으로 사용
     expect(entries[0].cveId).toBe("CVE-2024-0001");
   });
+
+  it("treats a cache row with malformed JSON as a cache miss and falls back to a live fetch", async () => {
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO nvd_query_cache (package_name, raw_response, fetched_at) VALUES (?, ?, ?)`,
+    ).run("openssl", "{not valid json", now);
+
+    const deps: NvdClientDeps = {
+      fetch: vi.fn().mockResolvedValue({ ok: true, json: async () => nvdResponse("CVE-2024-0003", "1.1.2") }),
+      wait: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const entries = await queryPackageCves("openssl", "1.1.1f", deps, db);
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].cveId).toBe("CVE-2024-0003");
+    expect(deps.fetch).toHaveBeenCalledTimes(1);
+  });
 });
