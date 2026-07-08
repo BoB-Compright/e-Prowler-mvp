@@ -6,11 +6,26 @@ import type { ImportRowResult } from "@/lib/assets/excelImport";
 
 export function UploadForm({ projects }: { projects: Project[] }) {
   const [result, setResult] = useState<{ repo: ImportRowResult[]; server: ImportRowResult[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const res = await fetch("/api/assets/upload", { method: "POST", body: new FormData(e.currentTarget) });
-    setResult(await res.json());
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/assets/upload", { method: "POST", body: new FormData(e.currentTarget) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        setError(data?.error ?? "업로드에 실패했습니다");
+        return;
+      }
+      setResult(data);
+    } catch {
+      setError("서버에 연결할 수 없습니다");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -21,8 +36,16 @@ export function UploadForm({ projects }: { projects: Project[] }) {
           {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
         <input type="file" name="file" accept=".xlsx" required />
-        <button type="submit" className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white">업로드</button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white disabled:opacity-50"
+        >
+          {submitting ? "업로드 중…" : "업로드"}
+        </button>
       </form>
+
+      {error && <p className="text-[var(--color-fail)]">{error}</p>}
 
       {result && (
         <div className="flex flex-col gap-2">
