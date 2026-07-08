@@ -12,7 +12,7 @@ beforeEach(() => {
 
 describe("check result store", () => {
   it("round-trips check results for a run in insertion order", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     saveCheckResults(
       run.id,
       [
@@ -31,13 +31,13 @@ describe("check result store", () => {
   });
 
   it("returns an empty array for a run with no check results", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     expect(listCheckResults(run.id, db)).toEqual([]);
   });
 
   it("keeps results scoped to their own run", () => {
-    const runA = createRun("https://github.com/owner/a.git", db);
-    const runB = createRun("https://github.com/owner/b.git", db);
+    const runA = createRun("https://github.com/owner/a.git", "git", db);
+    const runB = createRun("https://github.com/owner/b.git", "git", db);
     saveCheckResults(runA.id, [{ id: "C-01", status: "pass", evidence: "ok" }], db);
 
     expect(listCheckResults(runB.id, db)).toEqual([]);

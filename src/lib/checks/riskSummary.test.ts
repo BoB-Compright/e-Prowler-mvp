@@ -60,7 +60,7 @@ describe("getRunRiskSummary", () => {
   });
 
   it("joins stored check results with catalog severity", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     saveCheckResults(
       run.id,
       [

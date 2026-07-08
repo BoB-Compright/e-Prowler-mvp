@@ -237,6 +237,11 @@ export function RunStatus({ runId }: { runId: string }) {
         <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-violet-700">
           ✦ 룰 + Claude AI 하이브리드 분석
         </span>
+        {run.sourceType === "local_image" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-700">
+            로컬 이미지 재점검 (Fallback)
+          </span>
+        )}
       </div>
       <p className="mt-1.5 break-all text-sm text-[var(--color-muted)]">{run.repoUrl}</p>
 

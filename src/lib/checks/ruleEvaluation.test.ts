@@ -60,6 +60,11 @@ describe("evaluateC01", () => {
     const result = evaluateC01(findings(), [task("C-01: runtime uid", "0\n")]);
     expect(result.status).toBe("fail");
   });
+
+  it("falls back to runtime uid only when there is no Dockerfile (local image fallback, #41)", () => {
+    expect(evaluateC01(null, [task("C-01: runtime uid", "1000\n")]).status).toBe("pass");
+    expect(evaluateC01(null, [task("C-01: runtime uid", "0\n")]).status).toBe("fail");
+  });
 });
 
 describe("evaluateC02", () => {
@@ -72,6 +77,10 @@ describe("evaluateC02", () => {
     expect(result.status).toBe("fail");
     expect(result.evidence).toContain("DB_PASSWORD");
     expect(result.evidence).toContain("API_KEY");
+  });
+
+  it("skips when there is no Dockerfile (local image fallback, #41)", () => {
+    expect(evaluateC02(null).status).toBe("skip");
   });
 });
 
@@ -97,6 +106,13 @@ describe("evaluateC03", () => {
     expect(result.status).toBe("fail");
     expect(result.evidence).toContain("22");
   });
+
+  it("still evaluates listening ports when there is no Dockerfile (local image fallback, #41)", () => {
+    const result = evaluateC03(null, [
+      task("C-03: listening ports", "LISTEN 0 128 0.0.0.0:3306 0.0.0.0:*\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
 });
 
 describe("evaluateC04", () => {
@@ -111,6 +127,10 @@ describe("evaluateC04", () => {
     const result = evaluateC04(findings({ baseImages: [{ image: "alpine", tag: null, pinned: false }] }));
     expect(result.status).toBe("fail");
     expect(result.evidence).toContain("alpine");
+  });
+
+  it("skips when there is no Dockerfile (local image fallback, #41)", () => {
+    expect(evaluateC04(null).status).toBe("skip");
   });
 });
 
@@ -172,6 +192,10 @@ describe("evaluateC08", () => {
   it("fails when HEALTHCHECK is missing", () => {
     expect(evaluateC08(findings({ hasHealthcheck: false })).status).toBe("fail");
   });
+
+  it("skips when there is no Dockerfile (local image fallback, #41)", () => {
+    expect(evaluateC08(null).status).toBe("skip");
+  });
 });
 
 describe("evaluateC09", () => {
@@ -183,6 +207,10 @@ describe("evaluateC09", () => {
     const result = evaluateC09(findings({ remoteAddSources: ["https://example.com/app.tar.gz"] }));
     expect(result.status).toBe("fail");
     expect(result.evidence).toContain("https://example.com/app.tar.gz");
+  });
+
+  it("skips when there is no Dockerfile (local image fallback, #41)", () => {
+    expect(evaluateC09(null).status).toBe("skip");
   });
 });
 
