@@ -12,6 +12,15 @@ export interface Framework {
   docVersion?: string;
 }
 
+// A specific software product this item's automated check targets, detected
+// at runtime from the scanned container (see detectAssetProfile in
+// src/lib/checks/ruleEvaluation.ts). Only meaningful when automationStatus
+// is "automated" and the check's evidence-gathering is genuinely tied to one
+// product family (e.g. nginx-only config parsing, or a shared "mail service
+// detection" task feeding several U-items) -- most C-*/U-* items apply to
+// any Linux container regardless of installed software and leave this unset.
+export type Technology = "nginx" | "mail" | "dns" | "ftp" | "snmp";
+
 export interface CatalogItem {
   id: string;
   category: Category;
@@ -19,6 +28,8 @@ export interface CatalogItem {
   title: string;
   severity: Severity;
   automationStatus: AutomationStatus;
+  // Undefined/omitted = applies to any asset, no stack-based scoping.
+  appliesTo?: Technology[];
 }
 
 // Internal per-run check outcome (PRD §4). Kept separate from the UI label
