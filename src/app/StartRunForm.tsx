@@ -71,7 +71,7 @@ export function StartRunForm({ assets }: { assets: Asset[] }) {
           onClick={() => setMode("git")}
           className={`rounded-[var(--radius-nh)] px-4 py-1.5 ${mode === "git" ? "bg-[var(--color-primary)] text-white" : "text-[var(--color-muted)]"}`}
         >
-          Git 레포
+          등록된 자산 (레포·서버)
         </button>
         <button
           type="button"
