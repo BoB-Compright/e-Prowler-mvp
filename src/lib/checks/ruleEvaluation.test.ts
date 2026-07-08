@@ -76,14 +76,20 @@ import {
   evaluateU65,
   evaluateU66,
   evaluateU67,
-  evaluateW01,
-  evaluateW08,
-  evaluateW09,
-  evaluateW21,
-  evaluateW22,
-  evaluateW25,
-  evaluateW26,
-  evaluateIisOnly,
+  evaluateWEB03,
+  evaluateWEB04,
+  evaluateWEB08,
+  evaluateWEB09,
+  evaluateWEB13,
+  evaluateWEB16,
+  evaluateWEB18,
+  evaluateWEB19,
+  evaluateWEB20,
+  evaluateWEB21,
+  evaluateWEB22,
+  evaluateWEB23,
+  evaluateWEB25,
+  evaluateWEB26,
 } from "./ruleEvaluation";
 import type { AnsibleTaskOutput } from "./ansibleRunner";
 import type { DockerfileFindings } from "./dockerfileChecks";
@@ -92,14 +98,20 @@ function task(taskName: string, stdout: string): AnsibleTaskOutput {
   return { taskName, stdout };
 }
 
-// Builds the ansible task list the real W-check evaluators expect: nginx
-// detection + effective config (`nginx -T`) + (optionally) the W-22
-// permissions dump. Pass config: null to simulate "nginx not detected".
-function nginxTasks(config: string | null, w22Stdout = ""): AnsibleTaskOutput[] {
+// Builds the ansible task list the real WEB-check evaluators expect: nginx
+// detection + effective config (`nginx -T`) + version + (optionally) the
+// WEB-03/WEB-26 permission dumps. Pass config: null to simulate "nginx not
+// detected".
+function nginxTasks(
+  config: string | null,
+  extra: { web03Stdout?: string; web26Stdout?: string; version?: string } = {},
+): AnsibleTaskOutput[] {
   return [
     task("nginx detection (internal)", config === null ? "absent" : "present"),
     task("nginx effective config (internal)", config === null ? "__MISSING__" : config),
-    task("W-22: nginx config file permissions", w22Stdout),
+    task("nginx version (internal)", extra.version ?? "nginx version: nginx/1.25.3"),
+    task("WEB-03: nginx basic auth password file permissions", extra.web03Stdout ?? "__MISSING__"),
+    task("WEB-26: nginx log directory permissions", extra.web26Stdout ?? "__MISSING__"),
   ];
 }
 
@@ -620,42 +632,6 @@ describe("evaluateU14", () => {
   });
 });
 
-describe("evaluateW01", () => {
-  it("skips when nginx is not detected", () => {
-    expect(evaluateW01(nginxTasks(null)).status).toBe("skip");
-  });
-
-  it("passes when autoindex is not on anywhere in the effective config", () => {
-    const result = evaluateW01(nginxTasks("server {\n  autoindex off;\n}\n"));
-    expect(result.status).toBe("pass");
-  });
-
-  it("fails when autoindex on is present", () => {
-    const result = evaluateW01(nginxTasks("server {\n  location /files/ {\n    autoindex on;\n  }\n}\n"));
-    expect(result.status).toBe("fail");
-  });
-});
-
-describe("evaluateW08", () => {
-  it("skips when nginx is not detected", () => {
-    expect(evaluateW08(nginxTasks(null)).status).toBe("skip");
-  });
-
-  it("passes when both access_log and error_log are configured", () => {
-    const result = evaluateW08(
-      nginxTasks("http {\n  access_log /var/log/nginx/access.log main;\n  error_log /var/log/nginx/error.log warn;\n}\n"),
-    );
-    expect(result.status).toBe("pass");
-  });
-
-  it("fails when access_log is turned off", () => {
-    const result = evaluateW08(
-      nginxTasks("http {\n  access_log off;\n  error_log /var/log/nginx/error.log warn;\n}\n"),
-    );
-    expect(result.status).toBe("fail");
-  });
-});
-
 describe("evaluateU15", () => {
   it("passes when every file has a valid owner and group", () => {
     expect(evaluateU15([task("U-15: files and directories without a valid owner", "")]).status).toBe("pass");
@@ -687,83 +663,261 @@ describe("evaluateU17", () => {
   });
 });
 
-describe("evaluateW09", () => {
+describe("evaluateWEB03", () => {
   it("skips when nginx is not detected", () => {
-    expect(evaluateW09(nginxTasks(null)).status).toBe("skip");
+    expect(evaluateWEB03(nginxTasks(null)).status).toBe("skip");
   });
 
-  it("passes with a custom error_page directive", () => {
-    const result = evaluateW09(nginxTasks("server {\n  error_page 404 /404.html;\n}\n"));
+  it("skips when auth_basic_user_file is not configured", () => {
+    expect(evaluateWEB03(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when the password file is owner-only (600)", () => {
+    const result = evaluateWEB03(
+      nginxTasks("server {\n  auth_basic_user_file /etc/nginx/.htpasswd;\n}\n", {
+        web03Stdout: "root:root 600\n",
+      }),
+    );
     expect(result.status).toBe("pass");
   });
 
-  it("passes when server_tokens is off even without a custom error_page", () => {
-    const result = evaluateW09(nginxTasks("http {\n  server_tokens off;\n}\n"));
-    expect(result.status).toBe("pass");
-  });
-
-  it("fails with no custom error_page and server_tokens left at its default", () => {
-    const result = evaluateW09(nginxTasks("http {\n  server_tokens on;\n}\n"));
+  it("fails when the password file exceeds 600", () => {
+    const result = evaluateWEB03(
+      nginxTasks("server {\n  auth_basic_user_file /etc/nginx/.htpasswd;\n}\n", {
+        web03Stdout: "root:root 644\n",
+      }),
+    );
     expect(result.status).toBe("fail");
   });
 });
 
-describe("evaluateW21", () => {
+describe("evaluateWEB04", () => {
   it("skips when nginx is not detected", () => {
-    expect(evaluateW21(nginxTasks(null)).status).toBe("skip");
+    expect(evaluateWEB04(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when autoindex is not on anywhere in the effective config", () => {
+    const result = evaluateWEB04(nginxTasks("server {\n  autoindex off;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when autoindex on is present", () => {
+    const result = evaluateWEB04(nginxTasks("server {\n  location /files/ {\n    autoindex on;\n  }\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB08", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB08(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when unset (nginx's own 1m default applies)", () => {
+    expect(evaluateWEB08(nginxTasks("server {}\n")).status).toBe("pass");
+  });
+
+  it("passes with an explicit bounded value", () => {
+    expect(evaluateWEB08(nginxTasks("http {\n  client_max_body_size 10m;\n}\n")).status).toBe("pass");
+  });
+
+  it("fails when explicitly set to unlimited (0)", () => {
+    expect(evaluateWEB08(nginxTasks("http {\n  client_max_body_size 0;\n}\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB09", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB09(nginxTasks(null)).status).toBe("skip");
   });
 
   it("passes when the user directive is set to a non-root account", () => {
-    const result = evaluateW21(nginxTasks("user nginx;\nworker_processes auto;\n"));
+    const result = evaluateWEB09(nginxTasks("user nginx;\nworker_processes auto;\n"));
     expect(result.status).toBe("pass");
   });
 
   it("fails when the user directive is set to root", () => {
-    const result = evaluateW21(nginxTasks("user root;\nworker_processes auto;\n"));
+    const result = evaluateWEB09(nginxTasks("user root;\nworker_processes auto;\n"));
     expect(result.status).toBe("fail");
   });
 
   it("fails when there is no user directive at all", () => {
-    const result = evaluateW21(nginxTasks("worker_processes auto;\n"));
+    const result = evaluateWEB09(nginxTasks("worker_processes auto;\n"));
     expect(result.status).toBe("fail");
   });
 });
 
-describe("evaluateW22", () => {
+describe("evaluateWEB13", () => {
   it("skips when nginx is not detected", () => {
-    expect(evaluateW22(nginxTasks(null)).status).toBe("skip");
+    expect(evaluateWEB13(nginxTasks(null)).status).toBe("skip");
   });
 
-  it("passes when config files are not world-writable", () => {
-    const result = evaluateW22(
-      nginxTasks("http {}\n", "/etc/nginx/nginx.conf root:root 644\n/etc/nginx/conf.d/default.conf root:root 644\n"),
+  it("passes when dotfiles are blocked with deny all", () => {
+    const result = evaluateWEB13(
+      nginxTasks("server {\n  location ~ /\\.(git|env) {\n    deny all;\n  }\n}\n"),
     );
     expect(result.status).toBe("pass");
   });
 
-  it("fails when a config file is world-writable", () => {
-    const result = evaluateW22(
-      nginxTasks("http {}\n", "/etc/nginx/nginx.conf root:root 646\n"),
+  it("fails when no location block protects hidden/config files", () => {
+    const result = evaluateWEB13(nginxTasks("server {\n  root /var/www/html;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+
+  it("fails when the dotfile block is commented out (nginx's own stock example)", () => {
+    // Real regression: stock nginx.conf ships this exact block commented
+    // out by default -- it must not count as an active protection.
+    const result = evaluateWEB13(
+      nginxTasks(
+        "server {\n    #location ~ /\\.ht {\n    #    deny  all;\n    #}\n}\n",
+      ),
     );
     expect(result.status).toBe("fail");
-    expect(result.evidence).toContain("/etc/nginx/nginx.conf");
   });
 });
 
-describe("evaluateW25", () => {
+describe("evaluateWEB16", () => {
   it("skips when nginx is not detected", () => {
-    expect(evaluateW25(nginxTasks(null)).status).toBe("skip");
+    expect(evaluateWEB16(nginxTasks(null)).status).toBe("skip");
   });
 
-  it("passes when limit_except restricts methods", () => {
-    const result = evaluateW25(
-      nginxTasks("location / {\n  limit_except GET POST {\n    deny all;\n  }\n}\n"),
+  it("passes when server_tokens off is set", () => {
+    expect(evaluateWEB16(nginxTasks("http {\n  server_tokens off;\n}\n")).status).toBe("pass");
+  });
+
+  it("fails when server_tokens is left at its default (on)", () => {
+    expect(evaluateWEB16(nginxTasks("http {}\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB18", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB18(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when dav_methods is not configured", () => {
+    expect(evaluateWEB18(nginxTasks("server {}\n")).status).toBe("pass");
+  });
+
+  it("fails when dav_methods enables WebDAV write methods", () => {
+    const result = evaluateWEB18(nginxTasks("location / {\n  dav_methods PUT DELETE;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB19", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB19(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when ssi is not turned on", () => {
+    expect(evaluateWEB19(nginxTasks("server {}\n")).status).toBe("pass");
+  });
+
+  it("fails when ssi on is set", () => {
+    expect(evaluateWEB19(nginxTasks("location / {\n  ssi on;\n}\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB20", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB20(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when listen ssl and ssl_certificate are both configured", () => {
+    const result = evaluateWEB20(
+      nginxTasks("server {\n  listen 443 ssl;\n  ssl_certificate /etc/nginx/cert.pem;\n}\n"),
     );
     expect(result.status).toBe("pass");
   });
 
-  it("fails when no method restriction is configured", () => {
-    const result = evaluateW25(nginxTasks("server {\n  listen 80;\n}\n"));
+  it("fails when SSL/TLS is not configured", () => {
+    expect(evaluateWEB20(nginxTasks("server {\n  listen 80;\n}\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB21", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB21(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when SSL/TLS is not configured at all (nothing to redirect to)", () => {
+    expect(evaluateWEB21(nginxTasks("server {\n  listen 80;\n}\n")).status).toBe("skip");
+  });
+
+  it("passes when an HTTPS redirect is configured alongside SSL", () => {
+    const result = evaluateWEB21(
+      nginxTasks(
+        "server {\n  listen 80;\n  return 301 https://$host$request_uri;\n}\nserver {\n  listen 443 ssl;\n}\n",
+      ),
+    );
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when SSL is configured but no redirect exists", () => {
+    const result = evaluateWEB21(nginxTasks("server {\n  listen 443 ssl;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB22", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB22(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes with a custom error_page directive", () => {
+    const result = evaluateWEB22(nginxTasks("server {\n  error_page 404 /404.html;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails with no custom error_page configured", () => {
+    const result = evaluateWEB22(nginxTasks("server {\n  listen 80;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB23", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB23(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no LDAP auth module is configured", () => {
+    expect(evaluateWEB23(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("returns review when LDAP auth is configured (can't verify algorithm strength automatically)", () => {
+    const result = evaluateWEB23(nginxTasks("server {\n  auth_ldap \"forbidden\";\n}\n"));
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateWEB25", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB25(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("always returns review with the detected version (no CVE database to compare against)", () => {
+    const result = evaluateWEB25(nginxTasks("server {}\n", { version: "nginx version: nginx/1.25.3" }));
+    expect(result.status).toBe("review");
+    expect(result.evidence).toContain("1.25.3");
+  });
+});
+
+describe("evaluateWEB26", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB26(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when the log directory does not exist", () => {
+    expect(evaluateWEB26(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when the log directory has safe owner/mode", () => {
+    const result = evaluateWEB26(nginxTasks("server {}\n", { web26Stdout: "root:root 755\n" }));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the log directory is group/other writable", () => {
+    const result = evaluateWEB26(nginxTasks("server {}\n", { web26Stdout: "root:root 777\n" }));
     expect(result.status).toBe("fail");
   });
 });
@@ -1694,25 +1848,3 @@ describe("evaluateU67", () => {
   });
 });
 
-describe("evaluateW26", () => {
-  it("skips when nginx is not detected", () => {
-    expect(evaluateW26(nginxTasks(null)).status).toBe("skip");
-  });
-
-  it("passes when server_tokens off is set", () => {
-    expect(evaluateW26(nginxTasks("http {\n  server_tokens off;\n}\n")).status).toBe("pass");
-  });
-
-  it("fails when server_tokens is left at its default (on)", () => {
-    expect(evaluateW26(nginxTasks("http {}\n")).status).toBe("fail");
-  });
-});
-
-describe("evaluateIisOnly", () => {
-  it("always returns skip regardless of id, since IIS never applies to a Linux container", () => {
-    for (const id of ["W-11", "W-12", "W-13", "W-14", "W-15", "W-16", "W-17", "W-18", "W-19"]) {
-      const result = evaluateIisOnly(id);
-      expect(result).toEqual({ id, status: "skip", evidence: "IIS 전용 항목 — Linux 컨테이너에는 해당 없음" });
-    }
-  });
-});
