@@ -13,6 +13,7 @@ import {
   getAsset,
   listAssets,
 } from "./store";
+import { getScheduleByAsset, upsertSchedule } from "@/lib/scheduling/store";
 
 let db: Database;
 
@@ -95,5 +96,19 @@ describe("deleteAsset", () => {
     db.prepare(`UPDATE runs SET asset_id = ?, status = 'done' WHERE id = ?`).run(asset.id, run.id);
     deleteAsset(asset.id, db);
     expect(db.prepare(`SELECT * FROM runs WHERE id = ?`).get(run.id)).toBeUndefined();
+  });
+
+  it("cascades schedule deletion when an asset is deleted", () => {
+    const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
+    upsertSchedule(
+      asset.id,
+      { frequency: "daily", dayOfWeek: null, dayOfMonth: null, timeOfDay: "03:00", enabled: true },
+      new Date(),
+      db,
+    );
+
+    deleteAsset(asset.id, db);
+
+    expect(getScheduleByAsset(asset.id, db)).toBeUndefined();
   });
 });
