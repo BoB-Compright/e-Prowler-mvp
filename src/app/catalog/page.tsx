@@ -1,4 +1,4 @@
-import { getCatalogByCategory, getCatalogSummary } from "@/lib/catalog";
+import { getCatalogByCategory, getCatalogSummary, getFrameworks } from "@/lib/catalog";
 import { CATEGORY_LABELS, type Category } from "@/lib/catalog/types";
 
 const CATEGORIES: Category[] = ["container", "unix", "web"];
@@ -12,6 +12,8 @@ const SEVERITY_STYLES: Record<string, string> = {
 
 export default function CatalogPage() {
   const summary = getCatalogSummary();
+  const frameworks = getFrameworks();
+  const frameworkNames = new Map(frameworks.map((framework) => [framework.id, framework.name]));
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
@@ -19,6 +21,12 @@ export default function CatalogPage() {
       <p className="mt-1 text-sm text-[var(--color-muted)]">
         컨테이너/이미지 하드닝, KISA 가이드 기반 Unix·웹서비스 점검 항목 총{" "}
         {summary.total}개 (자동화 {summary.automated} · 자동화 전 {summary.notAutomated})
+      </p>
+      <p className="mt-1 text-sm text-[var(--color-muted)]">
+        기준 프레임워크:{" "}
+        {frameworks
+          .map((framework) => `${framework.name} (${summary.byFramework[framework.id]}개)`)
+          .join(", ")}
       </p>
 
       {CATEGORIES.map((category) => {
@@ -36,6 +44,7 @@ export default function CatalogPage() {
                 <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-muted)]">
                   <th className="py-2 pr-4">ID</th>
                   <th className="py-2 pr-4">항목</th>
+                  <th className="py-2 pr-4">프레임워크</th>
                   <th className="py-2 pr-4">심각도</th>
                   <th className="py-2 pr-4">자동화 상태</th>
                 </tr>
@@ -45,6 +54,11 @@ export default function CatalogPage() {
                   <tr key={item.id} className="border-b border-[var(--color-border)] last:border-0">
                     <td className="py-2 pr-4 font-mono">{item.id}</td>
                     <td className="py-2 pr-4">{item.title}</td>
+                    <td className="py-2 pr-4">
+                      <span className="rounded-[var(--radius-nh)] bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                        {frameworkNames.get(item.frameworkId) ?? item.frameworkId}
+                      </span>
+                    </td>
                     <td className="py-2 pr-4">
                       <span
                         className={`rounded-[var(--radius-nh)] px-2 py-0.5 text-xs ${
