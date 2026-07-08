@@ -11,7 +11,7 @@ beforeEach(() => {
 
 describe("run store", () => {
   it("creates a run in the clone/running state with an initial event", () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
     expect(run.stage).toBe("clone");
     expect(run.status).toBe("running");
     expect(run.imageTag).toBeNull();
@@ -21,7 +21,7 @@ describe("run store", () => {
   });
 
   it("updates stage/status and records image tag on success", () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
     updateRunStage(run.id, "clone", "succeeded", {}, db);
     updateRunStage(run.id, "build", "running", {}, db);
     updateRunStage(run.id, "build", "succeeded", { imageTag: "scan-abc" }, db);
@@ -35,7 +35,7 @@ describe("run store", () => {
   });
 
   it("records an error message on failure", () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
     updateRunStage(run.id, "build", "failed", { errorMessage: "docker build exited 1" }, db);
 
     const updated = getRun(run.id, db)!;
@@ -44,12 +44,32 @@ describe("run store", () => {
   });
 
   it("lists runs newest first", () => {
-    const a = createRun("https://github.com/owner/a.git", "git", db);
+    const a = createRun("https://github.com/owner/a.git", "git", null, db);
     appendEvent(a.id, "clone", "running", "note", db);
-    const b = createRun("https://github.com/owner/b.git", "git", db);
+    const b = createRun("https://github.com/owner/b.git", "git", null, db);
 
     const ids = listRuns(db).map((r) => r.id);
     expect(ids).toContain(a.id);
     expect(ids).toContain(b.id);
+  });
+
+  it("defaults assetId to null when not provided", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    expect(run.assetId).toBeNull();
+    expect(getRun(run.id, db)!.assetId).toBeNull();
+  });
+
+  it("persists and round-trips an assetId through create/get/list", () => {
+    db.exec(`INSERT INTO assets (id, type, display_name, created_at)
+             VALUES ('asset-1', 'repo', 'a', '2024-01-01')`);
+
+    const run = createRun("https://github.com/owner/repo.git", "git", "asset-1", db);
+    expect(run.assetId).toBe("asset-1");
+
+    const fetched = getRun(run.id, db);
+    expect(fetched?.assetId).toBe("asset-1");
+
+    const listed = listRuns(db).find((r) => r.id === run.id);
+    expect(listed?.assetId).toBe("asset-1");
   });
 });

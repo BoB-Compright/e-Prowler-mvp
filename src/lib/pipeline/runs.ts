@@ -12,6 +12,7 @@ interface RunRow {
   image_tag: string | null;
   container_name: string | null;
   error_message: string | null;
+  asset_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,7 @@ function toRun(row: RunRow): Run {
     imageTag: row.image_tag,
     containerName: row.container_name,
     errorMessage: row.error_message,
+    assetId: row.asset_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -37,6 +39,7 @@ function toRun(row: RunRow): Run {
 export function createRun(
   source: string,
   sourceType: RunSourceType = "git",
+  assetId: string | null = null,
   db: Database = getDb(),
 ): Run {
   const now = new Date().toISOString();
@@ -49,12 +52,13 @@ export function createRun(
     imageTag: null,
     containerName: null,
     errorMessage: null,
+    assetId,
     createdAt: now,
     updatedAt: now,
   };
   db.prepare(
-    `INSERT INTO runs (id, repo_url, source_type, stage, status, image_tag, container_name, error_message, created_at, updated_at)
-     VALUES (@id, @repoUrl, @sourceType, @stage, @status, @imageTag, @containerName, @errorMessage, @createdAt, @updatedAt)`,
+    `INSERT INTO runs (id, repo_url, source_type, stage, status, image_tag, container_name, error_message, asset_id, created_at, updated_at)
+     VALUES (@id, @repoUrl, @sourceType, @stage, @status, @imageTag, @containerName, @errorMessage, @assetId, @createdAt, @updatedAt)`,
   ).run(run);
   appendEvent(run.id, run.stage, run.status, null, db);
   return run;

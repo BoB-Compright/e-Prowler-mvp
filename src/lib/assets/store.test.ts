@@ -84,14 +84,14 @@ describe("deleteAsset", () => {
 
   it("blocks deletion when a run is still running", () => {
     const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
-    const run = createRun(asset.repoUrl!, "git", db);
+    const run = createRun(asset.repoUrl!, "git", null, db);
     db.prepare(`UPDATE runs SET asset_id = ?, status = 'running' WHERE id = ?`).run(asset.id, run.id);
     expect(() => deleteAsset(asset.id, db)).toThrow(AssetInUseError);
   });
 
   it("cascades run deletion when the asset had completed runs", () => {
     const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
-    const run = createRun(asset.repoUrl!, "git", db);
+    const run = createRun(asset.repoUrl!, "git", null, db);
     db.prepare(`UPDATE runs SET asset_id = ?, status = 'done' WHERE id = ?`).run(asset.id, run.id);
     deleteAsset(asset.id, db);
     expect(db.prepare(`SELECT * FROM runs WHERE id = ?`).get(run.id)).toBeUndefined();
