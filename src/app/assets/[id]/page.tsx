@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getAsset } from "@/lib/assets/store";
 import { listRuns } from "@/lib/pipeline/runs";
+import { getScheduleByAsset } from "@/lib/scheduling/store";
+import { ScheduleForm } from "./ScheduleForm";
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -8,6 +10,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   if (!asset) notFound();
 
   const runs = listRuns().filter((run) => run.assetId === id);
+  const schedule = getScheduleByAsset(id) ?? null;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -15,6 +18,9 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       <p className="mb-6 text-sm text-[var(--color-muted)]">
         {asset.type === "repo" ? asset.repoUrl : `${asset.hostIp}:${asset.sshPort}`}
       </p>
+      <div className="mb-6">
+        <ScheduleForm assetId={id} initialSchedule={schedule} />
+      </div>
       <h2 className="mb-2 text-sm font-bold">점검 이력</h2>
       <ul className="text-sm">
         {runs.map((run) => (
