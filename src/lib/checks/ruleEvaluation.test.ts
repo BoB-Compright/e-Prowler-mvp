@@ -76,18 +76,30 @@ import {
   evaluateU65,
   evaluateU66,
   evaluateU67,
+  evaluateWEB01,
+  evaluateWEB02,
   evaluateWEB03,
   evaluateWEB04,
+  evaluateWEB05,
+  evaluateWEB06,
+  evaluateWEB07,
   evaluateWEB08,
   evaluateWEB09,
+  evaluateWEB10,
+  evaluateWEB11,
+  evaluateWEB12,
   evaluateWEB13,
+  evaluateWEB14,
+  evaluateWEB15,
   evaluateWEB16,
+  evaluateWEB17,
   evaluateWEB18,
   evaluateWEB19,
   evaluateWEB20,
   evaluateWEB21,
   evaluateWEB22,
   evaluateWEB23,
+  evaluateWEB24,
   evaluateWEB25,
   evaluateWEB26,
 } from "./ruleEvaluation";
@@ -100,11 +112,11 @@ function task(taskName: string, stdout: string): AnsibleTaskOutput {
 
 // Builds the ansible task list the real WEB-check evaluators expect: nginx
 // detection + effective config (`nginx -T`) + version + (optionally) the
-// WEB-03/WEB-26 permission dumps. Pass config: null to simulate "nginx not
-// detected".
+// WEB-03/WEB-26 permission dumps and the shared docroot scan. Pass
+// config: null to simulate "nginx not detected".
 function nginxTasks(
   config: string | null,
-  extra: { web03Stdout?: string; web26Stdout?: string; version?: string } = {},
+  extra: { web03Stdout?: string; web26Stdout?: string; version?: string; docrootScanStdout?: string } = {},
 ): AnsibleTaskOutput[] {
   return [
     task("nginx detection (internal)", config === null ? "absent" : "present"),
@@ -112,6 +124,7 @@ function nginxTasks(
     task("nginx version (internal)", extra.version ?? "nginx version: nginx/1.25.3"),
     task("WEB-03: nginx basic auth password file permissions", extra.web03Stdout ?? "__MISSING__"),
     task("WEB-26: nginx log directory permissions", extra.web26Stdout ?? "__MISSING__"),
+    task("nginx document root scan (internal)", extra.docrootScanStdout ?? "__MISSING__"),
   ];
 }
 
@@ -659,6 +672,236 @@ describe("evaluateU17", () => {
     const result = evaluateU17([
       task("U-17: system startup script permissions", "/etc/init.d/custom\n"),
     ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB01", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB01(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no auth_basic is configured (no admin account concept applies)", () => {
+    expect(evaluateWEB01(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("returns review when auth_basic is configured (account name is inside the opaque htpasswd file)", () => {
+    const result = evaluateWEB01(nginxTasks("location /admin {\n  auth_basic \"restricted\";\n}\n"));
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateWEB02", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB02(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no auth_basic is configured", () => {
+    expect(evaluateWEB02(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("returns review when auth_basic is configured (password strength can't be checked from a hash)", () => {
+    const result = evaluateWEB02(nginxTasks("location /admin {\n  auth_basic \"restricted\";\n}\n"));
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateWEB05", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB05(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no script handler is configured", () => {
+    expect(evaluateWEB05(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when script execution is scoped to a specific extension", () => {
+    const result = evaluateWEB05(
+      nginxTasks("location ~ \\.php$ {\n  fastcgi_pass 127.0.0.1:9000;\n}\n"),
+    );
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a script handler exists with no extension-scoped location", () => {
+    const result = evaluateWEB05(nginxTasks("location / {\n  fastcgi_pass 127.0.0.1:9000;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB06", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB06(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when location/alias trailing slashes match", () => {
+    const result = evaluateWEB06(
+      nginxTasks("location /files/ {\n  alias /data/files/;\n}\n"),
+    );
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails on the classic nginx off-by-slash alias misconfiguration", () => {
+    const result = evaluateWEB06(nginxTasks("location /files {\n  alias /data/files/;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB07", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB07(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when the document root scan is unavailable", () => {
+    expect(evaluateWEB07(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when no leftover install files are found", () => {
+    const result = evaluateWEB07(nginxTasks("server {}\n", { docrootScanStdout: "" }));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when leftover install/sample files are found", () => {
+    const result = evaluateWEB07(
+      nginxTasks("server {}\n", { docrootScanStdout: "LEFTOVER:/var/www/html/install.php\n" }),
+    );
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("install.php");
+  });
+});
+
+describe("evaluateWEB10", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB10(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no proxy_pass is configured", () => {
+    expect(evaluateWEB10(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when proxy_pass targets a fixed upstream", () => {
+    const result = evaluateWEB10(nginxTasks("location / {\n  proxy_pass http://backend:8080;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when proxy_pass is built from a client-controlled header (SSRF)", () => {
+    const result = evaluateWEB10(
+      nginxTasks("location / {\n  proxy_pass http://$http_x_forwarded_host;\n}\n"),
+    );
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB11", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB11(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no root directive is configured", () => {
+    expect(evaluateWEB11(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when the web root is separated from system directories", () => {
+    const result = evaluateWEB11(nginxTasks("server {\n  root /var/www/html;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the web root points at a system directory", () => {
+    const result = evaluateWEB11(nginxTasks("server {\n  root /etc;\n}\n"));
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB12", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB12(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when disable_symlinks is set", () => {
+    expect(evaluateWEB12(nginxTasks("server {\n  disable_symlinks on;\n}\n")).status).toBe("pass");
+  });
+
+  it("fails when disable_symlinks is not configured (default follows symlinks)", () => {
+    expect(evaluateWEB12(nginxTasks("server {}\n")).status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB14", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB14(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when the document root scan is unavailable", () => {
+    expect(evaluateWEB14(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when no world-writable files are found", () => {
+    const result = evaluateWEB14(nginxTasks("server {}\n", { docrootScanStdout: "" }));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a world-writable file is found under the document root", () => {
+    const result = evaluateWEB14(
+      nginxTasks("server {}\n", { docrootScanStdout: "WRITABLE:/var/www/html/upload.php\n" }),
+    );
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateWEB15", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB15(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no script mapping is configured", () => {
+    expect(evaluateWEB15(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when only a single script extension is mapped", () => {
+    const result = evaluateWEB15(nginxTasks("location ~ \\.php$ {\n  fastcgi_pass 127.0.0.1:9000;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("returns review when multiple script extensions are mapped", () => {
+    const result = evaluateWEB15(
+      nginxTasks("location ~ \\.(php|cgi)$ {\n  fastcgi_pass 127.0.0.1:9000;\n}\n"),
+    );
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateWEB17", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB17(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("passes when no alias-based virtual paths exist", () => {
+    expect(evaluateWEB17(nginxTasks("server {}\n")).status).toBe("pass");
+  });
+
+  it("returns review when alias-based virtual paths are found", () => {
+    const result = evaluateWEB17(nginxTasks("location /old-app {\n  alias /data/old-app;\n}\n"));
+    expect(result.status).toBe("review");
+  });
+});
+
+describe("evaluateWEB24", () => {
+  it("skips when nginx is not detected", () => {
+    expect(evaluateWEB24(nginxTasks(null)).status).toBe("skip");
+  });
+
+  it("skips when no dedicated upload path is found", () => {
+    expect(evaluateWEB24(nginxTasks("server {}\n")).status).toBe("skip");
+  });
+
+  it("passes when the upload path disables script execution", () => {
+    const result = evaluateWEB24(nginxTasks("location /uploads {\n  autoindex off;\n}\n"));
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the upload path allows script execution", () => {
+    const result = evaluateWEB24(
+      nginxTasks("location /uploads {\n  fastcgi_pass 127.0.0.1:9000;\n}\n"),
+    );
     expect(result.status).toBe("fail");
   });
 });
