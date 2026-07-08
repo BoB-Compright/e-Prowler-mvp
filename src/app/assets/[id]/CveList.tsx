@@ -13,14 +13,24 @@ const SEVERITY_LABEL: Record<CveMatch["severity"], string> = {
 
 export function CveList({ matches: initialMatches }: { matches: CveMatch[] }) {
   const [matches, setMatches] = useState(initialMatches);
+  const [error, setError] = useState<string | null>(null);
 
   async function toggleDismissed(id: string, dismissed: boolean) {
-    await fetch(`/api/cve-matches/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dismissed }),
-    });
-    setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, dismissed } : m)));
+    setError(null);
+    try {
+      const res = await fetch(`/api/cve-matches/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dismissed }),
+      });
+      if (!res.ok) {
+        setError("변경 사항을 저장하지 못했습니다");
+        return;
+      }
+      setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, dismissed } : m)));
+    } catch {
+      setError("서버에 연결할 수 없습니다");
+    }
   }
 
   const active = matches.filter((m) => !m.dismissed);
@@ -29,6 +39,7 @@ export function CveList({ matches: initialMatches }: { matches: CveMatch[] }) {
   return (
     <div className="rounded-[var(--radius-nh)] border border-[var(--color-border)] p-4">
       <h2 className="mb-3 text-sm font-bold">감지된 CVE</h2>
+      {error && <p className="mb-2 text-xs text-[var(--color-fail)]">{error}</p>}
       {active.length === 0 && (
         <p className="text-xs text-[var(--color-muted)]">감지된 CVE가 없습니다.</p>
       )}
