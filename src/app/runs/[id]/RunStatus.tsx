@@ -15,6 +15,18 @@ import type { CheckResultSource, DecoratedCheckResult } from "@/lib/checks/types
 import { computeRiskSummary } from "@/lib/checks/riskSummary";
 import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
 
+// Marks the Claude analysis step as AI-driven, distinct from the rule-based
+// stages around it.
+function ClaudeSparkleIcon() {
+  return (
+    <svg width="12" height="12" viewBox="12 10 78 82" fill="currentColor" className="inline-block flex-none">
+      <path d="m83.5 49.281c-10.551-3.8984-18.871-12.219-22.781-22.781-0.25-0.67188-1.1914-0.67188-1.4414 0-3.8984 10.551-12.219 18.871-22.781 22.781-0.67188 0.25-0.67188 1.1914 0 1.4414 10.551 3.8984 18.871 12.219 22.781 22.781 0.25 0.67188 1.1914 0.67188 1.4414 0 3.8984-10.551 12.219-18.871 22.781-22.781 0.67188-0.25 0.67188-1.1914 0-1.4414z" />
+      <path d="m39.75 24.141c-5.2812-1.9492-9.4414-6.1094-11.391-11.391-0.12109-0.32812-0.60156-0.32812-0.71875 0-1.9492 5.2812-6.1094 9.4414-11.391 11.391-0.32812 0.12109-0.32812 0.60156 0 0.71875 5.2812 1.9492 9.4414 6.1094 11.391 11.391 0.12109 0.32812 0.60156 0.32812 0.71875 0 1.9492-5.2812 6.1094-9.4414 11.391-11.391 0.32812-0.12109 0.32812-0.60156 0-0.71875z" />
+      <path d="m43.828 79.262c-3.5195-1.3008-6.2891-4.0703-7.5898-7.5898-0.078125-0.21875-0.39844-0.21875-0.48047 0-1.3008 3.5195-4.0703 6.2891-7.5898 7.5898-0.21875 0.078125-0.21875 0.39844 0 0.48047 3.5195 1.3008 6.2891 4.0703 7.5898 7.5898 0.078126 0.21875 0.39844 0.21875 0.48047 0 1.3008-3.5195 4.0703-6.2891 7.5898-7.5898 0.21875-0.078126 0.21875-0.39844 0-0.48047z" />
+    </svg>
+  );
+}
+
 interface CheckGroup {
   key: string;
   label: string;
@@ -88,6 +100,20 @@ const STEPPER_LABEL_STYLES: Record<NodeState, string> = {
   pending: "text-[var(--color-muted)] font-medium",
 };
 
+const STATE_BADGE_LABELS: Record<NodeState, string> = {
+  done: "완료",
+  current: "진행중",
+  failed: "실패",
+  pending: "대기",
+};
+
+const STATE_BADGE_STYLES: Record<NodeState, string> = {
+  done: "bg-green-100 text-green-800",
+  current: "bg-blue-100 text-blue-700",
+  failed: "bg-red-100 text-red-800",
+  pending: "bg-slate-100 text-[var(--color-muted)]",
+};
+
 function computeNodeStates(stage: Stage, status: Run["status"]): NodeState[] {
   const currentIndex = STAGES.indexOf(stage);
   return STAGES.map((_, i) => {
@@ -96,6 +122,16 @@ function computeNodeStates(stage: Stage, status: Run["status"]): NodeState[] {
     if (i === currentIndex && status === "running") return "current";
     return "pending";
   });
+}
+
+// Most recent event recorded for this stage, if any — used as the vertical
+// timeline's per-stage log line so it reflects real pipeline output instead
+// of placeholder text.
+function latestEventForStage(events: RunEvent[], stage: Stage): RunEvent | undefined {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    if (events[i].stage === stage) return events[i];
+  }
+  return undefined;
 }
 
 function groupSummaryText(checks: DecoratedCheckResult[]): string {
@@ -126,6 +162,7 @@ export function RunStatus({ runId }: { runId: string }) {
   const [expandedChecks, setExpandedChecks] = useState<Record<string, boolean>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [groupBy, setGroupBy] = useState<"category" | "asset">("category");
+  const [timelineVariant, setTimelineVariant] = useState<"horizontal" | "vertical">("horizontal");
 
   useEffect(() => {
     let cancelled = false;
@@ -189,6 +226,9 @@ export function RunStatus({ runId }: { runId: string }) {
 
   const nodeStates = computeNodeStates(run.stage, run.status);
   const connectorColor = (state: NodeState) => (state === "done" ? "bg-green-500" : "bg-slate-200");
+  const progressPct = Math.round(
+    (nodeStates.filter((s) => s === "done").length / STAGES.length) * 100,
+  );
 
   return (
     <div>
@@ -212,38 +252,109 @@ export function RunStatus({ runId }: { runId: string }) {
         </div>
       )}
 
-      <div className="mt-9 flex items-start">
-        {STAGES.map((stage, i) => {
-          const state = nodeStates[i];
-          return (
-            <div key={stage} className="flex min-w-0 flex-1 flex-col items-center">
-              <div className="flex w-full items-center">
-                <div
-                  className={`h-0.5 flex-1 ${i === 0 ? "bg-transparent" : connectorColor(nodeStates[i - 1])}`}
-                />
-                <div
-                  className={`relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${STEPPER_CIRCLE_STYLES[state]}`}
-                >
-                  {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
-                  {stage === "claude" && (
-                    <span className="absolute -top-1.5 -right-2 rounded-full bg-violet-600 px-1 py-px text-[8px] font-bold text-white">
-                      AI
-                    </span>
-                  )}
+      <div className="mt-7 flex items-center justify-between gap-2.5">
+        <span className="text-[12px] font-semibold text-[var(--color-muted)]">
+          파이프라인 진행상태 <span className="font-mono">· {progressPct}%</span>
+        </span>
+        <div className="flex overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)]">
+          <button
+            onClick={() => setTimelineVariant("horizontal")}
+            className={`px-3 py-1 text-[12.5px] ${
+              timelineVariant === "horizontal"
+                ? "bg-blue-50 font-semibold text-blue-700"
+                : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
+            }`}
+          >
+            가로 타임라인
+          </button>
+          <button
+            onClick={() => setTimelineVariant("vertical")}
+            className={`border-l border-[var(--color-border)] px-3 py-1 text-[12.5px] ${
+              timelineVariant === "vertical"
+                ? "bg-blue-50 font-semibold text-blue-700"
+                : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
+            }`}
+          >
+            세로 타임라인
+          </button>
+        </div>
+      </div>
+
+      {timelineVariant === "horizontal" ? (
+        <div className="mt-4 flex items-start">
+          {STAGES.map((stage, i) => {
+            const state = nodeStates[i];
+            return (
+              <div key={stage} className="flex min-w-0 flex-1 flex-col items-center">
+                <div className="flex w-full items-center">
+                  <div
+                    className={`h-0.5 flex-1 transition-colors duration-500 ${i === 0 ? "bg-transparent" : connectorColor(nodeStates[i - 1])}`}
+                  />
+                  <div
+                    className={`relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
+                  >
+                    {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
+                    {stage === "claude" && (
+                      <span className="absolute -top-1.5 -right-2 rounded-full bg-violet-600 px-1 py-px text-[8px] font-bold text-white">
+                        AI
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className={`h-0.5 flex-1 transition-colors duration-500 ${i === STAGES.length - 1 ? "bg-transparent" : connectorColor(state)}`}
+                  />
                 </div>
                 <div
-                  className={`h-0.5 flex-1 ${i === STAGES.length - 1 ? "bg-transparent" : connectorColor(state)}`}
-                />
+                  className={`mt-2 flex max-w-[76px] items-center justify-center gap-1 text-center text-[11.5px] leading-tight ${STEPPER_LABEL_STYLES[state]}`}
+                >
+                  {STAGE_SHORT_LABELS[stage]}
+                  {stage === "claude" && <ClaudeSparkleIcon />}
+                </div>
               </div>
-              <div
-                className={`mt-2 max-w-[76px] text-center text-[11.5px] leading-tight ${STEPPER_LABEL_STYLES[state]}`}
-              >
-                {STAGE_SHORT_LABELS[stage]}
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col">
+          {STAGES.map((stage, i) => {
+            const state = nodeStates[i];
+            const event = latestEventForStage(events, stage);
+            return (
+              <div key={stage} className="flex gap-3.5">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full text-xs font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
+                  >
+                    {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
+                  </div>
+                  {i < STAGES.length - 1 && (
+                    <div
+                      className={`w-0.5 flex-1 transition-colors duration-500 ${connectorColor(state)}`}
+                      style={{ minHeight: 20 }}
+                    />
+                  )}
+                </div>
+                <div className="pb-3.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[13px] font-semibold ${STEPPER_LABEL_STYLES[state]}`}>
+                      {STAGE_LABELS[stage]}
+                    </span>
+                    {stage === "claude" && <ClaudeSparkleIcon />}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATE_BADGE_STYLES[state]}`}
+                    >
+                      {STATE_BADGE_LABELS[state]}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 font-mono text-[11.5px] text-[var(--color-muted)]">
+                    {event?.message ?? (event ? `${STAGE_LABELS[stage]} → ${STATUS_LABELS[event.status]}` : "-")}
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="mt-5 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-slate-700">
         <div
@@ -379,15 +490,28 @@ export function RunStatus({ runId }: { runId: string }) {
       )}
 
       <h2 className="mt-10 text-sm font-semibold text-[var(--color-muted)]">진행 이력</h2>
-      <div className="mt-2.5 flex flex-col gap-1.5">
-        {events.map((event) => (
-          <div key={event.id} className="flex gap-2.5 text-[12.5px]">
-            <span className="font-mono text-[var(--color-muted)]">{event.createdAt}</span>
-            <span className="text-[var(--color-muted)]">
+      <div className="mt-2.5 min-h-[72px] rounded-[var(--radius-nh)] border border-[#1e293b] bg-[#0b1220] p-3 font-mono text-[12.5px] leading-relaxed text-[#cbd5e1]">
+        {events.length === 0 && <div className="text-[#64748b]">$ 점검이 시작되면 로그가 여기에 표시됩니다.</div>}
+        {events.map((event) => {
+          const isFailed = event.status === "failed";
+          const isRunning = event.status === "running";
+          const prefix = isFailed ? "✕" : isRunning ? "▶" : "✓";
+          const prefixColor = isFailed ? "#f87171" : isRunning ? "#38bdf8" : "#4ade80";
+          return (
+            <div key={event.id}>
+              <span className="text-[#64748b]">[{event.createdAt}]</span>{" "}
+              <span style={{ color: prefixColor }}>{prefix}</span>{" "}
               {STAGE_LABELS[event.stage]} → {STATUS_LABELS[event.status]}
-            </span>
+              {event.message ? ` — ${event.message}` : ""}
+            </div>
+          );
+        })}
+        {run.status === "running" && (
+          <div>
+            <span className="text-[#38bdf8]">$</span>{" "}
+            <span className="animate-[terminal-cursor-blink_1s_step-end_infinite]">▋</span>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
