@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRepoDisplayName, isValidRepoUrl } from "./repoUrl";
+import { getRepoDisplayName, isValidRepoUrl, normalizeRepoUrl } from "./repoUrl";
 
 describe("isValidRepoUrl", () => {
   it("accepts common remote URL forms", () => {
@@ -29,5 +29,28 @@ describe("getRepoDisplayName", () => {
 
   it("falls back to the raw URL when it doesn't match owner/repo", () => {
     expect(getRepoDisplayName("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("normalizeRepoUrl", () => {
+  it("removes trailing slash and .git suffix", () => {
+    expect(normalizeRepoUrl("https://github.com/owner/repo.git")).toBe(
+      "https://github.com/owner/repo",
+    );
+    expect(normalizeRepoUrl("https://github.com/owner/repo/")).toBe(
+      "https://github.com/owner/repo",
+    );
+  });
+
+  it("lowercases the host", () => {
+    expect(normalizeRepoUrl("https://GitHub.com/owner/repo")).toBe(
+      "https://github.com/owner/repo",
+    );
+  });
+
+  it("treats equivalent URLs as identical after normalization", () => {
+    const a = normalizeRepoUrl("https://github.com/owner/repo.git");
+    const b = normalizeRepoUrl("https://GitHub.com/owner/repo/");
+    expect(a).toBe(b);
   });
 });

@@ -26,6 +26,7 @@ export interface Run {
   imageTag: string | null;
   containerName: string | null;
   errorMessage: string | null;
+  assetId: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Asset } from "@/lib/assets/types";
 
 interface LocalImage {
   tag: string;
@@ -12,10 +13,10 @@ interface LocalImage {
 
 type SourceMode = "git" | "local_image";
 
-export function StartRunForm() {
+export function StartRunForm({ assets }: { assets: Asset[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<SourceMode>("git");
-  const [repoUrl, setRepoUrl] = useState("");
+  const [assetId, setAssetId] = useState("");
   const [imageTag, setImageTag] = useState("");
   const [localImages, setLocalImages] = useState<LocalImage[] | null>(null);
   const [localImagesError, setLocalImagesError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export function StartRunForm() {
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "git" ? { repoUrl } : { imageTag }),
+        body: JSON.stringify(mode === "git" ? { assetId } : { imageTag }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -83,15 +84,21 @@ export function StartRunForm() {
 
       <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
         {mode === "git" ? (
-          <input
-            type="text"
+          <select
+            name="assetId"
             required
-            spellCheck={false}
-            placeholder="https://github.com/owner/repo.git"
-            value={repoUrl}
-            onChange={(e) => setRepoUrl(e.target.value)}
-            className="flex-1 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 font-mono text-[13px] text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
-          />
+            value={assetId}
+            onChange={(e) => setAssetId(e.target.value)}
+            className="flex-1 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
+          >
+            <option value="">자산을 선택하세요</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id} disabled={asset.type === "server"}>
+                {asset.displayName}
+                {asset.type === "server" ? " (서버 점검은 곧 제공됩니다)" : ""}
+              </option>
+            ))}
+          </select>
         ) : (
           <select
             required
@@ -118,7 +125,7 @@ export function StartRunForm() {
         )}
         <button
           type="submit"
-          disabled={submitting || (mode === "local_image" && !imageTag)}
+          disabled={submitting || (mode === "git" ? !assetId : !imageTag)}
           className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? "시작 중…" : "점검 시작"}

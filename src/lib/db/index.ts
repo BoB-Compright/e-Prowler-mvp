@@ -44,15 +44,45 @@ CREATE TABLE IF NOT EXISTS analysis_reports (
   example TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  pm_name TEXT NOT NULL,
+  pm_email TEXT NOT NULL,
+  share_token TEXT NOT NULL UNIQUE,
+  share_password_hash TEXT NOT NULL,
+  share_failed_attempts INTEGER NOT NULL DEFAULT 0,
+  share_locked_until TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  project_id TEXT REFERENCES projects(id),
+  display_name TEXT NOT NULL,
+  repo_url TEXT,
+  host_ip TEXT,
+  hostname TEXT,
+  ssh_port INTEGER,
+  auth_type TEXT,
+  username TEXT,
+  encrypted_secret TEXT,
+  created_at TEXT NOT NULL
+);
 `;
 
 // Existing on-disk databases predate the "source_type" column; ADD COLUMN
 // isn't idempotent in SQLite, so guard it with a table_info check instead of
 // a version table (no other migration has been needed yet).
 function migrate(db: Database.Database): void {
-  const columns = db.prepare(`PRAGMA table_info(runs)`).all() as { name: string }[];
-  if (!columns.some((column) => column.name === "source_type")) {
+  const runColumns = db.prepare(`PRAGMA table_info(runs)`).all() as { name: string }[];
+  if (!runColumns.some((column) => column.name === "source_type")) {
     db.exec(`ALTER TABLE runs ADD COLUMN source_type TEXT NOT NULL DEFAULT 'git'`);
+  }
+  if (!runColumns.some((column) => column.name === "asset_id")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN asset_id TEXT REFERENCES assets(id)`);
   }
 }
 

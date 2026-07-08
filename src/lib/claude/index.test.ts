@@ -13,7 +13,7 @@ beforeEach(() => {
 
 describe("analyzeAndSaveChecks", () => {
   it("is a no-op unless CLAUDE_ANALYSIS_ENABLED=true, to avoid burning API tokens by default", async () => {
-    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
     // This id has no catalog entry, which would throw if analysis actually
     // ran — proving the gate short-circuits before any lookup or API call.
     await expect(

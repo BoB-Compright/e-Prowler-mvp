@@ -15,3 +15,14 @@ export function getRepoDisplayName(repoUrl: string): string {
   const match = repoUrl.match(/([^/]+\/[^/]+?)(?:\.git)?\/?$/);
   return match ? match[1] : repoUrl;
 }
+
+export function normalizeRepoUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, "").replace(/\.git$/i, "");
+  try {
+    const parsed = new URL(trimmed);
+    parsed.host = parsed.host.toLowerCase();
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    return trimmed;
+  }
+}

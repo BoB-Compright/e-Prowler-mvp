@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRun, listRuns } from "@/lib/pipeline/runs";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
-import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 import { listLocalImages } from "@/lib/pipeline/localImages";
+import { getAsset } from "@/lib/assets/store";
+import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 
 export function GET() {
   return NextResponse.json({ runs: listRuns() });
@@ -26,17 +27,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ run }, { status: 202 });
   }
 
-  const repoUrl = typeof body?.repoUrl === "string" ? body.repoUrl.trim() : "";
-  if (!isValidRepoUrl(repoUrl)) {
-    return NextResponse.json({ error: "유효한 레포 URL이 아닙니다" }, { status: 400 });
+  // 레포 URL 직접입력 대신 등록된 자산 선택
+  const assetId = typeof body?.assetId === "string" ? body.assetId : "";
+  const asset = getAsset(assetId);
+  if (!asset) {
+    return NextResponse.json({ error: "유효한 자산을 선택하세요" }, { status: 400 });
+  }
+  if (asset.type === "server") {
+    return NextResponse.json(
+      { error: "서버 자산 점검 실행은 아직 지원되지 않습니다 (A2에서 제공 예정)" },
+      { status: 501 },
+    );
   }
 
-  const run = createRun(repoUrl);
+  if (!isValidRepoUrl(asset.repoUrl!)) {
+    return NextResponse.json({ error: "유효하지 않은 레포 URL입니다" }, { status: 400 });
+  }
+
+  const run = createRun(asset.repoUrl!, "git", asset.id);
 
   // Fire-and-forget: the pipeline runs in the background on this same
   // long-lived Node process (local single-user MVP), the client polls
   // GET /api/runs/[id] for progress instead of blocking this request.
-  void runPipeline(run.id, { type: "git", repoUrl });
+  void runPipeline(run.id, { type: "git", repoUrl: asset.repoUrl! });
 
   return NextResponse.json({ run }, { status: 202 });
 }
