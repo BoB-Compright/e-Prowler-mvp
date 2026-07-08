@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { Run, RunEvent, Stage } from "@/lib/pipeline/types";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import {
@@ -10,28 +11,14 @@ import {
   type CheckStatus,
   type Severity,
 } from "@/lib/catalog/types";
+import type { CheckResultSource, DecoratedCheckResult } from "@/lib/checks/types";
 import { computeRiskSummary } from "@/lib/checks/riskSummary";
 import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
-
-type Source = "rule" | "ai";
-
-interface CheckResultView {
-  id: string;
-  status: CheckStatus;
-  evidence: string;
-  title: string;
-  severity: Severity | null;
-  category: Category | null;
-  source: Source;
-  reason: string | null;
-  remediation: string | null;
-  example: string | null;
-}
 
 interface CheckGroup {
   key: string;
   label: string;
-  checks: CheckResultView[];
+  checks: DecoratedCheckResult[];
 }
 
 const STAGES: Stage[] = ["clone", "build", "sandbox", "ansible", "rule_eval", "claude", "done"];
@@ -77,8 +64,8 @@ const SEVERITY_STYLES: Record<Severity, string> = {
   Low: "bg-slate-100 text-slate-700",
 };
 
-const SOURCE_LABELS: Record<Source, string> = { rule: "룰 기반", ai: "AI 분석" };
-const SOURCE_STYLES: Record<Source, string> = {
+const SOURCE_LABELS: Record<CheckResultSource, string> = { rule: "룰 기반", ai: "AI 분석" };
+const SOURCE_STYLES: Record<CheckResultSource, string> = {
   rule: "bg-slate-100 text-[var(--color-muted)]",
   ai: "bg-violet-100 text-violet-700",
 };
@@ -111,14 +98,14 @@ function computeNodeStates(stage: Stage, status: Run["status"]): NodeState[] {
   });
 }
 
-function groupSummaryText(checks: CheckResultView[]): string {
+function groupSummaryText(checks: DecoratedCheckResult[]): string {
   const pass = checks.filter((c) => c.status === "pass").length;
   const fail = checks.filter((c) => c.status === "fail").length;
   const review = checks.filter((c) => c.status === "review").length;
   return `양호 ${pass} · 취약 ${fail} · 검토 ${review}`;
 }
 
-function buildCategoryGroups(checks: CheckResultView[]): CheckGroup[] {
+function buildCategoryGroups(checks: DecoratedCheckResult[]): CheckGroup[] {
   return CATEGORY_ORDER.map((category) => ({
     key: category,
     label: CATEGORY_LABELS[category],
@@ -126,7 +113,7 @@ function buildCategoryGroups(checks: CheckResultView[]): CheckGroup[] {
   })).filter((group) => group.checks.length > 0);
 }
 
-function buildAssetGroups(checks: CheckResultView[], repoUrl: string): CheckGroup[] {
+function buildAssetGroups(checks: DecoratedCheckResult[], repoUrl: string): CheckGroup[] {
   if (checks.length === 0) return [];
   return [{ key: `asset:${repoUrl}`, label: getRepoDisplayName(repoUrl), checks }];
 }
@@ -134,7 +121,7 @@ function buildAssetGroups(checks: CheckResultView[], repoUrl: string): CheckGrou
 export function RunStatus({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
-  const [checks, setChecks] = useState<CheckResultView[]>([]);
+  const [checks, setChecks] = useState<DecoratedCheckResult[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [expandedChecks, setExpandedChecks] = useState<Record<string, boolean>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -214,8 +201,14 @@ export function RunStatus({ runId }: { runId: string }) {
       <p className="mt-1.5 break-all text-sm text-[var(--color-muted)]">{run.repoUrl}</p>
 
       {hasChecks && (
-        <div className="mt-5">
+        <div className="mt-5 flex flex-col gap-2">
           <RiskSummaryBar summary={computeRiskSummary(checks)} />
+          <Link
+            href={`/runs/${runId}/report`}
+            className="self-end text-[12.5px] font-semibold text-[var(--color-primary)] hover:underline"
+          >
+            상세 리포트 보기 →
+          </Link>
         </div>
       )}
 
@@ -405,7 +398,7 @@ function CheckCard({
   expanded,
   onToggle,
 }: {
-  check: CheckResultView;
+  check: DecoratedCheckResult;
   expanded: boolean;
   onToggle: () => void;
 }) {

@@ -68,7 +68,10 @@ export default function RunsPage() {
                     className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]"
                   >
                     <td className="px-3.5 py-2.5">
-                      <Link href={`/runs/${run.id}`} className="font-mono font-bold hover:underline">
+                      <Link
+                        href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
+                        className="font-mono font-bold hover:underline"
+                      >
                         {getRepoDisplayName(run.repoUrl)}
                       </Link>
                       <div className="font-mono text-[11px] text-[var(--color-muted)]">{run.repoUrl}</div>
