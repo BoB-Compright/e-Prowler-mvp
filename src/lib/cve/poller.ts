@@ -71,12 +71,25 @@ export async function checkDueAssets(
 }
 
 let intervalHandle: ReturnType<typeof setInterval> | undefined;
+let cycleInFlight = false;
+
+async function runCycleIfIdle(deps: CveMonitorDeps, db: Database): Promise<void> {
+  // 이전 사이클이 아직 실행 중이면(SSH 타임아웃, NVD 레이트리밋 대기 등으로 60초를 넘길 수 있음)
+  // 새 사이클을 시작하지 않는다 — 중복 SSH 세션/NVD 쿼리 및 레이트리미터 우회를 방지한다.
+  if (cycleInFlight) return;
+  cycleInFlight = true;
+  try {
+    await checkDueAssets(new Date(), deps, db);
+  } finally {
+    cycleInFlight = false;
+  }
+}
 
 export function startCvePoller(deps: CveMonitorDeps = defaultDeps, db: Database = getDb()): void {
   if (intervalHandle) return;
-  void checkDueAssets(new Date(), deps, db);
+  void runCycleIfIdle(deps, db);
   intervalHandle = setInterval(() => {
-    void checkDueAssets(new Date(), deps, db);
+    void runCycleIfIdle(deps, db);
   }, CHECK_INTERVAL_MS);
 }
 

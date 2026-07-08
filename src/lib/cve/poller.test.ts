@@ -5,6 +5,7 @@ import { createInMemoryDb } from "@/lib/db";
 import { createServerAsset } from "@/lib/assets/store";
 import type { Asset } from "@/lib/assets/types";
 import type { NvdCveEntry } from "./nvdClient";
+import type { InstalledPackage } from "./packageCollector";
 import { listCveMatches, listInstalledPackages } from "./store";
 import { checkAssetForCves, checkDueAssets, startCvePoller, stopCvePoller, type CveMonitorDeps } from "./poller";
 
@@ -103,5 +104,38 @@ describe("startCvePoller / stopCvePoller", () => {
     startCvePoller(deps, db);
 
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start a second checkDueAssets cycle while the first is still in flight", async () => {
+    vi.useFakeTimers();
+    const asset = server("10.0.0.9");
+
+    let resolveCollect: (pkgs: InstalledPackage[]) => void = () => {};
+    const collectInstalledPackages = vi.fn().mockImplementation(
+      () =>
+        new Promise<InstalledPackage[]>((resolve) => {
+          resolveCollect = resolve;
+        }),
+    );
+    const deps: CveMonitorDeps = {
+      collectInstalledPackages,
+      queryPackageCves: vi.fn().mockResolvedValue([]),
+      analyzeCveImpact: vi.fn(),
+    };
+
+    startCvePoller(deps, db);
+    // 시작 시 즉시 실행되는 첫 사이클이 이 자산의 패키지 수집에서 대기(pending) 상태로 멈춰 있다.
+    expect(collectInstalledPackages).toHaveBeenCalledTimes(1);
+
+    // 첫 사이클이 아직 끝나지 않은 채로 인터벌 한 틱(60초, CHECK_INTERVAL_MS)을 넘긴다.
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    // 재진입 가드가 없다면 새 사이클이 시작되어 같은(아직 처리되지 않은) 자산을 다시 처리했을 것이다.
+    // 가드가 있으므로 호출 횟수는 여전히 1이어야 한다.
+    expect(collectInstalledPackages).toHaveBeenCalledTimes(1);
+
+    // 정리: 대기 중이던 첫 사이클을 완료시켜 가드를 해제한다 (다른 테스트에 영향이 남지 않도록).
+    resolveCollect([]);
+    await vi.advanceTimersByTimeAsync(0);
   });
 });
