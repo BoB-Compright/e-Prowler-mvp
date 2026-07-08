@@ -15,4 +15,10 @@ describe("sharePassword", () => {
   it("produces a different hash each time (random salt)", () => {
     expect(hashSharePassword("same")).not.toBe(hashSharePassword("same"));
   });
+
+  it("returns false instead of throwing for a malformed stored value", () => {
+    expect(verifySharePassword("hunter2", "")).toBe(false);
+    expect(verifySharePassword("hunter2", "no-colon-here")).toBe(false);
+    expect(verifySharePassword("hunter2", "salt-only:")).toBe(false);
+  });
 });

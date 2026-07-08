@@ -10,6 +10,9 @@ export function hashSharePassword(plain: string): string {
 
 export function verifySharePassword(plain: string, stored: string): boolean {
   const [salt, hash] = stored.split(":");
+  if (!salt || !hash) {
+    return false;
+  }
   const candidate = scryptSync(plain, salt, KEY_LENGTH);
   const expected = Buffer.from(hash, "hex");
   if (candidate.length !== expected.length) return false;
