@@ -3,26 +3,29 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --color-primary: #0c419a;
-  --color-secondary: #0ea5e9;
-  --color-pass: #32a13c;
-  --color-fail: #dc2626;
-  --color-review: #f59e0b;
-  --color-neutral: #94a3b8;
+  /* Coinbase design tokens (via `npx getdesign add coinbase` -> DESIGN.md) */
+  --color-primary: #0052ff; /* colors.primary */
+  --color-secondary: #0ea5e9; /* no Coinbase equivalent — DESIGN.md explicitly bans a second brand
+    color, but this app needs a 4th distinct severity/status hue (Medium), so this stays untouched */
+  --color-pass: #05b169; /* colors.semantic-up */
+  --color-fail: #cf202f; /* colors.semantic-down */
+  --color-review: #f4b000; /* colors.accent-yellow */
+  --color-neutral: #a8acb3; /* colors.muted-soft */
 
-  --color-bg: #ffffff;
-  --color-surface: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
+  --color-bg: #ffffff; /* colors.canvas */
+  --color-surface: #f7f7f7; /* colors.surface-soft */
+  --color-border: #dee1e6; /* colors.hairline */
+  --color-text: #0a0b0d; /* colors.ink */
+  --color-muted: #7c828a; /* colors.muted */
 }
 
 [data-theme="dark"] {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-text: #f1f5f9;
-  --color-muted: #94a3b8;
+  --color-bg: #0a0b0d; /* colors.surface-dark */
+  --color-surface: #16181c; /* colors.surface-dark-elevated */
+  --color-border: rgba(255, 255, 255, 0.12); /* DESIGN.md has no dark hairline (dark mode is
+    marketing-only full-bleed heroes there); derived to stay visible on surface-dark */
+  --color-text: #ffffff; /* colors.on-dark */
+  --color-muted: #a8acb3; /* colors.on-dark-soft */
 }
 
 @theme inline {
@@ -38,10 +41,17 @@
   --color-text: var(--color-text);
   --color-muted: var(--color-muted);
 
-  --font-sans: "Malgun Gothic", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* CoinbaseSans/Display are licensed; DESIGN.md's documented substitute is Inter (loaded via
+     next/font in layout.tsx). Korean text has no Hangul glyphs in Inter, so it falls through to
+     Malgun Gothic/system-ui — Latin/numerals render in Inter, Korean is unaffected. */
+  --font-sans: var(--font-inter), "Malgun Gothic", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: Consolas, "Courier New", monospace;
 
-  --radius-nh: 4px;
+  /* Single radius token shared by buttons/cards/inputs (no per-component variants in this
+     codebase). 24px == rounded.xl (Coinbase's card radius); on control-height elements
+     (buttons/inputs, ~32-44px tall) the browser clamps this to a full pill automatically,
+     which also matches rounded.pill on CTAs. */
+  --radius-nh: 24px;
 }
 
 body {
@@ -52,13 +62,13 @@ body {
 
 @keyframes scan-pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 0 0 rgba(0, 82, 255, 0.45);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 8px rgba(0, 82, 255, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 0 rgba(0, 82, 255, 0);
   }
 }
 

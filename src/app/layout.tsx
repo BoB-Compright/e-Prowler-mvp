@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "./_components/ThemeScript";
 import { AppHeader } from "./_components/AppHeader";
 import { listRuns } from "@/lib/pipeline/runs";
+
+// DESIGN.md's documented substitute for the licensed CoinbaseSans/Display typefaces.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Container Security Pipeline",
@@ -20,7 +24,7 @@ export default function RootLayout({
   const latestRunId = listRuns()[0]?.id ?? null;
 
   return (
-    <html lang="ko" data-theme="light" className="h-full antialiased">
+    <html lang="ko" data-theme="light" className={`h-full antialiased ${inter.variable}`}>
       <head>
         <ThemeScript />
       </head>
