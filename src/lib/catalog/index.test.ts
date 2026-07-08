@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogItem, getCatalogSummary } from "./index";
 
 describe("catalog", () => {
-  it("loads all 103 items across the three categories", () => {
+  it("loads all 102 items across the three categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(103);
+    expect(summary.total).toBe(102);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
-    expect(summary.byCategory.web).toBe(27);
+    expect(summary.byCategory.web).toBe(26);
   });
 
   it("has no duplicate ids", () => {
@@ -24,7 +24,7 @@ describe("catalog", () => {
       category: "unix",
       title: "/etc/passwd 파일 소유자 및 권한 설정",
     });
-    expect(getCatalogItem("W-27")).toMatchObject({ category: "web" });
+    expect(getCatalogItem("WEB-26")).toMatchObject({ category: "web" });
     expect(getCatalogItem("does-not-exist")).toBeUndefined();
   });
 
