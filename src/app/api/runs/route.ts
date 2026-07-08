@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRun, listRuns } from "@/lib/pipeline/runs";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
+import { createServerRun, runServerScanPipeline } from "@/lib/pipeline/serverScan";
 import { listLocalImages } from "@/lib/pipeline/localImages";
 import { getAsset } from "@/lib/assets/store";
 import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
@@ -34,10 +35,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "유효한 자산을 선택하세요" }, { status: 400 });
   }
   if (asset.type === "server") {
-    return NextResponse.json(
-      { error: "서버 자산 점검 실행은 아직 지원되지 않습니다 (A2에서 제공 예정)" },
-      { status: 501 },
-    );
+    // Same fire-and-forget shape as the git path below: the run row is
+    // created synchronously so we can respond with its id right away, and
+    // the actual SSH/ansible scan (which can take minutes) runs in the
+    // background on this same long-lived process.
+    const { run, asset: serverAsset } = createServerRun(asset.id, null);
+    void runServerScanPipeline(run, serverAsset);
+    return NextResponse.json({ run }, { status: 202 });
   }
 
   if (!isValidRepoUrl(asset.repoUrl!)) {

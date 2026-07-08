@@ -12,6 +12,8 @@ import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { retryOnConnectionFailure, AuthFailureError, ConnectionFailureError } from "@/lib/checks/retry";
 import {
+  createServerRun,
+  runServerScanPipeline,
   runWithConcurrency,
   scanProjectFleet,
   scanServerAsset,
@@ -127,6 +129,53 @@ describe("scanServerAsset", () => {
     expect(run.status).toBe("failed");
     expect(run.errorMessage).toBe("ANTHROPIC_API_KEY missing");
     expect(listCheckResults(runId, db).length).toBeGreaterThan(0);
+  });
+});
+
+describe("createServerRun", () => {
+  // The single-run API route needs a runId to respond with before the scan
+  // finishes, so run creation must be synchronous and separable from the
+  // async pipeline in runServerScanPipeline — this is what makes a
+  // fire-and-forget POST /api/runs possible for server assets.
+  it("creates the run synchronously without running the pipeline", () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+
+    const { run, asset: returnedAsset } = createServerRun(asset.id, null, db);
+
+    expect(run.sourceType).toBe("server");
+    expect(run.stage).toBe("clone"); // pipeline hasn't started yet
+    expect(run.assetId).toBe(asset.id);
+    expect(returnedAsset.id).toBe(asset.id);
+    // No connect/ansible events yet since runServerScanPipeline hasn't run.
+    expect(getRun(run.id, db)!.status).toBe("running");
+  });
+
+  it("attaches the run to the given batch id", () => {
+    const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    const asset = createServerAsset(serverAssetInput(), db);
+    const batch = createScanBatch(project.id, db);
+
+    const { run } = createServerRun(asset.id, batch.id, db);
+
+    expect(getRun(run.id, db)!.batchId).toBe(batch.id);
+  });
+
+  it("throws when the asset does not exist", () => {
+    expect(() => createServerRun("missing-id", null, db)).toThrow("자산을 찾을 수 없습니다");
+  });
+});
+
+describe("runServerScanPipeline", () => {
+  it("drives an already-created run to done, given the same createServerRun + runServerScanPipeline split the API route uses", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const deps = baseDeps();
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    const finished = getRun(run.id, db)!;
+    expect(finished.stage).toBe("done");
+    expect(finished.status).toBe("succeeded");
   });
 });
 

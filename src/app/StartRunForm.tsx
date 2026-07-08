@@ -93,9 +93,9 @@ export function StartRunForm({ assets }: { assets: Asset[] }) {
           >
             <option value="">자산을 선택하세요</option>
             {assets.map((asset) => (
-              <option key={asset.id} value={asset.id} disabled={asset.type === "server"}>
+              <option key={asset.id} value={asset.id}>
                 {asset.displayName}
-                {asset.type === "server" ? " (서버 점검은 곧 제공됩니다)" : ""}
+                {asset.type === "server" ? " (서버)" : ""}
               </option>
             ))}
           </select>
