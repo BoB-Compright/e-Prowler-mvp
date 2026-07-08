@@ -45,11 +45,25 @@ export async function collectInstalledPackages(
 
   const run = async (keyFilePath: string | null): Promise<InstalledPackage[]> => {
     const plan = buildSshArgs(asset, decryptedSecret, keyFilePath);
-    const { stdout } = await deps.execFile(
-      "ansible",
-      ["all", ...plan.args, "-m", "shell", "-a", LIST_PACKAGES_COMMAND],
-      { timeout: 30_000, maxBuffer: 1024 * 1024 * 5, env: { ...process.env, ANSIBLE_HOST_KEY_CHECKING: "false" } },
-    );
+    const baseArgs = ["all", ...plan.args, "-m", "shell", "-a", LIST_PACKAGES_COMMAND];
+    const invoke = (args: string[]) =>
+      deps.execFile("ansible", args, {
+        timeout: 30_000,
+        maxBuffer: 1024 * 1024 * 5,
+        env: { ...process.env, ANSIBLE_HOST_KEY_CHECKING: "false" },
+      });
+
+    // extraVars(특히 ansible_ssh_pass)는 커맨드라인 인자로 넘기면 ps 출력에
+    // 노출되므로, ansibleRunner.ts의 runAnsibleWithArgs와 동일하게 0600 임시
+    // 파일에 써서 --extra-vars @<file>로 전달한다. 키 인증에서 extraVars가
+    // 비어 있으면 이 임시 파일 자체를 생략한다.
+    const { stdout } =
+      Object.keys(plan.extraVars).length === 0
+        ? await invoke(baseArgs)
+        : await withTempKeyFile(JSON.stringify(plan.extraVars), (varsFilePath) =>
+            invoke([...baseArgs, "--extra-vars", `@${varsFilePath}`]),
+          );
+
     // ansible ad-hoc 출력 형식: "<host> | CHANGED | rc=0 >>\n<실제 stdout>"
     const bodyStart = stdout.indexOf(">>");
     const body = bodyStart === -1 ? stdout : stdout.slice(bodyStart + 2);

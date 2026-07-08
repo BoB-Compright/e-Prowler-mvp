@@ -56,4 +56,19 @@ describe("collectInstalledPackages", () => {
     const call = (deps.execFile as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(call[1]).toContain("--private-key");
   });
+
+  it("wraps a password-auth run in a temp extra-vars file and passes --extra-vars", async () => {
+    const asset = serverAsset({ authType: "password", encryptedSecret: encryptSecret("pw") });
+    const deps: PackageCollectorDeps = {
+      execFile: vi.fn().mockResolvedValue({ stdout: "h | CHANGED | rc=0 >>\nopenssl 1.1.1f\n", stderr: "" }),
+    };
+
+    const packages = await collectInstalledPackages(asset, deps);
+
+    expect(packages).toEqual([{ name: "openssl", version: "1.1.1f" }]);
+    const call = (deps.execFile as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1]).toContain("--extra-vars");
+    const flagIndex = (call[1] as string[]).indexOf("--extra-vars");
+    expect(typeof (call[1] as string[])[flagIndex + 1]).toBe("string");
+  });
 });
