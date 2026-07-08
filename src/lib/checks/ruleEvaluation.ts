@@ -2,6 +2,7 @@ import type { DockerfileFindings } from "./dockerfileChecks";
 import type { AnsibleTaskOutput } from "./ansibleRunner";
 import { findTaskOutput } from "./ansibleRunner";
 import type { CheckResult } from "./types";
+import type { Technology } from "@/lib/catalog/types";
 
 const MISSING_MARKER = "__MISSING__";
 
@@ -1710,6 +1711,27 @@ function getNginxState(tasks: AnsibleTaskOutput[]): { present: boolean; config: 
 
 function skipNoNginx(id: string): CheckResult {
   return { id, status: "skip", evidence: "웹서버(nginx)가 감지되지 않음" };
+}
+
+// The set of software families actually detected on the scanned container,
+// derived from the same "<x> detection (internal)" ansible tasks each
+// service-specific evaluator already reads individually. `runAllChecks`
+// (src/lib/checks/index.ts) uses this to decide, before storing a run's
+// results, which catalog items even apply -- a WEB-* item tagged
+// `appliesTo: ["nginx"]` in the catalog is dropped from the result set
+// entirely (not stored as "skip") when nginx isn't in this set. Only
+// families with their own reusable detection task are represented here;
+// items whose detection and evaluation happen in a single combined ansible
+// task (e.g. U-52 Telnet, via evaluateServiceAbsence) have no separate
+// signal to scope on and are therefore always evaluated directly.
+export function detectAssetProfile(tasks: AnsibleTaskOutput[]): Set<Technology> {
+  const profile = new Set<Technology>();
+  if (getNginxState(tasks).present) profile.add("nginx");
+  if (getServiceVariant(tasks, "mail service detection (internal)") !== "absent") profile.add("mail");
+  if (getServiceVariant(tasks, "dns service detection (internal)") === "present") profile.add("dns");
+  if (getServiceVariant(tasks, "ftp service detection (internal)") !== "absent") profile.add("ftp");
+  if (getServiceVariant(tasks, "snmp service detection (internal)") === "present") profile.add("snmp");
+  return profile;
 }
 
 // "600 이하" (WEB-03's pass bar): owner may have any access, but neither

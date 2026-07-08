@@ -102,6 +102,7 @@ import {
   evaluateWEB24,
   evaluateWEB25,
   evaluateWEB26,
+  detectAssetProfile,
 } from "./ruleEvaluation";
 import type { AnsibleTaskOutput } from "./ansibleRunner";
 import type { DockerfileFindings } from "./dockerfileChecks";
@@ -166,6 +167,45 @@ function findings(overrides: Partial<DockerfileFindings> = {}): DockerfileFindin
     ...overrides,
   };
 }
+
+describe("detectAssetProfile", () => {
+  it("returns an empty profile when no detection tasks report anything present", () => {
+    expect(detectAssetProfile([])).toEqual(new Set());
+  });
+
+  it("adds nginx when the nginx detection task reports present", () => {
+    const profile = detectAssetProfile([
+      task("nginx detection (internal)", "present"),
+      task("nginx effective config (internal)", "server {}\n"),
+    ]);
+    expect(profile).toEqual(new Set(["nginx"]));
+  });
+
+  it("adds mail/ftp when their detection task reports a specific variant (not just present/absent)", () => {
+    const profile = detectAssetProfile([
+      task("mail service detection (internal)", "postfix"),
+      task("ftp service detection (internal)", "vsftpd"),
+    ]);
+    expect(profile).toEqual(new Set(["mail", "ftp"]));
+  });
+
+  it("adds dns/snmp only when their detection task reports exactly present", () => {
+    const profile = detectAssetProfile([
+      task("dns service detection (internal)", "present"),
+      task("snmp service detection (internal)", "absent"),
+    ]);
+    expect(profile).toEqual(new Set(["dns"]));
+  });
+
+  it("can report multiple detected technologies at once", () => {
+    const profile = detectAssetProfile([
+      task("nginx detection (internal)", "present"),
+      task("nginx effective config (internal)", "server {}\n"),
+      task("mail service detection (internal)", "sendmail"),
+    ]);
+    expect(profile).toEqual(new Set(["nginx", "mail"]));
+  });
+});
 
 describe("evaluateC01", () => {
   it("passes when USER is set and runtime uid is non-zero", () => {

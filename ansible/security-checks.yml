@@ -410,18 +410,23 @@
       changed_when: false
 
     - name: "mail service detection (internal)"
+      # `sendmail` is also a real command name provided by BusyBox itself
+      # (present on essentially every Alpine-based image) -- a bare
+      # `command -v sendmail` false-positives "mail server installed" on any
+      # such image. Resolve the symlink and exclude busybox's build of it.
       ansible.builtin.raw: >-
         sh -c 'if command -v postconf >/dev/null 2>&1; then echo postfix;
-        elif command -v sendmail >/dev/null 2>&1; then echo sendmail;
+        elif command -v sendmail >/dev/null 2>&1 && ! readlink -f "$(command -v sendmail)" | grep -q busybox; then echo sendmail;
         elif command -v exim >/dev/null 2>&1 || command -v exim4 >/dev/null 2>&1; then echo exim;
         else echo absent; fi; true'
       register: mail_detect_result
       changed_when: false
 
     - name: "U-45: mail service version"
+      # Same busybox-sendmail exclusion as the shared detection task above.
       ansible.builtin.raw: >-
         sh -c 'if command -v postconf >/dev/null 2>&1; then echo "postfix $(postconf -d mail_version 2>/dev/null)";
-        elif command -v sendmail >/dev/null 2>&1; then sendmail -d0.1 -bt </dev/null 2>/dev/null | grep -i version;
+        elif command -v sendmail >/dev/null 2>&1 && ! readlink -f "$(command -v sendmail)" | grep -q busybox; then sendmail -d0.1 -bt </dev/null 2>/dev/null | grep -i version;
         elif command -v exim >/dev/null 2>&1; then exim -bV 2>/dev/null | head -1;
         else echo __MISSING__; fi; true'
       register: u45_result
