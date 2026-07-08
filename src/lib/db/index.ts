@@ -6,6 +6,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   repo_url TEXT NOT NULL,
+  source_type TEXT NOT NULL DEFAULT 'git',
   stage TEXT NOT NULL,
   status TEXT NOT NULL,
   image_tag TEXT,
@@ -45,6 +46,16 @@ CREATE TABLE IF NOT EXISTS analysis_reports (
 );
 `;
 
+// Existing on-disk databases predate the "source_type" column; ADD COLUMN
+// isn't idempotent in SQLite, so guard it with a table_info check instead of
+// a version table (no other migration has been needed yet).
+function migrate(db: Database.Database): void {
+  const columns = db.prepare(`PRAGMA table_info(runs)`).all() as { name: string }[];
+  if (!columns.some((column) => column.name === "source_type")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN source_type TEXT NOT NULL DEFAULT 'git'`);
+  }
+}
+
 function createDatabase(dbPath: string): Database.Database {
   if (dbPath !== ":memory:") {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -52,6 +63,7 @@ function createDatabase(dbPath: string): Database.Database {
   const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

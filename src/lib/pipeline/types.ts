@@ -13,9 +13,14 @@ export type Stage =
 
 export type RunStatus = "running" | "succeeded" | "failed";
 
+// "local_image" is the fallback path (#41): re-scan an already-built image
+// instead of cloning/building, skipping straight to sandbox.
+export type RunSourceType = "git" | "local_image";
+
 export interface Run {
   id: string;
   repoUrl: string;
+  sourceType: RunSourceType;
   stage: Stage;
   status: RunStatus;
   imageTag: string | null;

@@ -36,44 +36,69 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+// "git" clones and builds the repo as usual. "local_image" is the fallback
+// path (#41): clone/build is skipped entirely and an already-built local
+// image is scanned directly, so a demo can continue when GitHub or the
+// Docker build is unavailable.
+export type RunSource =
+  | { type: "git"; repoUrl: string }
+  | { type: "local_image"; imageTag: string };
+
 // Drives a run through clone -> build -> sandbox -> ansible -> rule_eval -> claude -> done.
+// For a local_image source, clone/build are marked succeeded immediately
+// (nothing to do) and the pipeline starts at sandbox with the chosen image.
 export async function runPipeline(
   runId: string,
-  repoUrl: string,
+  source: RunSource,
   deps: PipelineDeps = defaultDeps,
   db: Database = getDb(),
 ): Promise<void> {
-  let repoDir: string;
-  try {
-    const result = await deps.clone(repoUrl, runId);
-    repoDir = result.dir;
-  } catch (err) {
-    updateRunStage(runId, "clone", "failed", { errorMessage: errorMessage(err) }, db);
-    return;
-  }
-  updateRunStage(runId, "clone", "succeeded", {}, db);
+  let imageTag: string;
+  let dockerfilePath: string | undefined;
 
-  const dockerfilePath = deps.detectDockerfile(repoDir);
-  if (!dockerfilePath) {
+  if (source.type === "local_image") {
+    imageTag = source.imageTag;
+    updateRunStage(runId, "clone", "succeeded", { message: "로컬 이미지 재점검: clone 단계 건너뜀" }, db);
     updateRunStage(
       runId,
       "build",
-      "failed",
-      { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 루트 기준)" },
+      "succeeded",
+      { imageTag, message: "로컬 이미지 재점검: build 단계 건너뜀" },
       db,
     );
-    return;
-  }
+  } else {
+    let repoDir: string;
+    try {
+      const result = await deps.clone(source.repoUrl, runId);
+      repoDir = result.dir;
+    } catch (err) {
+      updateRunStage(runId, "clone", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
+    updateRunStage(runId, "clone", "succeeded", {}, db);
 
-  updateRunStage(runId, "build", "running", {}, db);
-  const imageTag = `scan-${runId}`;
-  try {
-    await deps.build(repoDir, imageTag);
-  } catch (err) {
-    updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);
-    return;
+    dockerfilePath = deps.detectDockerfile(repoDir);
+    if (!dockerfilePath) {
+      updateRunStage(
+        runId,
+        "build",
+        "failed",
+        { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 루트 기준)" },
+        db,
+      );
+      return;
+    }
+
+    updateRunStage(runId, "build", "running", {}, db);
+    imageTag = `scan-${runId}`;
+    try {
+      await deps.build(repoDir, imageTag);
+    } catch (err) {
+      updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
+    updateRunStage(runId, "build", "succeeded", { imageTag }, db);
   }
-  updateRunStage(runId, "build", "succeeded", { imageTag }, db);
 
   updateRunStage(runId, "sandbox", "running", {}, db);
   const containerName = `scan-${runId}`;

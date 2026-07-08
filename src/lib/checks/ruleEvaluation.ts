@@ -5,22 +5,28 @@ import type { CheckResult } from "./types";
 
 const MISSING_MARKER = "__MISSING__";
 
+// findings is null for the local-image fallback path (#41), where there is
+// no Dockerfile to analyze — checks fall back to runtime-only evidence where
+// possible (C-01, C-03) or skip where the check is Dockerfile-only.
 export function evaluateC01(
-  findings: DockerfileFindings,
+  findings: DockerfileFindings | null,
   tasks: AnsibleTaskOutput[],
 ): CheckResult {
   const uid = findTaskOutput(tasks, "C-01")?.stdout.trim() ?? "";
   const isRootUid = uid === "0";
-  const fail = isRootUid || !findings.hasUserInstruction;
+  const fail = isRootUid || (findings !== null && !findings.hasUserInstruction);
 
   return {
     id: "C-01",
     status: fail ? "fail" : "pass",
-    evidence: `Dockerfile USER 지시어: ${findings.hasUserInstruction ? "있음" : "없음"} / 실행 컨테이너 UID: ${uid || "확인 불가"}`,
+    evidence: `Dockerfile USER 지시어: ${findings === null ? "확인 불가 (Dockerfile 없음)" : findings.hasUserInstruction ? "있음" : "없음"} / 실행 컨테이너 UID: ${uid || "확인 불가"}`,
   };
 }
 
-export function evaluateC02(findings: DockerfileFindings): CheckResult {
+export function evaluateC02(findings: DockerfileFindings | null): CheckResult {
+  if (findings === null) {
+    return { id: "C-02", status: "skip", evidence: "Dockerfile 정보 없음 (로컬 이미지 재점검)" };
+  }
   if (findings.hardcodedSecretVars.length === 0) {
     return { id: "C-02", status: "pass", evidence: "ENV/ARG에서 시크릿 패턴이 발견되지 않음" };
   }
@@ -42,10 +48,11 @@ function extractListeningPorts(output: string): Set<string> {
 }
 
 export function evaluateC03(
-  findings: DockerfileFindings,
+  findings: DockerfileFindings | null,
   tasks: AnsibleTaskOutput[],
 ): CheckResult {
-  const exposedAdminPorts = findings.exposedPorts.filter((port) => ADMIN_DB_PORTS.has(port));
+  const exposedPorts = findings?.exposedPorts ?? [];
+  const exposedAdminPorts = exposedPorts.filter((port) => ADMIN_DB_PORTS.has(port));
 
   const rawOutput = findTaskOutput(tasks, "C-03")?.stdout.trim() ?? "";
   const listeningPorts =
@@ -59,13 +66,16 @@ export function evaluateC03(
     id: "C-03",
     status: fail ? "fail" : "pass",
     evidence:
-      `EXPOSE 포트: ${findings.exposedPorts.join(", ") || "없음"} / ` +
+      `EXPOSE 포트: ${findings === null ? "확인 불가 (Dockerfile 없음)" : exposedPorts.join(", ") || "없음"} / ` +
       `실행 중 리스닝 포트: ${listeningPorts.size ? [...listeningPorts].join(", ") : "확인 불가"}` +
       (fail ? ` / 관리·DB 포트 발견: ${foundAdminPorts.join(", ")}` : ""),
   };
 }
 
-export function evaluateC04(findings: DockerfileFindings): CheckResult {
+export function evaluateC04(findings: DockerfileFindings | null): CheckResult {
+  if (findings === null) {
+    return { id: "C-04", status: "skip", evidence: "Dockerfile 정보 없음 (로컬 이미지 재점검)" };
+  }
   const unpinned = findings.baseImages.filter((image) => !image.pinned);
   const describe = (image: DockerfileFindings["baseImages"][number]) =>
     image.tag ? `${image.image}:${image.tag}` : image.image;
@@ -158,7 +168,10 @@ export function evaluateC07(tasks: AnsibleTaskOutput[]): CheckResult {
   };
 }
 
-export function evaluateC08(findings: DockerfileFindings): CheckResult {
+export function evaluateC08(findings: DockerfileFindings | null): CheckResult {
+  if (findings === null) {
+    return { id: "C-08", status: "skip", evidence: "Dockerfile 정보 없음 (로컬 이미지 재점검)" };
+  }
   return {
     id: "C-08",
     status: findings.hasHealthcheck ? "pass" : "fail",
@@ -166,7 +179,10 @@ export function evaluateC08(findings: DockerfileFindings): CheckResult {
   };
 }
 
-export function evaluateC09(findings: DockerfileFindings): CheckResult {
+export function evaluateC09(findings: DockerfileFindings | null): CheckResult {
+  if (findings === null) {
+    return { id: "C-09", status: "skip", evidence: "Dockerfile 정보 없음 (로컬 이미지 재점검)" };
+  }
   if (findings.remoteAddSources.length === 0) {
     return { id: "C-09", status: "pass", evidence: "원격 URL을 사용하는 ADD 지시어 없음" };
   }
@@ -523,8 +539,9 @@ export function evaluateU16(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 // Composition point: every check the pipeline runs gets added here (C/U/W).
+// findings is null for the local-image fallback path (#41) — see evaluateC01.
 export function evaluateAllChecks(
-  findings: DockerfileFindings,
+  findings: DockerfileFindings | null,
   tasks: AnsibleTaskOutput[],
 ): CheckResult[] {
   return [

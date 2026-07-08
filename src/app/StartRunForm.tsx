@@ -1,13 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
+interface LocalImage {
+  tag: string;
+  id: string;
+  size: string;
+  createdSince: string;
+}
+
+type SourceMode = "git" | "local_image";
 
 export function StartRunForm() {
   const router = useRouter();
+  const [mode, setMode] = useState<SourceMode>("git");
   const [repoUrl, setRepoUrl] = useState("");
+  const [imageTag, setImageTag] = useState("");
+  const [localImages, setLocalImages] = useState<LocalImage[] | null>(null);
+  const [localImagesError, setLocalImagesError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Local images are only needed once the user opens that tab — Dockerfile
+  // clone/build issues are the common case, so don't shell out to `docker
+  // images` on every page load.
+  useEffect(() => {
+    if (mode !== "local_image" || localImages !== null) return;
+    fetch("/api/local-images")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setLocalImagesError(data.error);
+          return;
+        }
+        setLocalImages(data.images);
+      })
+      .catch(() => setLocalImagesError("로컬 이미지 목록을 불러올 수 없습니다"));
+  }, [mode, localImages]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +47,7 @@ export function StartRunForm() {
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl }),
+        body: JSON.stringify(mode === "git" ? { repoUrl } : { imageTag }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -33,23 +63,72 @@ export function StartRunForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row">
-      <input
-        type="text"
-        required
-        placeholder="https://github.com/owner/repo.git"
-        value={repoUrl}
-        onChange={(e) => setRepoUrl(e.target.value)}
-        className="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm"
-      />
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-      >
-        {submitting ? "시작 중…" : "점검 시작"}
-      </button>
-      {error && <p className="text-sm text-red-600 sm:ml-2 sm:self-center">{error}</p>}
-    </form>
+    <div className="mt-8">
+      <div className="flex gap-1 rounded-full border border-slate-300 p-1 text-sm font-medium w-fit">
+        <button
+          type="button"
+          onClick={() => setMode("git")}
+          className={`rounded-full px-4 py-1.5 ${mode === "git" ? "bg-black text-white" : "text-slate-600"}`}
+        >
+          Git 레포
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("local_image")}
+          className={`rounded-full px-4 py-1.5 ${mode === "local_image" ? "bg-black text-white" : "text-slate-600"}`}
+        >
+          로컬 이미지 (Fallback)
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3 sm:flex-row">
+        {mode === "git" ? (
+          <input
+            type="text"
+            required
+            placeholder="https://github.com/owner/repo.git"
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+            className="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm"
+          />
+        ) : (
+          <select
+            required
+            value={imageTag}
+            onChange={(e) => setImageTag(e.target.value)}
+            disabled={!localImages || localImages.length === 0}
+            className="flex-1 rounded-full border border-slate-300 px-4 py-3 text-sm disabled:text-slate-400"
+          >
+            <option value="" disabled>
+              {localImagesError
+                ? "로컬 이미지 목록을 불러올 수 없습니다"
+                : localImages === null
+                  ? "불러오는 중…"
+                  : localImages.length === 0
+                    ? "로컬에 존재하는 이미지가 없습니다"
+                    : "이미지 선택"}
+            </option>
+            {localImages?.map((image) => (
+              <option key={image.id} value={image.tag}>
+                {image.tag} ({image.size}, {image.createdSince})
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          type="submit"
+          disabled={submitting || (mode === "local_image" && !imageTag)}
+          className="rounded-full bg-black px-6 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {submitting ? "시작 중…" : "점검 시작"}
+        </button>
+      </form>
+      {mode === "local_image" && (
+        <p className="mt-2 text-xs text-slate-500">
+          GitHub clone 또는 Docker Build가 실패할 때, 이미 빌드된 로컬 이미지로 Sandbox 실행부터 재개합니다.
+        </p>
+      )}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </div>
   );
 }

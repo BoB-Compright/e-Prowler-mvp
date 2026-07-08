@@ -32,10 +32,10 @@ beforeEach(() => {
 
 describe("runPipeline", () => {
   it("runs the full pipeline through claude analysis and marks the run done", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("done");
@@ -63,11 +63,11 @@ describe("runPipeline", () => {
   });
 
   it("fails the run at the claude stage when analysis throws, keeping check results intact", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.analyzeChecks = vi.fn().mockRejectedValue(new Error("ANTHROPIC_API_KEY missing"));
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("claude");
@@ -79,11 +79,11 @@ describe("runPipeline", () => {
   });
 
   it("fails the run at the clone stage when clone throws", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.clone = vi.fn().mockRejectedValue(new Error("repository not found"));
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("clone");
@@ -93,11 +93,11 @@ describe("runPipeline", () => {
   });
 
   it("fails at the build stage when no Dockerfile is found", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.detectDockerfile = vi.fn().mockReturnValue(undefined);
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("build");
@@ -107,11 +107,11 @@ describe("runPipeline", () => {
   });
 
   it("fails the run at the build stage when docker build throws", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.build = vi.fn().mockRejectedValue(new Error("docker build exited 1"));
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("build");
@@ -122,11 +122,11 @@ describe("runPipeline", () => {
   });
 
   it("fails the run at the sandbox stage when the container does not stay up", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.startSandbox = vi.fn().mockRejectedValue(new Error("컨테이너가 시작 직후 종료되었습니다"));
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("sandbox");
@@ -137,11 +137,11 @@ describe("runPipeline", () => {
   });
 
   it("fails the run at the ansible stage and still stops the sandbox when checks throw", async () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     const deps = baseDeps();
     deps.runChecks = vi.fn().mockRejectedValue(new Error("ansible-playbook exited 4"));
 
-    await runPipeline(run.id, run.repoUrl, deps, db);
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
 
     const updated = getRun(run.id, db)!;
     expect(updated.stage).toBe("ansible");
@@ -149,5 +149,24 @@ describe("runPipeline", () => {
     expect(updated.errorMessage).toBe("ansible-playbook exited 4");
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
     expect(listCheckResults(run.id, db)).toEqual([]);
+  });
+
+  it("skips clone/build for a local_image source and scans the chosen image directly (#41)", async () => {
+    const run = createRun("nginx:latest", "local_image", db);
+    const deps = baseDeps();
+
+    await runPipeline(run.id, { type: "local_image", imageTag: "nginx:latest" }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("done");
+    expect(updated.status).toBe("succeeded");
+    expect(updated.imageTag).toBe("nginx:latest");
+
+    expect(deps.clone).not.toHaveBeenCalled();
+    expect(deps.detectDockerfile).not.toHaveBeenCalled();
+    expect(deps.build).not.toHaveBeenCalled();
+    expect(deps.startSandbox).toHaveBeenCalledWith("nginx:latest", `scan-${run.id}`);
+    // No Dockerfile is available for a local image, so runChecks gets undefined.
+    expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`);
   });
 });

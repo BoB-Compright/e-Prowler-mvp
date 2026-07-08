@@ -11,7 +11,7 @@ beforeEach(() => {
 
 describe("run store", () => {
   it("creates a run in the clone/running state with an initial event", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     expect(run.stage).toBe("clone");
     expect(run.status).toBe("running");
     expect(run.imageTag).toBeNull();
@@ -21,7 +21,7 @@ describe("run store", () => {
   });
 
   it("updates stage/status and records image tag on success", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     updateRunStage(run.id, "clone", "succeeded", {}, db);
     updateRunStage(run.id, "build", "running", {}, db);
     updateRunStage(run.id, "build", "succeeded", { imageTag: "scan-abc" }, db);
@@ -35,7 +35,7 @@ describe("run store", () => {
   });
 
   it("records an error message on failure", () => {
-    const run = createRun("https://github.com/owner/repo.git", db);
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
     updateRunStage(run.id, "build", "failed", { errorMessage: "docker build exited 1" }, db);
 
     const updated = getRun(run.id, db)!;
@@ -44,9 +44,9 @@ describe("run store", () => {
   });
 
   it("lists runs newest first", () => {
-    const a = createRun("https://github.com/owner/a.git", db);
+    const a = createRun("https://github.com/owner/a.git", "git", db);
     appendEvent(a.id, "clone", "running", "note", db);
-    const b = createRun("https://github.com/owner/b.git", db);
+    const b = createRun("https://github.com/owner/b.git", "git", db);
 
     const ids = listRuns(db).map((r) => r.id);
     expect(ids).toContain(a.id);
