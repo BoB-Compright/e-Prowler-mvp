@@ -46,13 +46,13 @@ function CheckCircleIcon() {
   );
 }
 
-const STAGES: Stage[] = ["clone", "build", "sandbox", "ansible", "rule_eval", "claude", "done"];
+const CONTAINER_STAGES: Stage[] = ["clone", "build", "sandbox", "ansible", "rule_eval", "claude", "done"];
 
 // connect/ansible_scan/rule_evaluation/claude_analysis are the server (SSH)
-// scan path's stages (A2). This component doesn't render them yet — its
-// STAGES/timeline are still the 7-stage container pipeline (A2 Task 7, not
-// yet implemented, will add the server-specific 4-stage timeline) — these
-// entries only exist so Record<Stage, string> stays exhaustive.
+// scan path's stages (A2): a run with sourceType "server" renders this
+// 5-stage timeline instead of the 7-stage container one above.
+const SERVER_STAGES: Stage[] = ["connect", "ansible_scan", "rule_evaluation", "claude_analysis", "done"];
+
 const STAGE_LABELS: Record<Stage, string> = {
   clone: "레포 Clone",
   build: "Docker 빌드",
@@ -117,9 +117,9 @@ const STATE_BADGE_STYLES: Record<NodeState, string> = {
   pending: "bg-slate-100 text-[var(--color-muted)]",
 };
 
-function computeNodeStates(stage: Stage, status: Run["status"]): NodeState[] {
-  const currentIndex = STAGES.indexOf(stage);
-  return STAGES.map((_, i) => {
+function computeNodeStates(stages: Stage[], stage: Stage, status: Run["status"]): NodeState[] {
+  const currentIndex = stages.indexOf(stage);
+  return stages.map((_, i) => {
     if (status === "failed" && i === currentIndex) return "failed";
     if (i < currentIndex || (i === currentIndex && status === "succeeded")) return "done";
     if (i === currentIndex && status === "running") return "current";
@@ -179,15 +179,16 @@ export function RunStatus({ runId }: { runId: string }) {
   const riskOutcome = overallRunOutcome(riskSummary);
   const aiCount = checks.filter((c) => c.source === "ai").length;
 
-  const nodeStates = computeNodeStates(run.stage, run.status);
+  const stages = run.sourceType === "server" ? SERVER_STAGES : CONTAINER_STAGES;
+  const nodeStates = computeNodeStates(stages, run.stage, run.status);
   const connectorColor = (state: NodeState) => (state === "done" ? "bg-green-500" : "bg-slate-200");
   const progressPct = Math.round(
-    (nodeStates.filter((s) => s === "done").length / STAGES.length) * 100,
+    (nodeStates.filter((s) => s === "done").length / stages.length) * 100,
   );
   // The fill line spans from the first circle's center to the last circle's
   // center, not the full container width — each circle owns an equal share
   // of the row, so its center sits half a share in from each edge.
-  const edgeMarginPct = 100 / (STAGES.length * 2);
+  const edgeMarginPct = 100 / (stages.length * 2);
   const fillSpanPct = 100 - edgeMarginPct * 2;
   const fillWidthPct = (fillSpanPct * progressPct) / 100;
 
@@ -201,6 +202,11 @@ export function RunStatus({ runId }: { runId: string }) {
         {run.sourceType === "local_image" && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-700">
             로컬 이미지 재점검 (Fallback)
+          </span>
+        )}
+        {run.sourceType === "server" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-sky-700">
+            서버(SSH) 점검
           </span>
         )}
       </div>
@@ -275,15 +281,16 @@ export function RunStatus({ runId }: { runId: string }) {
             style={{ left: `${edgeMarginPct}%`, width: `${fillWidthPct}%` }}
           />
           <div className="relative z-[1] flex items-start">
-            {STAGES.map((stage, i) => {
+            {stages.map((stage, i) => {
               const state = nodeStates[i];
+              const isAiStage = stage === "claude" || stage === "claude_analysis";
               return (
                 <div key={stage} className="flex min-w-0 flex-1 flex-col items-center">
                   <div
                     className={`relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
                   >
                     {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
-                    {stage === "claude" && (
+                    {isAiStage && (
                       <span className="absolute -top-1.5 -right-2 rounded-full bg-violet-600 px-1 py-px text-[8px] font-bold text-white">
                         AI
                       </span>
@@ -293,7 +300,7 @@ export function RunStatus({ runId }: { runId: string }) {
                     className={`mt-2 flex max-w-[76px] items-center justify-center gap-1 text-center text-[11.5px] leading-tight ${STEPPER_LABEL_STYLES[state]}`}
                   >
                     {STAGE_SHORT_LABELS[stage]}
-                    {stage === "claude" && <ClaudeSparkleIcon />}
+                    {isAiStage && <ClaudeSparkleIcon />}
                   </div>
                 </div>
               );
@@ -302,9 +309,10 @@ export function RunStatus({ runId }: { runId: string }) {
         </div>
       ) : (
         <div className="mt-4 flex flex-col">
-          {STAGES.map((stage, i) => {
+          {stages.map((stage, i) => {
             const state = nodeStates[i];
             const event = latestEventForStage(events, stage);
+            const isAiStage = stage === "claude" || stage === "claude_analysis";
             return (
               <div key={stage} className="flex gap-3.5">
                 <div className="flex flex-col items-center">
@@ -313,7 +321,7 @@ export function RunStatus({ runId }: { runId: string }) {
                   >
                     {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
                   </div>
-                  {i < STAGES.length - 1 && (
+                  {i < stages.length - 1 && (
                     <div
                       className={`w-0.5 flex-1 transition-colors duration-500 ${connectorColor(state)}`}
                       style={{ minHeight: 20 }}
@@ -325,7 +333,7 @@ export function RunStatus({ runId }: { runId: string }) {
                     <span className={`text-[13px] font-semibold ${STEPPER_LABEL_STYLES[state]}`}>
                       {STAGE_LABELS[stage]}
                     </span>
-                    {stage === "claude" && <ClaudeSparkleIcon />}
+                    {isAiStage && <ClaudeSparkleIcon />}
                     <span
                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATE_BADGE_STYLES[state]}`}
                     >
