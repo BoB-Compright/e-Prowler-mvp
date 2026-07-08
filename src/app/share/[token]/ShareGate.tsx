@@ -12,21 +12,27 @@ export function ShareGate({ token }: { token: string }) {
   const [password, setPassword] = useState("");
   const [data, setData] = useState<ShareData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    const res = await fetch(`/api/share/${token}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error === "locked" ? "5회 실패로 잠겼습니다. 15분 후 다시 시도하세요" : "비밀번호가 올바르지 않습니다");
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/share/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error === "locked" ? "5회 실패로 잠겼습니다. 15분 후 다시 시도하세요" : "비밀번호가 올바르지 않습니다");
+        return;
+      }
+      setData(await res.json());
+    } finally {
+      setSubmitting(false);
     }
-    setData(await res.json());
   }
 
   if (data) {
@@ -45,10 +51,10 @@ export function ShareGate({ token }: { token: string }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-sm">
       <p className="text-[var(--color-muted)]">이 프로젝트의 점검 결과를 보려면 비밀번호를 입력하세요.</p>
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={submitting}
         className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1" />
       {error && <p className="text-[var(--color-fail)]">{error}</p>}
-      <button type="submit" className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white">확인</button>
+      <button type="submit" disabled={submitting} className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white">확인</button>
     </form>
   );
 }
