@@ -43,9 +43,19 @@ export async function startSandbox(
       // startup and fail immediately under a read-only rootfs. The
       // container is removed right after Ansible reads it (see
       // orchestrator.ts), so a writable layer here doesn't persist risk;
-      // --network none and --cap-drop ALL remain the load-bearing controls.
+      // --network none and --cap-drop ALL (minus the one capability added
+      // back below) remain the load-bearing controls.
       "--cap-drop",
       "ALL",
+      // Recent official images (nginx included) chown their own cache/data
+      // directories to a non-root user during entrypoint startup, even when
+      // already running as root inside the container -- that chown() call
+      // itself requires CAP_CHOWN regardless of UID 0, so a full cap-drop
+      // makes those images exit immediately. Adding just this one
+      // capability back covers that startup pattern without meaningfully
+      // widening the sandbox's attack surface.
+      "--cap-add",
+      "CHOWN",
       "--memory",
       limits.memory,
       "--pids-limit",

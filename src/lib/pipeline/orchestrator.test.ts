@@ -12,6 +12,7 @@ function baseDeps(): PipelineDeps {
     clone: vi.fn().mockResolvedValue({ dir: "/tmp/fake-repo" }),
     detectDockerfile: vi.fn().mockReturnValue("/tmp/fake-repo/Dockerfile"),
     build: vi.fn().mockResolvedValue(undefined),
+    removeImage: vi.fn().mockResolvedValue(undefined),
     startSandbox: vi.fn().mockResolvedValue({ containerName: "fake-container" }),
     stopSandbox: vi.fn().mockResolvedValue(undefined),
     scheduleSandboxTimeout: vi.fn(),
@@ -44,6 +45,9 @@ describe("runPipeline", () => {
 
     expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    // A git-sourced run's one-off scan-<runId> image is cleaned up once the
+    // pipeline is done with it, unlike a reused local_image (see below).
+    expect(deps.removeImage).toHaveBeenCalledWith(`scan-${run.id}`);
     expect(deps.analyzeChecks).toHaveBeenCalledWith(
       run.id,
       [
@@ -134,6 +138,9 @@ describe("runPipeline", () => {
     expect(updated.errorMessage).toMatch(/종료/);
     expect(deps.scheduleSandboxTimeout).not.toHaveBeenCalled();
     expect(deps.runChecks).not.toHaveBeenCalled();
+    // The image was already built successfully before sandbox startup
+    // failed, so it still needs cleaning up.
+    expect(deps.removeImage).toHaveBeenCalledWith(`scan-${run.id}`);
   });
 
   it("fails the run at the ansible stage and still stops the sandbox when checks throw", async () => {
@@ -149,6 +156,17 @@ describe("runPipeline", () => {
     expect(updated.errorMessage).toBe("ansible-playbook exited 4");
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
     expect(listCheckResults(run.id, db)).toEqual([]);
+    expect(deps.removeImage).toHaveBeenCalledWith(`scan-${run.id}`);
+  });
+
+  it("does not remove the build artifact for a build-stage failure (nothing was ever built)", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", db);
+    const deps = baseDeps();
+    deps.build = vi.fn().mockRejectedValue(new Error("docker build exited 1"));
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    expect(deps.removeImage).not.toHaveBeenCalled();
   });
 
   it("skips clone/build for a local_image source and scans the chosen image directly (#41)", async () => {
@@ -168,5 +186,7 @@ describe("runPipeline", () => {
     expect(deps.startSandbox).toHaveBeenCalledWith("nginx:latest", `scan-${run.id}`);
     // No Dockerfile is available for a local image, so runChecks gets undefined.
     expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`);
+    // A local_image run reuses an image the user owns and must never delete it.
+    expect(deps.removeImage).not.toHaveBeenCalled();
   });
 });
