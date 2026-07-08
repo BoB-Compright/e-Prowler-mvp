@@ -3,6 +3,7 @@ import { createRun, listRuns } from "@/lib/pipeline/runs";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { listLocalImages } from "@/lib/pipeline/localImages";
 import { getAsset } from "@/lib/assets/store";
+import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 
 export function GET() {
   return NextResponse.json({ runs: listRuns() });
@@ -37,6 +38,10 @@ export async function POST(req: NextRequest) {
       { error: "서버 자산 점검 실행은 아직 지원되지 않습니다 (A2에서 제공 예정)" },
       { status: 501 },
     );
+  }
+
+  if (!isValidRepoUrl(asset.repoUrl!)) {
+    return NextResponse.json({ error: "유효하지 않은 레포 URL입니다" }, { status: 400 });
   }
 
   const run = createRun(asset.repoUrl!, "git", asset.id);
