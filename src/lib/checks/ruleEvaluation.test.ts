@@ -22,7 +22,26 @@ import {
   evaluateU11,
   evaluateU12,
   evaluateU13,
+  evaluateU14,
+  evaluateU15,
   evaluateU16,
+  evaluateU17,
+  evaluateU18,
+  evaluateU19,
+  evaluateU20,
+  evaluateU21,
+  evaluateU22,
+  evaluateU23,
+  evaluateU24,
+  evaluateU25,
+  evaluateU26,
+  evaluateU27,
+  evaluateU28,
+  evaluateU29,
+  evaluateU30,
+  evaluateU31,
+  evaluateU32,
+  evaluateU33,
 } from "./ruleEvaluation";
 import type { AnsibleTaskOutput } from "./ansibleRunner";
 import type { DockerfileFindings } from "./dockerfileChecks";
@@ -486,5 +505,393 @@ describe("evaluateU16", () => {
   it("skips when /etc/passwd does not exist in the container", () => {
     const result = evaluateU16([task("U-16: /etc/passwd owner and mode", "__MISSING__\n")]);
     expect(result.status).toBe("skip");
+  });
+});
+
+describe("evaluateU14", () => {
+  it("skips when /root does not exist", () => {
+    expect(evaluateU14([task("U-14: root PATH and home directory permissions", "__MISSING__")]).status).toBe(
+      "skip",
+    );
+  });
+
+  it("passes with a safe home dir and no current-dir in PATH", () => {
+    const result = evaluateU14([
+      task(
+        "U-14: root PATH and home directory permissions",
+        'root:root 700\nexport PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n',
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the home directory is group/other writable", () => {
+    const result = evaluateU14([
+      task("U-14: root PATH and home directory permissions", "root:root 777\nPATH=/usr/bin:/bin\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("fails when PATH includes the current directory", () => {
+    const result = evaluateU14([
+      task("U-14: root PATH and home directory permissions", "root:root 700\nPATH=.:/usr/bin:/bin\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU15", () => {
+  it("passes when every file has a valid owner and group", () => {
+    expect(evaluateU15([task("U-15: files and directories without a valid owner", "")]).status).toBe("pass");
+  });
+
+  it("fails when orphaned files are found", () => {
+    const result = evaluateU15([
+      task("U-15: files and directories without a valid owner", "/opt/leftover/file\n"),
+    ]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/opt/leftover/file");
+  });
+});
+
+describe("evaluateU17", () => {
+  it("skips when /etc/init.d does not exist", () => {
+    expect(evaluateU17([task("U-17: system startup script permissions", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when no startup scripts have unsafe ownership/permissions", () => {
+    expect(evaluateU17([task("U-17: system startup script permissions", "")]).status).toBe("pass");
+  });
+
+  it("fails when a startup script is writable by group/other or not root-owned", () => {
+    const result = evaluateU17([
+      task("U-17: system startup script permissions", "/etc/init.d/custom\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU18", () => {
+  it("skips when /etc/shadow does not exist", () => {
+    expect(evaluateU18([task("U-18: /etc/shadow owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes for the classic root:root 400", () => {
+    expect(evaluateU18([task("U-18: /etc/shadow owner and mode", "root:root 400\n")]).status).toBe("pass");
+  });
+
+  it("passes for the Debian/Ubuntu default root:shadow 640", () => {
+    expect(evaluateU18([task("U-18: /etc/shadow owner and mode", "root:shadow 640\n")]).status).toBe("pass");
+  });
+
+  it("fails when other has any access", () => {
+    expect(evaluateU18([task("U-18: /etc/shadow owner and mode", "root:root 644\n")]).status).toBe("fail");
+  });
+
+  it("fails when not owned by root", () => {
+    expect(evaluateU18([task("U-18: /etc/shadow owner and mode", "appuser:appuser 600\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU19", () => {
+  it("skips when /etc/hosts does not exist", () => {
+    expect(evaluateU19([task("U-19: /etc/hosts owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes for root:root 644", () => {
+    expect(evaluateU19([task("U-19: /etc/hosts owner and mode", "root:root 644\n")]).status).toBe("pass");
+  });
+
+  it("fails when group/other has write permission", () => {
+    expect(evaluateU19([task("U-19: /etc/hosts owner and mode", "root:root 666\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU20", () => {
+  it("skips when neither inetd.conf nor xinetd.conf exists", () => {
+    expect(evaluateU20([task("U-20: (x)inetd.conf owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when the existing file has safe owner/mode", () => {
+    const result = evaluateU20([
+      task("U-20: (x)inetd.conf owner and mode", "/etc/inetd.conf root:root 600\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when the file is writable by group/other", () => {
+    const result = evaluateU20([
+      task("U-20: (x)inetd.conf owner and mode", "/etc/inetd.conf root:root 666\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU21", () => {
+  it("skips when neither syslog.conf nor rsyslog.conf exists", () => {
+    expect(evaluateU21([task("U-21: (r)syslog.conf owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when the existing file has safe owner/mode", () => {
+    const result = evaluateU21([
+      task("U-21: (r)syslog.conf owner and mode", "/etc/rsyslog.conf root:root 644\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when not owned by root", () => {
+    const result = evaluateU21([
+      task("U-21: (r)syslog.conf owner and mode", "/etc/rsyslog.conf syslog:syslog 644\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU22", () => {
+  it("skips when /etc/services does not exist", () => {
+    expect(evaluateU22([task("U-22: /etc/services owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes for root:root 644", () => {
+    expect(evaluateU22([task("U-22: /etc/services owner and mode", "root:root 644\n")]).status).toBe("pass");
+  });
+
+  it("fails when group/other has write permission", () => {
+    expect(evaluateU22([task("U-22: /etc/services owner and mode", "root:root 664\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU23", () => {
+  it("skips when no world-writable temp directories exist", () => {
+    expect(
+      evaluateU23([task("U-23: setuid setgid sticky-bit files in world-writable dirs", "__MISSING__")]).status,
+    ).toBe("skip");
+  });
+
+  it("passes when no suid/sgid/sticky files exist under /tmp", () => {
+    expect(evaluateU23([task("U-23: setuid setgid sticky-bit files in world-writable dirs", "")]).status).toBe(
+      "pass",
+    );
+  });
+
+  it("fails when a suid/sgid/sticky file is planted under /tmp", () => {
+    const result = evaluateU23([
+      task("U-23: setuid setgid sticky-bit files in world-writable dirs", "/tmp/.hidden/backdoor\n"),
+    ]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/tmp/.hidden/backdoor");
+  });
+});
+
+describe("evaluateU24", () => {
+  it("skips when no system environment variable files exist", () => {
+    expect(evaluateU24([task("U-24: environment variable file owner and mode", "__MISSING__")]).status).toBe(
+      "skip",
+    );
+  });
+
+  it("passes when files have safe owner/mode", () => {
+    const result = evaluateU24([
+      task("U-24: environment variable file owner and mode", "/etc/profile root:root 644\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a file is writable by group/other", () => {
+    const result = evaluateU24([
+      task("U-24: environment variable file owner and mode", "/etc/profile root:root 666\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU25", () => {
+  it("passes when no world-writable files are found", () => {
+    expect(evaluateU25([task("U-25: world writable files", "")]).status).toBe("pass");
+  });
+
+  it("fails when a world-writable file is found", () => {
+    const result = evaluateU25([task("U-25: world writable files", "/opt/app/config.yml\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/opt/app/config.yml");
+  });
+});
+
+describe("evaluateU26", () => {
+  it("skips when /dev does not exist", () => {
+    expect(evaluateU26([task("U-26: irregular files under /dev", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when no irregular files are found", () => {
+    expect(evaluateU26([task("U-26: irregular files under /dev", "")]).status).toBe("pass");
+  });
+
+  it("ignores standard Docker-injected device nodes like /dev/console", () => {
+    expect(evaluateU26([task("U-26: irregular files under /dev", "/dev/console\n")]).status).toBe("pass");
+  });
+
+  it("fails when an unexpected regular file exists under /dev", () => {
+    const result = evaluateU26([task("U-26: irregular files under /dev", "/dev/evil\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/dev/evil");
+  });
+});
+
+describe("evaluateU27", () => {
+  it("passes when neither hosts.equiv nor .rhosts is used", () => {
+    expect(evaluateU27([task("U-27: .rhosts and hosts.equiv usage", "")]).status).toBe("pass");
+  });
+
+  it("fails when /etc/hosts.equiv has active entries", () => {
+    const result = evaluateU27([
+      task("U-27: .rhosts and hosts.equiv usage", "__EQUIV_START__\n+\n__EQUIV_END__\n"),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+
+  it("fails when a .rhosts file is found", () => {
+    const result = evaluateU27([task("U-27: .rhosts and hosts.equiv usage", "/root/.rhosts\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/root/.rhosts");
+  });
+});
+
+describe("evaluateU28", () => {
+  it("skips when no access control mechanism is present", () => {
+    expect(evaluateU28([task("U-28: connection IP and port restriction", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when hosts.allow has active rules", () => {
+    const result = evaluateU28([
+      task("U-28: connection IP and port restriction", "__ALLOW_START__\nsshd: 10.0.0.0/8\n__ALLOW_END__\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("passes when iptables has actual rules", () => {
+    const result = evaluateU28([
+      task(
+        "U-28: connection IP and port restriction",
+        "__IPTABLES_START__\nChain INPUT (policy DROP)\ntarget prot opt source destination\nACCEPT tcp -- 10.0.0.0/8 0.0.0.0/0\n__IPTABLES_END__\n",
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when hosts.allow/deny and iptables exist but have no rules", () => {
+    const result = evaluateU28([
+      task(
+        "U-28: connection IP and port restriction",
+        "__ALLOW_START__\n__ALLOW_END__\n__IPTABLES_START__\nChain INPUT (policy ACCEPT)\ntarget prot opt source destination\n__IPTABLES_END__\n",
+      ),
+    ]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU29", () => {
+  it("skips when hosts.lpd does not exist", () => {
+    expect(evaluateU29([task("U-29: hosts.lpd owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes for root:root 600", () => {
+    expect(evaluateU29([task("U-29: hosts.lpd owner and mode", "root:root 600\n")]).status).toBe("pass");
+  });
+
+  it("fails when group/other has write permission", () => {
+    expect(evaluateU29([task("U-29: hosts.lpd owner and mode", "root:root 622\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU30", () => {
+  it("skips when no umask-configuring file exists", () => {
+    expect(evaluateU30([task("U-30: UMASK setting", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("fails when no umask directive is set", () => {
+    expect(evaluateU30([task("U-30: UMASK setting", "")]).status).toBe("fail");
+  });
+
+  it("passes with umask 022", () => {
+    expect(evaluateU30([task("U-30: UMASK setting", "UMASK 022\n")]).status).toBe("pass");
+  });
+
+  it("passes with a stricter umask 027", () => {
+    expect(evaluateU30([task("U-30: UMASK setting", "umask 027\n")]).status).toBe("pass");
+  });
+
+  it("fails with a permissive umask 002", () => {
+    expect(evaluateU30([task("U-30: UMASK setting", "umask 002\n")]).status).toBe("fail");
+  });
+});
+
+describe("evaluateU31", () => {
+  it("skips when /etc/passwd does not exist", () => {
+    expect(evaluateU31([task("U-31: home directory owner and mode", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when interactive accounts own a safe home directory", () => {
+    const result = evaluateU31([
+      task(
+        "U-31: home directory owner and mode",
+        "root:/bin/bash:root 700\ndaemon:/usr/sbin/nologin:root 777\n",
+      ),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when an interactive account's home is group/other writable", () => {
+    const result = evaluateU31([task("U-31: home directory owner and mode", "nhit:/bin/bash:nhit 777\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("nhit");
+  });
+
+  it("fails when the home directory owner does not match the account", () => {
+    const result = evaluateU31([task("U-31: home directory owner and mode", "nhit:/bin/bash:root 700\n")]);
+    expect(result.status).toBe("fail");
+  });
+});
+
+describe("evaluateU32", () => {
+  it("skips when /etc/passwd does not exist", () => {
+    expect(evaluateU32([task("U-32: assigned home directory existence", "__MISSING__")]).status).toBe("skip");
+  });
+
+  it("passes when every login account's home directory exists", () => {
+    expect(evaluateU32([task("U-32: assigned home directory existence", "")]).status).toBe("pass");
+  });
+
+  it("ignores nologin system accounts with a missing home", () => {
+    const result = evaluateU32([
+      task("U-32: assigned home directory existence", "_apt:42:/nonexistent:/usr/sbin/nologin\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when an interactive account's home directory is missing", () => {
+    const result = evaluateU32([
+      task("U-32: assigned home directory existence", "nhit:1000:/home/nhit:/bin/bash\n"),
+    ]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("nhit");
+  });
+});
+
+describe("evaluateU33", () => {
+  it("passes when no hidden files are found", () => {
+    expect(evaluateU33([task("U-33: hidden files and directories", "")]).status).toBe("pass");
+  });
+
+  it("ignores standard shell dotfiles", () => {
+    const result = evaluateU33([
+      task("U-33: hidden files and directories", "/root/.bashrc\n/root/.profile\n"),
+    ]);
+    expect(result.status).toBe("pass");
+  });
+
+  it("fails when a suspiciously named hidden file is found", () => {
+    const result = evaluateU33([task("U-33: hidden files and directories", "/tmp/...\n")]);
+    expect(result.status).toBe("fail");
+    expect(result.evidence).toContain("/tmp/...");
   });
 });
