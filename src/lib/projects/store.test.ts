@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRepoAsset, getAsset } from "@/lib/assets/store";
 import {
+  ProjectNotFoundError,
   createProject,
   deleteProject,
   getProject,
   regenerateShareLink,
+  updateProject,
   verifyShareAccess,
 } from "./store";
 
@@ -31,6 +33,18 @@ describe("deleteProject", () => {
     deleteProject(project.id, db);
     expect(getProject(project.id, db)).toBeUndefined();
     expect(getAsset(asset.id, db)?.projectId).toBeNull();
+  });
+});
+
+describe("updateProject", () => {
+  it("throws ProjectNotFoundError for an unknown id", () => {
+    expect(() => updateProject("unknown-id", { name: "x" }, db)).toThrow(ProjectNotFoundError);
+  });
+});
+
+describe("regenerateShareLink", () => {
+  it("throws ProjectNotFoundError for an unknown id", () => {
+    expect(() => regenerateShareLink("unknown-id", "pw", db)).toThrow(ProjectNotFoundError);
   });
 });
 

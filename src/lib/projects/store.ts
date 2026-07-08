@@ -7,6 +7,8 @@ import type { Project } from "./types";
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
 
+export class ProjectNotFoundError extends Error {}
+
 interface ProjectRow {
   id: string;
   name: string;
@@ -67,7 +69,10 @@ export function updateProject(
   input: { name?: string; pmName?: string; pmEmail?: string },
   db: Database = getDb(),
 ): Project {
-  const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id) as ProjectRow;
+  const existing = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id) as ProjectRow | undefined;
+  if (!existing) {
+    throw new ProjectNotFoundError(`프로젝트를 찾을 수 없습니다: ${id}`);
+  }
   const updated: ProjectRow = {
     ...existing,
     name: input.name ?? existing.name,
@@ -92,9 +97,12 @@ export function regenerateShareLink(
   db: Database = getDb(),
 ): { shareToken: string } {
   const shareToken = randomBytes(24).toString("base64url");
-  db.prepare(
+  const result = db.prepare(
     `UPDATE projects SET share_token = ?, share_password_hash = ?, share_failed_attempts = 0, share_locked_until = NULL WHERE id = ?`,
   ).run(shareToken, hashSharePassword(newPassword), id);
+  if (result.changes === 0) {
+    throw new ProjectNotFoundError(`프로젝트를 찾을 수 없습니다: ${id}`);
+  }
   return { shareToken };
 }
 
