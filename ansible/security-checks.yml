@@ -151,6 +151,164 @@
       register: u13_result
       changed_when: false
 
+    # U-14..U-33 (KISA guide, file and directory management, #44). U-16 is
+    # already implemented above. Same idioms as U-01..U-13: existence-guarded
+    # `if [ -e/-d ... ]` + `echo __MISSING__`, and a trailing `; true` on any
+    # task whose command (grep/find with no match) can exit non-zero.
+    - name: "U-14: root PATH and home directory permissions"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -d /root ]; then stat -c "%U:%G %a" /root;
+        grep -h "^[^#]*PATH=" /root/.bash_profile /root/.bashrc /root/.profile /etc/profile 2>/dev/null;
+        else echo __MISSING__; fi; true'
+      register: u14_result
+      changed_when: false
+
+    - name: "U-15: files and directories without a valid owner"
+      # find exits non-zero on permission-denied subtrees while walking / —
+      # force success since 2>/dev/null already discards that noise.
+      ansible.builtin.raw: >-
+        sh -c 'find / -xdev \( -nouser -o -nogroup \) 2>/dev/null; true'
+      register: u15_result
+      changed_when: false
+
+    - name: "U-17: system startup script permissions"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -d /etc/init.d ]; then
+        find /etc/init.d -maxdepth 1 -type f \( -perm -022 -o ! -user root \) 2>/dev/null;
+        else echo __MISSING__; fi; true'
+      register: u17_result
+      changed_when: false
+
+    - name: "U-18: /etc/shadow owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/shadow ]; then stat -c "%U:%G %a" /etc/shadow;
+        else echo __MISSING__; fi'
+      register: u18_result
+      changed_when: false
+
+    - name: "U-19: /etc/hosts owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/hosts ]; then stat -c "%U:%G %a" /etc/hosts;
+        else echo __MISSING__; fi'
+      register: u19_result
+      changed_when: false
+
+    - name: "U-20: (x)inetd.conf owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'found=0; for f in /etc/inetd.conf /etc/xinetd.conf; do
+        if [ -e "$f" ]; then stat -c "%n %U:%G %a" "$f"; found=1; fi; done;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u20_result
+      changed_when: false
+
+    - name: "U-21: (r)syslog.conf owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'found=0; for f in /etc/syslog.conf /etc/rsyslog.conf; do
+        if [ -e "$f" ]; then stat -c "%n %U:%G %a" "$f"; found=1; fi; done;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u21_result
+      changed_when: false
+
+    - name: "U-22: /etc/services owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/services ]; then stat -c "%U:%G %a" /etc/services;
+        else echo __MISSING__; fi'
+      register: u22_result
+      changed_when: false
+
+    - name: "U-23: setuid setgid sticky-bit files in world-writable dirs"
+      # Distinct from C-06 (unexpected setuid/setgid anywhere on the
+      # filesystem): this scopes to the classic KISA U-23 concern of
+      # attacker-plantable binaries in shared, world-writable staging
+      # directories (/tmp, /var/tmp, /dev/shm), which is a narrower and
+      # higher-signal subset than a full filesystem sweep.
+      ansible.builtin.raw: >-
+        sh -c 'dirs=""; for d in /tmp /var/tmp /dev/shm; do [ -d "$d" ] && dirs="$dirs $d"; done;
+        if [ -z "$dirs" ]; then echo __MISSING__;
+        else find $dirs -xdev \( -perm -4000 -o -perm -2000 -o -perm -1000 \) -type f 2>/dev/null; fi; true'
+      register: u23_result
+      changed_when: false
+
+    - name: "U-24: environment variable file owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'found=0; for f in /etc/profile /etc/bashrc /etc/bash.bashrc; do
+        if [ -e "$f" ]; then stat -c "%n %U:%G %a" "$f"; found=1; fi; done;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u24_result
+      changed_when: false
+
+    - name: "U-25: world writable files"
+      ansible.builtin.raw: >-
+        sh -c 'find / -xdev -perm -0002 -type f 2>/dev/null; true'
+      register: u25_result
+      changed_when: false
+
+    - name: "U-26: irregular files under /dev"
+      # /dev should only ever contain device special files, symlinks, sockets,
+      # FIFOs and directories — a plain regular file there is out of place
+      # (e.g. leftover/forged device entries) and worth flagging.
+      ansible.builtin.raw: >-
+        sh -c 'if [ -d /dev ]; then find /dev -xdev -type f 2>/dev/null;
+        else echo __MISSING__; fi; true'
+      register: u26_result
+      changed_when: false
+
+    - name: "U-27: .rhosts and hosts.equiv usage"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/hosts.equiv ]; then echo __EQUIV_START__; cat /etc/hosts.equiv; echo __EQUIV_END__; fi;
+        find /root /home -maxdepth 2 -name ".rhosts" 2>/dev/null; true'
+      register: u27_result
+      changed_when: false
+
+    - name: "U-28: connection IP and port restriction"
+      ansible.builtin.raw: >-
+        sh -c 'found=0;
+        if [ -e /etc/hosts.allow ]; then echo __ALLOW_START__; cat /etc/hosts.allow; echo __ALLOW_END__; found=1; fi;
+        if [ -e /etc/hosts.deny ]; then echo __DENY_START__; cat /etc/hosts.deny; echo __DENY_END__; found=1; fi;
+        if command -v iptables >/dev/null 2>&1; then echo __IPTABLES_START__; iptables -L -n 2>/dev/null; echo __IPTABLES_END__; found=1; fi;
+        [ "$found" -eq 0 ] && echo __MISSING__; true'
+      register: u28_result
+      changed_when: false
+
+    - name: "U-29: hosts.lpd owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/hosts.lpd ]; then stat -c "%U:%G %a" /etc/hosts.lpd;
+        else echo __MISSING__; fi'
+      register: u29_result
+      changed_when: false
+
+    - name: "U-30: UMASK setting"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/profile ] || [ -e /etc/login.defs ] || [ -e /etc/bashrc ]; then
+        grep -h -i "umask" /etc/profile /etc/login.defs /etc/bashrc 2>/dev/null;
+        else echo __MISSING__; fi; true'
+      register: u30_result
+      changed_when: false
+
+    - name: "U-31: home directory owner and mode"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then
+        while IFS=: read -r name pass uid gid gecos home shell; do
+        if [ -d "$home" ]; then echo "$name:$shell:$(stat -c "%U %a" "$home")"; fi;
+        done < /etc/passwd; else echo __MISSING__; fi; true'
+      register: u31_result
+      changed_when: false
+
+    - name: "U-32: assigned home directory existence"
+      ansible.builtin.raw: >-
+        sh -c 'if [ -e /etc/passwd ]; then
+        while IFS=: read -r name pass uid gid gecos home shell; do
+        if [ -n "$home" ] && [ ! -d "$home" ]; then echo "$name:$uid:$home:$shell"; fi;
+        done < /etc/passwd; else echo __MISSING__; fi; true'
+      register: u32_result
+      changed_when: false
+
+    - name: "U-33: hidden files and directories"
+      ansible.builtin.raw: >-
+        sh -c 'find /tmp /var/tmp /root /home -xdev -maxdepth 3 -name ".*" ! -name "." ! -name ".." 2>/dev/null; true'
+      register: u33_result
+      changed_when: false
+
     # W-01..W-26 (KISA guide, web service): nginx-only for MVP scope (#47).
     # The two tasks below are internal helpers, not tied to a single catalog
     # id -- they're matched by exact task name (not the `<id>:` prefix
