@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { statusBadgeClass } from "./statusBadge";
+import { statusBadgeClass } from "./statusBadgeStyles";
 
 describe("statusBadgeClass", () => {
   it("상태별로 같은 색 계열의 저채도 배경 + 텍스트 클래스를 반환한다", () => {

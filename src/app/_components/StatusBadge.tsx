@@ -1,4 +1,4 @@
-import { statusBadgeClass, type BadgeStatus } from "./statusBadge";
+import { statusBadgeClass, type BadgeStatus } from "./statusBadgeStyles";
 
 export function StatusBadge({
   status,
