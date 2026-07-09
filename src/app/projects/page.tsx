@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/projects/store";
 import { listAssets } from "@/lib/assets/store";
-import { listRuns } from "@/lib/pipeline/runs";
-import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
-import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
-import type { Run } from "@/lib/pipeline/types";
+import { type RunOutcome } from "@/lib/checks/riskSummary";
+import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
 import { ProjectForm } from "./ProjectForm";
 import { Card } from "../_components/Card";
 import { StatusBadge } from "../_components/StatusBadge";
@@ -13,25 +11,23 @@ const OUTCOME_LABEL: Record<RunOutcome, string> = { fail: "취약", review: "검
 
 type AssetSummaryStatus = RunOutcome | "neutral" | "progress" | "error";
 
+const KIND_TO_SUMMARY_STATUS: Record<AssetStatusKind, AssetSummaryStatus> = {
+  pass: "pass",
+  fail: "fail",
+  review: "review",
+  error: "error",
+  running: "progress",
+  none: "neutral",
+};
+
 export default async function ProjectsPage() {
   const projects = listProjects();
   const assets = listAssets();
-  const allRuns = listRuns(); // 최신순 정렬 보장 (created_at DESC)
-
-  // 자산별 마지막 run (allRuns가 최신순이므로 첫 등장 = 최신)
-  const latestRunByAsset = new Map<string, Run>();
-  for (const run of allRuns) {
-    if (run.assetId && !latestRunByAsset.has(run.assetId)) {
-      latestRunByAsset.set(run.assetId, run);
-    }
-  }
+  const statusMap = getAssetStatusMap();
 
   function outcomeForAsset(assetId: string): AssetSummaryStatus {
-    const run = latestRunByAsset.get(assetId);
-    if (!run) return "neutral";
-    if (run.status === "running") return "progress";
-    if (run.status === "failed") return "error";
-    return overallRunOutcome(getRunRiskSummary(run.id));
+    const status = statusMap.get(assetId);
+    return KIND_TO_SUMMARY_STATUS[status?.kind ?? "none"];
   }
 
   return (

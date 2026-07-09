@@ -2,9 +2,21 @@ import Link from "next/link";
 import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
+import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
 import { AssetFilters } from "./AssetFilters";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
+import { StatusBadge } from "../_components/StatusBadge";
+import type { BadgeStatus } from "../_components/statusBadgeStyles";
+
+const STATUS_BADGE: Record<AssetStatusKind, { status: BadgeStatus; label: string }> = {
+  pass: { status: "pass", label: "양호" },
+  fail: { status: "fail", label: "취약" },
+  review: { status: "review", label: "검토" },
+  error: { status: "fail", label: "실패" },
+  running: { status: "progress", label: "진행 중" },
+  none: { status: "neutral", label: "미점검" },
+};
 
 export default async function AssetsPage({
   searchParams,
@@ -18,6 +30,7 @@ export default async function AssetsPage({
 
   const assets = listAssets(filter);
   const projects = listProjects();
+  const statusMap = getAssetStatusMap();
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
@@ -66,6 +79,9 @@ export default async function AssetsPage({
                 <th className="px-5 py-3">
                   <SectionLabel>정기 점검</SectionLabel>
                 </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>상태</SectionLabel>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -80,6 +96,7 @@ export default async function AssetsPage({
                       : schedule.frequency === "weekly"
                         ? "매주"
                         : "매월";
+                const badge = STATUS_BADGE[statusMap.get(asset.id)?.kind ?? "none"];
                 return (
                   <tr key={asset.id} className="hover:bg-bg">
                     <td className="px-5 py-3">
@@ -97,6 +114,9 @@ export default async function AssetsPage({
                     <td className="px-5 py-3">{project?.name ?? "미분류"}</td>
                     <td className="px-5 py-3 font-mono text-[13px] text-muted">{asset.createdAt}</td>
                     <td className="px-5 py-3 text-[13px] text-muted">{scheduleLabel}</td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                    </td>
                   </tr>
                 );
               })}

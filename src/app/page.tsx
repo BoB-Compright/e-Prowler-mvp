@@ -4,7 +4,8 @@ import { listRuns } from "@/lib/pipeline/runs";
 import { listCveMatches } from "@/lib/cve/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
-import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
+import { type RunOutcome } from "@/lib/checks/riskSummary";
+import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import type { Run } from "@/lib/pipeline/types";
 import { LocalImageFallbackForm } from "./LocalImageFallbackForm";
@@ -23,31 +24,28 @@ const SCHEDULE_LABEL: Record<string, string> = { daily: "매일", weekly: "매�
 export default function DashboardPage() {
   const assets = listAssets();
   const allRuns = listRuns(); // 최신순 정렬 보장 (created_at DESC)
-
-  // 자산별 마지막 run (allRuns가 최신순이므로 첫 등장 = 최신)
-  const latestRunByAsset = new Map<string, Run>();
-  for (const run of allRuns) {
-    if (run.assetId && !latestRunByAsset.has(run.assetId)) {
-      latestRunByAsset.set(run.assetId, run);
-    }
-  }
+  const statusMap = getAssetStatusMap();
+  const runById = new Map<string, Run>(allRuns.map((run) => [run.id, run]));
 
   const rows = assets.map((asset) => {
-    const lastRun = latestRunByAsset.get(asset.id);
+    const status = statusMap.get(asset.id) ?? { kind: "none" as const };
+    const lastRun = status.runId ? runById.get(status.runId) : undefined;
     const summary = lastRun && lastRun.status !== "running" ? getRunRiskSummary(lastRun.id) : null;
     const outcome =
-      lastRun && lastRun.status === "succeeded" && summary ? overallRunOutcome(summary) : null;
+      status.kind === "pass" || status.kind === "fail" || status.kind === "review"
+        ? status.kind
+        : null;
     const schedule = getScheduleByAsset(asset.id);
     const openCveCount =
       asset.type === "server"
         ? listCveMatches(asset.id).filter((m) => !m.dismissed).length
         : null;
-    return { asset, lastRun, summary, outcome, schedule, openCveCount };
+    return { asset, lastRun, status, summary, outcome, schedule, openCveCount };
   });
 
   const repoCount = assets.filter((a) => a.type === "repo").length;
   const serverCount = assets.length - repoCount;
-  const vulnerableCount = rows.filter((row) => row.outcome === "fail").length;
+  const vulnerableCount = rows.filter((row) => row.status.kind === "fail").length;
   const activeScheduleCount = rows.filter((row) => row.schedule?.enabled).length;
 
   const openCves = assets
@@ -164,7 +162,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {rows.map(({ asset, lastRun, summary, outcome, schedule, openCveCount }) => (
+                    {rows.map(({ asset, lastRun, status, summary, outcome, schedule, openCveCount }) => (
                       <tr key={asset.id} className="hover:bg-bg">
                         <td className="px-5 py-3">
                           <Link
@@ -185,9 +183,9 @@ export default function DashboardPage() {
                               <span className="font-mono text-[13px] text-muted">
                                 {formatTimestamp(lastRun.updatedAt)}
                               </span>
-                              {lastRun.status === "running" ? (
+                              {status.kind === "running" ? (
                                 <StatusBadge status="progress">진행 중</StatusBadge>
-                              ) : lastRun.status === "failed" ? (
+                              ) : status.kind === "error" ? (
                                 <StatusBadge status="fail">실패</StatusBadge>
                               ) : outcome ? (
                                 <StatusBadge status={outcome}>{OUTCOME_LABEL[outcome]}</StatusBadge>
