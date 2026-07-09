@@ -15,8 +15,15 @@ interface ServerRow {
 }
 
 function optionalTrimmedString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
+  let stringValue: string;
+  if (typeof value === "string") {
+    stringValue = value;
+  } else if (typeof value === "number") {
+    stringValue = String(value);
+  } else {
+    return null;
+  }
+  const trimmed = stringValue.trim();
   return trimmed ? trimmed : null;
 }
 

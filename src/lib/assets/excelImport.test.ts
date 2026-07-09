@@ -150,4 +150,40 @@ describe("importAssetsFromWorkbook", () => {
     const asset = getAsset((result.server[0] as { assetId: string }).assetId, db);
     expect(asset).toMatchObject({ os: null, owner: null });
   });
+
+  it("imports repo rows with numeric owner cell as string", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a", owner: 12345 },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.repo[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ owner: "12345" });
+  });
+
+  it("imports server rows with numeric owner cell as string", () => {
+    const buffer = buildWorkbook({
+      server: [
+        { display_name: "web-01", host_ip: "10.0.0.5", hostname: "web-01", ssh_port: 22, auth_type: "password", username: "admin", secret: "pw", owner: 54321 },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.server[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ owner: "54321" });
+  });
+
+  it("imports repo rows with numeric os cell as string", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a", os: 2022 },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.repo[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ os: "2022" });
+  });
 });

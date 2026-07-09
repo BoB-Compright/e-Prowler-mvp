@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DuplicateAssetError, createRepoAsset, createServerAsset, listAssets } from "@/lib/assets/store";
 
+function optionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 export function GET(req: NextRequest) {
   const projectIdParam = req.nextUrl.searchParams.get("projectId");
   const typeParam = req.nextUrl.searchParams.get("type");
@@ -23,8 +29,8 @@ export async function POST(req: NextRequest) {
         displayName: String(body.displayName ?? ""),
         repoUrl: String(body.repoUrl ?? ""),
         projectId: body.projectId || null,
-        os: body.os || null,
-        owner: body.owner || null,
+        os: optionalString(body.os),
+        owner: optionalString(body.owner),
       });
       return NextResponse.json({ asset }, { status: 201 });
     }
@@ -38,8 +44,8 @@ export async function POST(req: NextRequest) {
         username: String(body.username ?? ""),
         secret: String(body.secret ?? ""),
         projectId: body.projectId || null,
-        os: body.os || null,
-        owner: body.owner || null,
+        os: optionalString(body.os),
+        owner: optionalString(body.owner),
       });
       return NextResponse.json({ asset }, { status: 201 });
     }
