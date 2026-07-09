@@ -11,7 +11,7 @@ import { StatusBadge } from "../_components/StatusBadge";
 
 const OUTCOME_LABEL: Record<RunOutcome, string> = { fail: "취약", review: "검토", pass: "양호" };
 
-type AssetSummaryStatus = RunOutcome | "neutral" | "progress";
+type AssetSummaryStatus = RunOutcome | "neutral" | "progress" | "error";
 
 export default async function ProjectsPage() {
   const projects = listProjects();
@@ -30,7 +30,7 @@ export default async function ProjectsPage() {
     const run = latestRunByAsset.get(assetId);
     if (!run) return "neutral";
     if (run.status === "running") return "progress";
-    if (run.status === "failed") return "fail";
+    if (run.status === "failed") return "error";
     return overallRunOutcome(getRunRiskSummary(run.id));
   }
 
@@ -59,6 +59,7 @@ export default async function ProjectsPage() {
               review: 0,
               neutral: 0,
               progress: 0,
+              error: 0,
             };
             for (const asset of projectAssets) {
               counts[outcomeForAsset(asset.id)] += 1;
@@ -86,6 +87,9 @@ export default async function ProjectsPage() {
                     <>
                       {counts.fail > 0 && (
                         <StatusBadge status="fail">{OUTCOME_LABEL.fail} {counts.fail}</StatusBadge>
+                      )}
+                      {counts.error > 0 && (
+                        <StatusBadge status="fail">실패 {counts.error}</StatusBadge>
                       )}
                       {counts.review > 0 && (
                         <StatusBadge status="review">{OUTCOME_LABEL.review} {counts.review}</StatusBadge>
