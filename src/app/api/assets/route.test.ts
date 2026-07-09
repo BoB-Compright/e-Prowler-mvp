@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // route.ts (and the lib modules it calls) reach the shared getDb() singleton,
@@ -11,27 +12,27 @@ beforeEach(() => {
   process.env.INFRA_SECURITY_MASTER_KEY = randomBytes(32).toString("base64");
 });
 
-function jsonRequest(body: unknown): Request {
+// POST only calls req.json() on the request, so a plain Request is a
+// sufficient runtime stand-in for NextRequest.
+function jsonRequest(body: unknown): NextRequest {
   return new Request("http://localhost/api/assets", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 describe("POST /api/assets", () => {
   it("normalizes whitespace-only os to null for repo assets", async () => {
-    const { createRepoAsset } = await import("@/lib/assets/store");
     const { getAsset } = await import("@/lib/assets/store");
     const { POST } = await import("./route");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await POST(jsonRequest({
       type: "repo",
       displayName: "test",
       repoUrl: "https://github.com/x/test",
       os: "   ",
-    }) as any);
+    }));
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -39,16 +40,15 @@ describe("POST /api/assets", () => {
     expect(asset).toMatchObject({ os: null });
   });
 
-  it("rejects numeric os in JSON body for repo assets", async () => {
+  it("normalizes numeric os in the JSON body to null for repo assets (no 500)", async () => {
     const { POST } = await import("./route");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await POST(jsonRequest({
       type: "repo",
       displayName: "test",
       repoUrl: "https://github.com/x/test",
       os: 12345,
-    }) as any);
+    }));
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -60,13 +60,12 @@ describe("POST /api/assets", () => {
     const { getAsset } = await import("@/lib/assets/store");
     const { POST } = await import("./route");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await POST(jsonRequest({
       type: "repo",
       displayName: "test",
       repoUrl: "https://github.com/x/test",
       owner: "   ",
-    }) as any);
+    }));
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -78,7 +77,6 @@ describe("POST /api/assets", () => {
     const { getAsset } = await import("@/lib/assets/store");
     const { POST } = await import("./route");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await POST(jsonRequest({
       type: "server",
       displayName: "web-01",
@@ -89,7 +87,7 @@ describe("POST /api/assets", () => {
       username: "admin",
       secret: "pw",
       os: "   ",
-    }) as any);
+    }));
 
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -97,11 +95,10 @@ describe("POST /api/assets", () => {
     expect(asset).toMatchObject({ os: null });
   });
 
-  it("rejects numeric os in JSON body for server assets", async () => {
+  it("normalizes numeric os in the JSON body to null for server assets (no 500)", async () => {
     const { getAsset } = await import("@/lib/assets/store");
     const { POST } = await import("./route");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await POST(jsonRequest({
       type: "server",
       displayName: "web-01",
@@ -112,7 +109,7 @@ describe("POST /api/assets", () => {
       username: "admin",
       secret: "pw",
       os: 12345,
-    }) as any);
+    }));
 
     expect(res.status).toBe(201);
     const body = await res.json();
