@@ -5,6 +5,7 @@ import { createServerRun, runServerScanPipeline } from "@/lib/pipeline/serverSca
 import { listLocalImages } from "@/lib/pipeline/localImages";
 import { getAsset } from "@/lib/assets/store";
 import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
+import { hasActiveRun } from "@/lib/scheduling/trigger";
 
 export function GET() {
   return NextResponse.json({ runs: listRuns() });
@@ -34,6 +35,16 @@ export async function POST(req: NextRequest) {
   if (!asset) {
     return NextResponse.json({ error: "유효한 자산을 선택하세요" }, { status: 400 });
   }
+
+  // 리포트/자산 화면의 재스캔 버튼과 스케줄러 모두 이 경로를 타므로, 동일 자산에
+  // 이미 진행 중인 run이 있으면 중복 시작 대신 409로 안내한다 (#75).
+  if (hasActiveRun(asset.id)) {
+    return NextResponse.json(
+      { error: "이미 진행 중인 점검이 있습니다" },
+      { status: 409 },
+    );
+  }
+
   if (asset.type === "server") {
     // Same fire-and-forget shape as the git path below: the run row is
     // created synchronously so we can respond with its id right away, and

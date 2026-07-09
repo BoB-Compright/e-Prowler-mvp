@@ -17,6 +17,7 @@ import { Card } from "@/app/_components/Card";
 import { SectionLabel } from "@/app/_components/SectionLabel";
 import { StatusBadge } from "@/app/_components/StatusBadge";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
+import { RescanButton } from "./RescanButton";
 
 const CATEGORY_CHIP_LABELS: Record<Category, string> = {
   container: "컨테이너",
@@ -132,6 +133,7 @@ export function ReportView({ runId }: { runId: string }) {
               점검 진행 중 — 일부 항목만 표시됨
             </span>
           )}
+          {run.status !== "running" && run.assetId && <RescanButton assetId={run.assetId} />}
           <Link
             href={`/runs/${runId}`}
             className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
