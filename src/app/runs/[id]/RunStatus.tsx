@@ -96,7 +96,7 @@ const STEPPER_CIRCLE_STYLES: Record<NodeState, string> = {
   done: "bg-pass text-white",
   current: "bg-primary text-white animate-[scan-pulse-ring_1.8s_infinite]",
   failed: "bg-fail text-white",
-  pending: "bg-neutral/40 text-white",
+  pending: "bg-neutral/40 text-muted",
 };
 
 const STEPPER_LABEL_STYLES: Record<NodeState, string> = {
