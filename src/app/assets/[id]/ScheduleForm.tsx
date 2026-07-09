@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import type { Schedule, ScheduleFrequency } from "@/lib/scheduling/types";
+import { Card } from "../../_components/Card";
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+const inputClass =
+  "rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 
 export function ScheduleForm({
   assetId,
@@ -53,58 +57,69 @@ export function ScheduleForm({
   }
 
   return (
-    <div className="rounded-[var(--radius-nh)] border border-[var(--color-border)] p-4">
-      <h2 className="mb-3 text-sm font-bold">정기 점검</h2>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-        <select
-          value={frequency}
-          onChange={(e) => setFrequency(e.target.value as ScheduleFrequency)}
-          className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1"
-        >
-          <option value="daily">매일</option>
-          <option value="weekly">매주</option>
-          <option value="monthly">매월</option>
-        </select>
-        {frequency === "weekly" && (
+    <Card title="정기 점검">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-[13px] font-medium">주기</span>
           <select
-            value={dayOfWeek}
-            onChange={(e) => setDayOfWeek(Number(e.target.value))}
-            className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1"
+            value={frequency}
+            onChange={(e) => setFrequency(e.target.value as ScheduleFrequency)}
+            className={inputClass}
           >
-            {WEEKDAY_LABELS.map((label, index) => (
-              <option key={index} value={index}>
-                {label}요일
-              </option>
-            ))}
+            <option value="daily">매일</option>
+            <option value="weekly">매주</option>
+            <option value="monthly">매월</option>
           </select>
+        </label>
+        {frequency === "weekly" && (
+          <label className="flex flex-col gap-1">
+            <span className="text-[13px] font-medium">요일</span>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => setDayOfWeek(Number(e.target.value))}
+              className={inputClass}
+            >
+              {WEEKDAY_LABELS.map((label, index) => (
+                <option key={index} value={index}>
+                  {label}요일
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         {frequency === "monthly" && (
-          <select
-            value={dayOfMonth}
-            onChange={(e) => setDayOfMonth(Number(e.target.value))}
-            className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1"
-          >
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-              <option key={day} value={day}>
-                {day}일
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1">
+            <span className="text-[13px] font-medium">일</span>
+            <select
+              value={dayOfMonth}
+              onChange={(e) => setDayOfMonth(Number(e.target.value))}
+              className={inputClass}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                <option key={day} value={day}>
+                  {day}일
+                </option>
+              ))}
+            </select>
+          </label>
         )}
-        <input
-          type="time"
-          value={timeOfDay}
-          onChange={(e) => setTimeOfDay(e.target.value)}
-          className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1"
-        />
-        <label className="flex items-center gap-1.5">
+        <label className="flex flex-col gap-1">
+          <span className="text-[13px] font-medium">실행 시각</span>
+          <input
+            type="time"
+            value={timeOfDay}
+            onChange={(e) => setTimeOfDay(e.target.value)}
+            className={inputClass}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 pb-2 text-sm">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           활성화
         </label>
         <button
           onClick={save}
           disabled={saving}
-          className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1 text-white disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
           저장
         </button>
@@ -112,20 +127,20 @@ export function ScheduleForm({
           <button
             onClick={remove}
             disabled={saving}
-            className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-3 py-1 disabled:opacity-50"
+            className="rounded-lg bg-fail px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
             스케줄 삭제
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-[var(--color-fail)]">{error}</p>}
+      {error && <p className="mt-2 text-[13px] text-fail">{error}</p>}
       {schedule && (
-        <p className="text-xs text-[var(--color-muted)]">
+        <p className="mt-3 text-[13px] text-muted">
           다음 실행: {schedule.nextRunAt.replace("T", " ").slice(0, 16)}
           {schedule.lastRunAt && ` · 마지막 실행: ${schedule.lastRunAt.replace("T", " ").slice(0, 16)}`}
           {schedule.lastSkipReason && ` · 최근 건너뜀: ${schedule.lastSkipReason}`}
         </p>
       )}
-    </div>
+    </Card>
   );
 }

@@ -3,6 +3,8 @@ import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { AssetFilters } from "./AssetFilters";
+import { Card } from "../_components/Card";
+import { SectionLabel } from "../_components/SectionLabel";
 
 export default async function AssetsPage({
   searchParams,
@@ -18,44 +20,93 @@ export default async function AssetsPage({
   const projects = listProjects();
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-[var(--color-text)]">자산 관리</h1>
+    <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">자산 관리</h1>
+          <p className="text-[13px] text-muted">등록된 레포지토리·서버 자산을 조회하고 관리합니다</p>
+        </div>
         <div className="flex gap-2">
-          <Link href="/assets/upload" className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-3 py-1.5 text-sm">엑셀 업로드</Link>
-          <Link href="/assets/new" className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-sm text-white">자산 등록</Link>
+          <Link
+            href="/assets/upload"
+            className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
+          >
+            엑셀 업로드
+          </Link>
+          <Link
+            href="/assets/new"
+            className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+          >
+            자산 등록
+          </Link>
         </div>
       </div>
 
-      <AssetFilters projects={projects} />
+      <div className="mb-6">
+        <AssetFilters projects={projects} />
+      </div>
 
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-muted)]">
-            <th className="py-2">이름</th><th className="py-2">타입</th><th className="py-2">프로젝트</th><th className="py-2">등록일</th><th className="py-2">정기 점검</th>
-          </tr>
-        </thead>
-        <tbody>
-          {assets.map((asset) => {
-            const project = projects.find((p) => p.id === asset.projectId);
-            return (
-              <tr key={asset.id} className="border-b border-[var(--color-border)]">
-                <td className="py-2"><Link href={`/assets/${asset.id}`} className="text-[var(--color-primary)]">{asset.displayName}</Link></td>
-                <td className="py-2">{asset.type === "repo" ? "레포" : "서버"}</td>
-                <td className="py-2">{project?.name ?? "미분류"}</td>
-                <td className="py-2 font-mono text-xs text-[var(--color-muted)]">{asset.createdAt}</td>
-                <td className="py-2 text-xs">
-                  {(() => {
-                    const schedule = getScheduleByAsset(asset.id);
-                    if (!schedule || !schedule.enabled) return "—";
-                    return schedule.frequency === "daily" ? "매일" : schedule.frequency === "weekly" ? "매주" : "매월";
-                  })()}
-                </td>
+      <Card bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-5 py-3">
+                  <SectionLabel>이름</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>타입</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>프로젝트</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>등록일</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>정기 점검</SectionLabel>
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {assets.map((asset) => {
+                const project = projects.find((p) => p.id === asset.projectId);
+                const schedule = getScheduleByAsset(asset.id);
+                const scheduleLabel =
+                  !schedule || !schedule.enabled
+                    ? "—"
+                    : schedule.frequency === "daily"
+                      ? "매일"
+                      : schedule.frequency === "weekly"
+                        ? "매주"
+                        : "매월";
+                return (
+                  <tr key={asset.id} className="hover:bg-bg">
+                    <td className="px-5 py-3">
+                      <Link
+                        href={`/assets/${asset.id}`}
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        {asset.displayName}
+                      </Link>
+                      <p className="mt-0.5 font-mono text-[13px] text-muted">
+                        {asset.type === "repo" ? asset.repoUrl : `${asset.hostIp}:${asset.sshPort}`}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3 text-muted">{asset.type === "repo" ? "레포" : "서버"}</td>
+                    <td className="px-5 py-3">{project?.name ?? "미분류"}</td>
+                    <td className="px-5 py-3 font-mono text-[13px] text-muted">{asset.createdAt}</td>
+                    <td className="px-5 py-3 text-[13px] text-muted">{scheduleLabel}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {assets.length === 0 && (
+          <p className="p-5 text-[13px] text-muted italic">조건에 맞는 자산이 없습니다.</p>
+        )}
+      </Card>
     </main>
   );
 }

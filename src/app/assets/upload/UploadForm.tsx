@@ -3,6 +3,11 @@
 import { useState } from "react";
 import type { Project } from "@/lib/projects/types";
 import type { ImportRowResult } from "@/lib/assets/excelImport";
+import { Card } from "../../_components/Card";
+
+const inputClass =
+  "rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
+const labelClass = "text-[13px] font-medium";
 
 export function UploadForm({ projects }: { projects: Project[] }) {
   const [result, setResult] = useState<{ repo: ImportRowResult[]; server: ImportRowResult[] } | null>(null);
@@ -29,39 +34,56 @@ export function UploadForm({ projects }: { projects: Project[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4 text-sm">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <select name="projectId" className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1">
-          <option value="">미분류</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-        </select>
-        <input type="file" name="file" accept=".xlsx" required />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white disabled:opacity-50"
-        >
-          {submitting ? "업로드 중…" : "업로드"}
-        </button>
-      </form>
+    <div className="flex flex-col gap-6">
+      <Card title="기본 정보">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>프로젝트 (선택)</span>
+            <select name="projectId" className={inputClass}>
+              <option value="">미분류</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={labelClass}>엑셀 파일</span>
+            <input type="file" name="file" accept=".xlsx" required className="text-sm" />
+          </label>
 
-      {error && <p className="text-[var(--color-fail)]">{error}</p>}
+          {error && <p className="text-[13px] text-fail">{error}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "업로드 중…" : "업로드"}
+            </button>
+          </div>
+        </form>
+      </Card>
 
       {result && (
-        <div className="flex flex-col gap-2">
-          {(["repo", "server"] as const).map((key) => (
-            <div key={key}>
-              <p className="font-bold">{key === "repo" ? "레포" : "서버"} 결과</p>
-              <ul>
-                {result[key].map((row) => (
-                  <li key={row.row} className={row.ok ? "text-[var(--color-pass)]" : "text-[var(--color-fail)]"}>
-                    {row.row}행: {row.ok ? "성공" : row.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <Card title="업로드 결과">
+          <div className="flex flex-col gap-4">
+            {(["repo", "server"] as const).map((key) => (
+              <div key={key}>
+                <p className="mb-2 text-[13px] font-bold">{key === "repo" ? "레포" : "서버"} 결과</p>
+                <ul className="flex flex-col gap-1 text-[13px]">
+                  {result[key].map((row) => (
+                    <li key={row.row} className={row.ok ? "text-pass" : "text-fail"}>
+                      {row.row}행: {row.ok ? "성공" : row.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );
