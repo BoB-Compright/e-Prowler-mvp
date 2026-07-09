@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS assets (
   auth_type TEXT,
   username TEXT,
   encrypted_secret TEXT,
+  os TEXT,
+  owner TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -142,6 +144,14 @@ function migrate(db: Database.Database): void {
   }
   if (!runColumns.some((column) => column.name === "trigger_type")) {
     db.exec(`ALTER TABLE runs ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'manual'`);
+  }
+
+  const assetColumns = db.prepare(`PRAGMA table_info(assets)`).all() as { name: string }[];
+  if (!assetColumns.some((column) => column.name === "os")) {
+    db.exec(`ALTER TABLE assets ADD COLUMN os TEXT`);
+  }
+  if (!assetColumns.some((column) => column.name === "owner")) {
+    db.exec(`ALTER TABLE assets ADD COLUMN owner TEXT`);
   }
 }
 

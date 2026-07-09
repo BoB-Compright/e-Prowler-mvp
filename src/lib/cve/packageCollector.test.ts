@@ -8,7 +8,8 @@ function serverAsset(overrides: Partial<Asset> = {}): Asset {
   return {
     id: "a1", type: "server", projectId: null, displayName: "web-01",
     repoUrl: null, hostIp: "10.0.0.5", hostname: "web-01", sshPort: 22,
-    authType: "password", username: "admin", encryptedSecret: encryptSecret("pw"), createdAt: "now",
+    authType: "password", username: "admin", encryptedSecret: encryptSecret("pw"),
+    os: null, owner: null, createdAt: "now",
     ...overrides,
   };
 }

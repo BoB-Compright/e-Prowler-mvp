@@ -8,10 +8,16 @@ export type ImportRowResult =
   | { row: number; ok: true; assetId: string }
   | { row: number; ok: false; reason: string };
 
-interface RepoRow { display_name?: unknown; repo_url?: unknown }
+interface RepoRow { display_name?: unknown; repo_url?: unknown; os?: unknown; owner?: unknown }
 interface ServerRow {
   display_name?: unknown; host_ip?: unknown; hostname?: unknown; ssh_port?: unknown;
-  auth_type?: unknown; username?: unknown; secret?: unknown;
+  auth_type?: unknown; username?: unknown; secret?: unknown; os?: unknown; owner?: unknown;
+}
+
+function optionalTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function importRepoSheet(rows: RepoRow[], projectId: string | null, db: Database): ImportRowResult[] {
@@ -22,8 +28,10 @@ function importRepoSheet(rows: RepoRow[], projectId: string | null, db: Database
     if (!displayName || !repoUrl) {
       return { row: rowNumber, ok: false, reason: "display_name과 repo_url은 필수입니다" };
     }
+    const os = optionalTrimmedString(raw.os);
+    const owner = optionalTrimmedString(raw.owner);
     try {
-      const asset = createRepoAsset({ displayName, repoUrl, projectId }, db);
+      const asset = createRepoAsset({ displayName, repoUrl, projectId, os, owner }, db);
       return { row: rowNumber, ok: true, assetId: asset.id };
     } catch (error) {
       if (error instanceof DuplicateAssetError) return { row: rowNumber, ok: false, reason: error.message };
@@ -60,8 +68,10 @@ function importServerSheet(rows: ServerRow[], projectId: string | null, db: Data
       return { row: rowNumber, ok: false, reason: "auth_type은 password 또는 key여야 합니다" };
     }
 
+    const os = optionalTrimmedString(raw.os);
+    const owner = optionalTrimmedString(raw.owner);
     try {
-      const asset = createServerAsset({ displayName, hostIp, hostname, sshPort, authType, username, secret, projectId }, db);
+      const asset = createServerAsset({ displayName, hostIp, hostname, sshPort, authType, username, secret, projectId, os, owner }, db);
       return { row: rowNumber, ok: true, assetId: asset.id };
     } catch (error) {
       if (error instanceof DuplicateAssetError) return { row: rowNumber, ok: false, reason: error.message };

@@ -23,6 +23,8 @@ export async function POST(req: NextRequest) {
         displayName: String(body.displayName ?? ""),
         repoUrl: String(body.repoUrl ?? ""),
         projectId: body.projectId || null,
+        os: body.os || null,
+        owner: body.owner || null,
       });
       return NextResponse.json({ asset }, { status: 201 });
     }
@@ -36,6 +38,8 @@ export async function POST(req: NextRequest) {
         username: String(body.username ?? ""),
         secret: String(body.secret ?? ""),
         projectId: body.projectId || null,
+        os: body.os || null,
+        owner: body.owner || null,
       });
       return NextResponse.json({ asset }, { status: 201 });
     }

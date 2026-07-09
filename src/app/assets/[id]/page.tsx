@@ -130,6 +130,18 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                 </div>
               </>
             )}
+            <div>
+              <dt>
+                <SectionLabel>OS</SectionLabel>
+              </dt>
+              <dd className="mt-1 text-[13px]">{asset.os || "—"}</dd>
+            </div>
+            <div>
+              <dt>
+                <SectionLabel>담당자</SectionLabel>
+              </dt>
+              <dd className="mt-1 text-[13px]">{asset.owner || "—"}</dd>
+            </div>
           </dl>
         </Card>
 

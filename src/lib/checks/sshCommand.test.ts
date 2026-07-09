@@ -15,6 +15,8 @@ function serverAsset(overrides: Partial<Asset> = {}): Asset {
     authType: "password",
     username: "admin",
     encryptedSecret: "enc",
+    os: null,
+    owner: null,
     createdAt: "now",
     ...overrides,
   };

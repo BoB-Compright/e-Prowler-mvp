@@ -85,6 +85,17 @@ export function AssetForm({ projects }: { projects: Project[] }) {
               ))}
             </select>
           </label>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>OS (선택)</span>
+              <input name="os" className={inputClass} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>담당자 (선택)</span>
+              <input name="owner" className={inputClass} />
+            </label>
+          </div>
         </div>
       </Card>
 

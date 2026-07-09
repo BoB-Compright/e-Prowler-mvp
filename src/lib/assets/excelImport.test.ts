@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { randomBytes } from "crypto";
 import * as XLSX from "xlsx";
 import { createInMemoryDb } from "@/lib/db";
-import { listAssets } from "./store";
+import { getAsset, listAssets } from "./store";
 import { importAssetsFromWorkbook } from "./excelImport";
 
 let db: Database;
@@ -99,5 +99,55 @@ describe("importAssetsFromWorkbook", () => {
     });
     const result = importAssetsFromWorkbook(buffer, null, db);
     expect(result.server[0]).toMatchObject({ ok: true });
+  });
+
+  it("imports repo rows with os/owner columns and stores the values", () => {
+    const buffer = buildWorkbook({
+      repo: [
+        { display_name: "a", repo_url: "https://github.com/x/a", os: "Ubuntu 22.04", owner: "김철수" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.repo[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ os: "Ubuntu 22.04", owner: "김철수" });
+  });
+
+  it("imports repo rows without os/owner columns and leaves them null (backward compatibility)", () => {
+    const buffer = buildWorkbook({
+      repo: [{ display_name: "a", repo_url: "https://github.com/x/a" }],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.repo[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.repo[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ os: null, owner: null });
+  });
+
+  it("imports server rows with os/owner columns and stores the values", () => {
+    const buffer = buildWorkbook({
+      server: [
+        {
+          display_name: "web-01", host_ip: "10.0.0.5", hostname: "web-01", ssh_port: 22,
+          auth_type: "password", username: "admin", secret: "pw",
+          os: "CentOS 7", owner: "박영희",
+        },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.server[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ os: "CentOS 7", owner: "박영희" });
+  });
+
+  it("imports server rows without os/owner columns and leaves them null (backward compatibility)", () => {
+    const buffer = buildWorkbook({
+      server: [
+        { display_name: "web-01", host_ip: "10.0.0.5", hostname: "web-01", ssh_port: 22, auth_type: "password", username: "admin", secret: "pw" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server[0]).toMatchObject({ ok: true });
+    const asset = getAsset((result.server[0] as { assetId: string }).assetId, db);
+    expect(asset).toMatchObject({ os: null, owner: null });
   });
 });

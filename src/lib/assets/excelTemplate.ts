@@ -1,13 +1,13 @@
 import * as XLSX from "xlsx";
 
 const REPO_ROWS = [
-  ["display_name", "repo_url"],
-  ["nh-pay-gateway", "https://github.com/nh/pay-gateway"],
+  ["display_name", "repo_url", "os", "owner"],
+  ["nh-pay-gateway", "https://github.com/nh/pay-gateway", "", ""],
 ];
 
 const SERVER_ROWS = [
-  ["display_name", "host_ip", "hostname", "ssh_port", "auth_type", "username", "secret"],
-  ["web-01", "10.0.0.5", "web-01.internal", 22, "password", "admin", "changeme"],
+  ["display_name", "host_ip", "hostname", "ssh_port", "auth_type", "username", "secret", "os", "owner"],
+  ["web-01", "10.0.0.5", "web-01.internal", 22, "password", "admin", "changeme", "Ubuntu 22.04", "홍길동"],
 ];
 
 export function buildAssetImportTemplate(): Buffer {

@@ -13,5 +13,7 @@ export interface Asset {
   authType: ServerAuthType | null;
   username: string | null;
   encryptedSecret: string | null;
+  os: string | null;
+  owner: string | null;
   createdAt: string;
 }

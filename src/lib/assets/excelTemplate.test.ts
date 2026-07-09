@@ -12,7 +12,7 @@ describe("buildAssetImportTemplate", () => {
     expect(workbook.SheetNames).toEqual(["repo", "server"]);
 
     const repoHeader = XLSX.utils.sheet_to_json(workbook.Sheets["repo"], { header: 1 })[0];
-    expect(repoHeader).toEqual(["display_name", "repo_url"]);
+    expect(repoHeader).toEqual(["display_name", "repo_url", "os", "owner"]);
 
     const serverHeader = XLSX.utils.sheet_to_json(workbook.Sheets["server"], { header: 1 })[0];
     expect(serverHeader).toEqual([
@@ -23,6 +23,8 @@ describe("buildAssetImportTemplate", () => {
       "auth_type",
       "username",
       "secret",
+      "os",
+      "owner",
     ]);
   });
 
