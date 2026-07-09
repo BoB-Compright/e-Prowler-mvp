@@ -6,7 +6,7 @@ export function SectionLabel({
   className?: string;
 }) {
   return (
-    <span className={`text-[11px] font-bold uppercase tracking-[0.05em] text-muted ${className}`}>
+    <span className={`text-[12px] font-bold uppercase tracking-[0.05em] text-muted ${className}`}>
       {children}
     </span>
   );
