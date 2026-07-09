@@ -7,5 +7,6 @@ describe("statusBadgeClass", () => {
     expect(statusBadgeClass("fail")).toBe("bg-fail/10 text-fail");
     expect(statusBadgeClass("review")).toBe("bg-review/15 text-review");
     expect(statusBadgeClass("neutral")).toBe("bg-neutral/15 text-muted");
+    expect(statusBadgeClass("progress")).toBe("bg-primary/10 text-primary");
   });
 });

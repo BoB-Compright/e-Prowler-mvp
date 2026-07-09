@@ -186,7 +186,7 @@ export default function DashboardPage() {
                                 {formatTimestamp(lastRun.updatedAt)}
                               </span>
                               {lastRun.status === "running" ? (
-                                <StatusBadge status="neutral">진행 중</StatusBadge>
+                                <StatusBadge status="progress">진행 중</StatusBadge>
                               ) : lastRun.status === "failed" ? (
                                 <StatusBadge status="fail">실패</StatusBadge>
                               ) : outcome ? (
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                     run.status === "failed"
                       ? { status: "fail" as const, label: "실패" }
                       : run.status === "running"
-                        ? { status: "neutral" as const, label: "진행 중" }
+                        ? { status: "progress" as const, label: "진행 중" }
                         : { status: "pass" as const, label: "완료" };
                   return (
                     <li key={run.id}>
