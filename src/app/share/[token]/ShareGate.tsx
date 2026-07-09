@@ -1,11 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import { Card } from "../../_components/Card";
+import { SectionLabel } from "../../_components/SectionLabel";
+import { StatusBadge } from "../../_components/StatusBadge";
+import type { BadgeStatus } from "../../_components/statusBadgeStyles";
+
+interface ShareAsset {
+  id: string;
+  displayName: string;
+  type: "repo" | "server";
+}
+
+interface ShareRun {
+  id: string;
+  status: string;
+  createdAt: string;
+  assetId: string | null;
+}
 
 interface ShareData {
   project: { name: string; pmName: string };
-  assets: { id: string; displayName: string; type: "repo" | "server" }[];
-  runs: { id: string; status: string; createdAt: string; assetId: string | null }[];
+  assets: ShareAsset[];
+  runs: ShareRun[];
+}
+
+function formatTimestamp(iso: string): string {
+  return iso.replace("T", " ").slice(0, 16);
+}
+
+// 공유 뷰는 파이프라인 실행 상태(running/succeeded/failed)만 노출한다 — 취약점 판정
+// (양호/취약/검토)은 API가 반환하지 않으므로 새 데이터를 추가하지 않고 그대로 표시만 한다.
+function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: string } {
+  if (!run) return { status: "neutral", label: "점검 전" };
+  if (run.status === "running") return { status: "progress", label: "진행 중" };
+  if (run.status === "failed") return { status: "fail", label: "실패" };
+  return { status: "neutral", label: "완료" };
 }
 
 export function ShareGate({ token }: { token: string }) {
@@ -36,25 +66,131 @@ export function ShareGate({ token }: { token: string }) {
   }
 
   if (data) {
+    const latestRunByAsset = new Map<string, ShareRun>();
+    for (const run of data.runs) {
+      if (run.assetId && !latestRunByAsset.has(run.assetId)) {
+        latestRunByAsset.set(run.assetId, run);
+      }
+    }
+
     return (
-      <div className="text-sm">
-        <h1 className="mb-2 text-lg font-bold text-[var(--color-text)]">{data.project.name}</h1>
-        <p className="mb-6 text-[var(--color-muted)]">담당 PM: {data.project.pmName}</p>
-        <h2 className="mb-2 font-bold">자산 ({data.assets.length})</h2>
-        <ul className="mb-6">{data.assets.map((asset) => <li key={asset.id}>{asset.displayName}</li>)}</ul>
-        <h2 className="mb-2 font-bold">점검 이력 ({data.runs.length})</h2>
-        <ul>{data.runs.map((run) => <li key={run.id}>{run.createdAt} — {run.status}</li>)}</ul>
+      <div>
+        <div className="mb-6">
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">{data.project.name}</h1>
+          <p className="mt-1 text-[13px] text-muted">담당 PM: {data.project.pmName}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <Card title={`자산 보안 상태 (${data.assets.length})`} bodyClassName="p-0">
+              {data.assets.length === 0 ? (
+                <p className="p-5 text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-5 py-3">
+                          <SectionLabel>자산</SectionLabel>
+                        </th>
+                        <th className="px-5 py-3">
+                          <SectionLabel>타입</SectionLabel>
+                        </th>
+                        <th className="px-5 py-3">
+                          <SectionLabel>최근 점검</SectionLabel>
+                        </th>
+                        <th className="px-5 py-3">
+                          <SectionLabel>상태</SectionLabel>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {data.assets.map((asset) => {
+                        const run = latestRunByAsset.get(asset.id);
+                        const badge = runBadge(run);
+                        return (
+                          <tr key={asset.id} className="hover:bg-bg">
+                            <td className="px-5 py-3 font-semibold">{asset.displayName}</td>
+                            <td className="px-5 py-3 text-muted">
+                              {asset.type === "repo" ? "레포" : "서버"}
+                            </td>
+                            <td className="px-5 py-3 font-mono text-[13px] text-muted">
+                              {run ? formatTimestamp(run.createdAt) : "—"}
+                            </td>
+                            <td className="px-5 py-3">
+                              <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <div>
+            <Card title="상세 정보">
+              <dl className="flex flex-col gap-4">
+                <div>
+                  <dt>
+                    <SectionLabel>담당 PM</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-sm">{data.project.pmName}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <SectionLabel>자산 수</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-sm">{data.assets.length}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <SectionLabel>점검 이력</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-sm">{data.runs.length}건</dd>
+                </div>
+              </dl>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-sm">
-      <p className="text-[var(--color-muted)]">이 프로젝트의 점검 결과를 보려면 비밀번호를 입력하세요.</p>
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={submitting}
-        className="rounded-[var(--radius-nh)] border border-[var(--color-border)] px-2 py-1" />
-      {error && <p className="text-[var(--color-fail)]">{error}</p>}
-      <button type="submit" disabled={submitting} className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-3 py-1.5 text-white">확인</button>
-    </form>
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <Card className="w-full max-w-sm" bodyClassName="p-6">
+        <h1 className="mb-1 text-[20px] font-bold tracking-[-0.02em]">공유된 점검 결과</h1>
+        <p className="mb-4 text-[13px] text-muted">
+          이 프로젝트의 점검 결과를 보려면 비밀번호를 입력하세요.
+        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div>
+            <label htmlFor="share-password" className="mb-1 block text-[13px] font-medium">
+              비밀번호
+            </label>
+            <input
+              id="share-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={submitting}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          {error && <p className="text-[13px] text-fail">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {submitting ? "확인 중..." : "확인"}
+          </button>
+        </form>
+      </Card>
+    </div>
   );
 }
