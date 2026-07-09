@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/projects/store";
 import { listAssets } from "@/lib/assets/store";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { FleetScanButton } from "./FleetScanButton";
+import { Card } from "../../_components/Card";
+import { SectionLabel } from "../../_components/SectionLabel";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,21 +16,55 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const serverCount = assets.filter((asset) => asset.type === "server").length;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10">
-      <h1 className="mb-2 text-lg font-bold text-[var(--color-text)]">{project.name}</h1>
-      <p className="mb-6 text-sm text-[var(--color-muted)]">{project.pmName} · {project.pmEmail}</p>
-      <ShareLinkPanel projectId={project.id} shareToken={project.shareToken} />
-      <div className="mt-8 flex items-center justify-between gap-2.5">
-        <h2 className="text-sm font-bold">소속 자산 ({assets.length})</h2>
+    <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">{project.name}</h1>
+          <p className="mt-1 text-[13px] text-muted">
+            {project.pmName} · {project.pmEmail}
+          </p>
+        </div>
         <FleetScanButton projectId={project.id} serverCount={serverCount} />
       </div>
-      <ul className="mt-2 text-sm">
-        {assets.map((asset) => (
-          <li key={asset.id} className="border-b border-[var(--color-border)] py-2">
-            {asset.displayName} ({asset.type === "repo" ? "레포" : "서버"})
-          </li>
-        ))}
-      </ul>
+
+      <div className="mb-6">
+        <ShareLinkPanel projectId={project.id} shareToken={project.shareToken} />
+      </div>
+
+      <Card title={`소속 자산 (${assets.length})`} bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-5 py-3">
+                  <SectionLabel>이름</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>타입</SectionLabel>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {assets.map((asset) => (
+                <tr key={asset.id} className="hover:bg-bg">
+                  <td className="px-5 py-3">
+                    <Link
+                      href={`/assets/${asset.id}`}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      {asset.displayName}
+                    </Link>
+                  </td>
+                  <td className="px-5 py-3 text-muted">{asset.type === "repo" ? "레포" : "서버"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {assets.length === 0 && (
+          <p className="p-5 text-[13px] text-muted italic">소속된 자산이 없습니다.</p>
+        )}
+      </Card>
     </main>
   );
 }

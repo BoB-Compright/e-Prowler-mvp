@@ -32,14 +32,14 @@ export function FleetScanButton({ projectId, serverCount }: { projectId: string;
         type="button"
         onClick={handleClick}
         disabled={submitting || serverCount === 0}
-        className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+        className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "실행 중…" : `서버 일괄 점검 실행 (${serverCount}대)`}
       </button>
       {serverCount === 0 && (
-        <p className="mt-1.5 text-xs text-[var(--color-muted)]">일괄 점검을 실행하려면 서버 자산이 필요합니다.</p>
+        <p className="mt-1.5 text-[13px] text-muted">일괄 점검을 실행하려면 서버 자산이 필요합니다.</p>
       )}
-      {error && <p className="mt-1.5 text-sm text-[var(--color-fail)]">{error}</p>}
+      {error && <p className="mt-1.5 text-[13px] text-fail">{error}</p>}
     </div>
   );
 }
