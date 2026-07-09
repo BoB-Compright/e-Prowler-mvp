@@ -134,6 +134,15 @@ export function ReportView({ runId }: { runId: string }) {
             </span>
           )}
           {run.status !== "running" && run.assetId && <RescanButton assetId={run.assetId} />}
+          {run.status === "succeeded" && (
+            <a
+              href={`/api/runs/${runId}/export`}
+              download
+              className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold whitespace-nowrap text-primary hover:bg-primary/5"
+            >
+              보고서 내보내기
+            </a>
+          )}
           <Link
             href={`/runs/${runId}`}
             className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
