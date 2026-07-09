@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "./_components/ThemeScript";
 import { AppHeader } from "./_components/AppHeader";
 
 // DESIGN.md's documented substitute for the licensed CoinbaseSans/Display typefaces.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const jbMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono" });
 
 export const metadata: Metadata = {
   title: "e-Prowler — 자산 보안 점검",
@@ -18,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" data-theme="light" className={`h-full antialiased ${inter.variable}`}>
+    <html lang="ko" data-theme="light" className={`h-full antialiased ${inter.variable} ${jbMono.variable}`}>
       <head>
         <ThemeScript />
       </head>

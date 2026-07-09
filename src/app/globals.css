@@ -3,29 +3,29 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  /* Coinbase design tokens (via `npx getdesign add coinbase` -> DESIGN.md) */
-  --color-primary: #0052ff; /* colors.primary */
-  --color-secondary: #0ea5e9; /* no Coinbase equivalent — DESIGN.md explicitly bans a second brand
-    color, but this app needs a 4th distinct severity/status hue (Medium), so this stays untouched */
-  --color-pass: #05b169; /* colors.semantic-up */
-  --color-fail: #cf202f; /* colors.semantic-down */
-  --color-review: #f4b000; /* colors.accent-yellow */
-  --color-neutral: #a8acb3; /* colors.muted-soft */
+  /* Kinetic Security System tokens (Stitch projects/936621672799851412,
+     spec: docs/superpowers/specs/2026-07-09-stitch-kinetic-reskin-design.md) */
+  --color-primary: #0052ff; /* primary-container (Trust Blue) */
+  --color-secondary: #4c5e85; /* secondary */
+  --color-pass: #00c076; /* tertiary override (Success Green) */
+  --color-fail: #ba1a1a; /* error */
+  --color-review: #f4b000; /* Warning Amber — Kinetic에 amber 토큰이 없어 유지 */
+  --color-neutral: #9ba6b5; /* tertiary/disabled text */
 
-  --color-bg: #ffffff; /* colors.canvas */
-  --color-surface: #f7f7f7; /* colors.surface-soft */
-  --color-border: #dee1e6; /* colors.hairline */
-  --color-text: #0a0b0d; /* colors.ink */
-  --color-muted: #7c828a; /* colors.muted */
+  --color-bg: #f8f9ff; /* surface (쿨톤 캔버스) */
+  --color-surface: #ffffff; /* surface-container-lowest (카드) */
+  --color-border: #c3c5d9; /* outline-variant */
+  --color-text: #0e1d2b; /* on-surface */
+  --color-muted: #697789; /* secondary text */
 }
 
 [data-theme="dark"] {
-  --color-bg: #0a0b0d; /* colors.surface-dark */
-  --color-surface: #16181c; /* colors.surface-dark-elevated */
-  --color-border: rgba(255, 255, 255, 0.12); /* DESIGN.md has no dark hairline (dark mode is
-    marketing-only full-bleed heroes there); derived to stay visible on surface-dark */
-  --color-text: #ffffff; /* colors.on-dark */
-  --color-muted: #a8acb3; /* colors.on-dark-soft */
+  /* Stitch 목업의 dark:(inverse-surface 계열) 클래스에서 파생 */
+  --color-bg: #0e1d2b; /* on-surface 반전 */
+  --color-surface: #243141; /* inverse-surface */
+  --color-border: rgba(233, 241, 255, 0.14); /* inverse-on-surface 14% */
+  --color-text: #e9f1ff; /* inverse-on-surface */
+  --color-muted: #8fa3c0; /* inverse-on-surface 감쇠 */
 }
 
 @theme inline {
@@ -41,17 +41,12 @@
   --color-text: var(--color-text);
   --color-muted: var(--color-muted);
 
-  /* CoinbaseSans/Display are licensed; DESIGN.md's documented substitute is Inter (loaded via
-     next/font in layout.tsx). Korean text has no Hangul glyphs in Inter, so it falls through to
-     Malgun Gothic/system-ui — Latin/numerals render in Inter, Korean is unaffected. */
+  /* Inter에는 한글 글리프가 없어 Malgun Gothic/system-ui로 폴백 — 한글 렌더링 무영향 */
   --font-sans: var(--font-inter), "Malgun Gothic", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: Consolas, "Courier New", monospace;
+  --font-mono: var(--font-jbmono), Consolas, "Courier New", monospace;
 
-  /* Single radius token shared by buttons/cards/inputs (no per-component variants in this
-     codebase). 24px == rounded.xl (Coinbase's card radius); on control-height elements
-     (buttons/inputs, ~32-44px tall) the browser clamps this to a full pill automatically,
-     which also matches rounded.pill on CTAs. */
-  --radius-nh: 24px;
+  /* Kinetic Standard radius. 배지는 pill(rounded-full), 대형 위젯은 rounded-2xl을 직접 지정 */
+  --radius-nh: 8px;
 }
 
 body {
