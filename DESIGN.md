@@ -37,7 +37,7 @@ Kinetic Security System은 보안 자산 관리·점검 대시보드를 위한 "
 
 ### 다크 (`[data-theme="dark"]`)
 
-Stitch 목업의 `dark:` 클래스(inverse-surface 계열)에서 파생. 상태색 4종(`primary`/`pass`/`fail`/`review`/`neutral`)은 라이트와 동일 값을 유지한다(어두운 배경에서도 대비 충분).
+Stitch 목업의 `dark:` 클래스(inverse-surface 계열)에서 파생. 상태색 5종(`primary`/`pass`/`fail`/`review`/`neutral`)은 라이트와 동일 값을 유지한다(어두운 배경에서도 대비 충분).
 
 | 변수 | 값 | 의미 |
 |---|---|---|

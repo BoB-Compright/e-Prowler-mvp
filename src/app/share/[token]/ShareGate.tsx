@@ -35,7 +35,8 @@ function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: stri
   if (!run) return { status: "neutral", label: "점검 전" };
   if (run.status === "running") return { status: "progress", label: "진행 중" };
   if (run.status === "failed") return { status: "fail", label: "실패" };
-  return { status: "neutral", label: "완료" };
+  if (run.status === "succeeded") return { status: "neutral", label: "완료" };
+  return { status: "neutral", label: run.status };
 }
 
 export function ShareGate({ token }: { token: string }) {
@@ -67,9 +68,17 @@ export function ShareGate({ token }: { token: string }) {
 
   if (data) {
     const latestRunByAsset = new Map<string, ShareRun>();
+    const runsByAsset = new Map<string, ShareRun[]>();
     for (const run of data.runs) {
-      if (run.assetId && !latestRunByAsset.has(run.assetId)) {
+      if (!run.assetId) continue;
+      if (!latestRunByAsset.has(run.assetId)) {
         latestRunByAsset.set(run.assetId, run);
+      }
+      const list = runsByAsset.get(run.assetId);
+      if (list) {
+        list.push(run);
+      } else {
+        runsByAsset.set(run.assetId, [run]);
       }
     }
 
@@ -154,6 +163,45 @@ export function ShareGate({ token }: { token: string }) {
               </dl>
             </Card>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <Card title="점검 이력" bodyClassName="p-0">
+            {data.assets.length === 0 ? (
+              <p className="p-5 text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {data.assets.map((asset) => {
+                  const assetRuns = runsByAsset.get(asset.id) ?? [];
+                  return (
+                    <details key={asset.id} className="px-5 py-3">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold">{asset.displayName}</span>
+                        <SectionLabel>점검 이력 {assetRuns.length}건</SectionLabel>
+                      </summary>
+                      {assetRuns.length === 0 ? (
+                        <p className="mt-2 text-[13px] italic text-muted">점검 이력이 없습니다.</p>
+                      ) : (
+                        <ul className="mt-2 divide-y divide-border">
+                          {assetRuns.map((run) => {
+                            const badge = runBadge(run);
+                            return (
+                              <li key={run.id} className="flex items-center gap-3 py-2 text-sm">
+                                <span className="font-mono text-[13px] text-muted">
+                                  {formatTimestamp(run.createdAt)}
+                                </span>
+                                <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </details>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     );
