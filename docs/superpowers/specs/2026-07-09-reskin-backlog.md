@@ -9,20 +9,21 @@
 
 ## GitHub 이슈 발행 현황 (2026-07-10)
 
-이 백로그에서 기능 후보를 수직 슬라이스로 묶어 GitHub 이슈로 발행했다:
+이 백로그에서 기능 후보를 수직 슬라이스로 묶어 GitHub 이슈로 발행했고, **10건 전부 구현·리뷰·머지·클로즈 완료(2026-07-10)** — 각각 구현→리뷰→(필요시 수정·재리뷰)→main 머지·푸시 사이클을 거쳤다:
 
-- [#69](https://github.com/BoB-Compright/e-Prowler-mvp/issues/69) 자산 목록에 상태·위험도 컬럼 추가 — `ready-for-agent`
-- [#70](https://github.com/BoB-Compright/e-Prowler-mvp/issues/70) 카탈로그 필터·검색 — `ready-for-agent`
-- [#71](https://github.com/BoB-Compright/e-Prowler-mvp/issues/71) 공유 링크 활성/비활성 토글 및 폐기 — `ready-for-agent`
-- [#72](https://github.com/BoB-Compright/e-Prowler-mvp/issues/72) 공유 뷰 보안 결과 노출 결정·구현 — `needs-triage` (제품 결정 선행)
-- [#73](https://github.com/BoB-Compright/e-Prowler-mvp/issues/73) 진행 중 점검 취소 — `ready-for-agent`
-- [#74](https://github.com/BoB-Compright/e-Prowler-mvp/issues/74) 점검 보고서 내보내기 (CSV 우선) — `ready-for-agent`
-- [#75](https://github.com/BoB-Compright/e-Prowler-mvp/issues/75) 리포트 화면 재스캔 트리거 — `ready-for-agent`
-- [#76](https://github.com/BoB-Compright/e-Prowler-mvp/issues/76) 자산 모델 확장: OS·담당자 — `ready-for-agent`
-- [#77](https://github.com/BoB-Compright/e-Prowler-mvp/issues/77) 자산·프로젝트 목록 검색 — `ready-for-agent`
-- [#78](https://github.com/BoB-Compright/e-Prowler-mvp/issues/78) 인증 통합 (프로필·로그아웃·알림 기반) — `ready-for-human` (ADR 선행)
+- ✅ [#69](https://github.com/BoB-Compright/e-Prowler-mvp/issues/69) 자산 목록 상태·위험도 컬럼 (집계 헬퍼 `getAssetStatusMap` 공용화)
+- ✅ [#70](https://github.com/BoB-Compright/e-Prowler-mvp/issues/70) 카탈로그 필터·검색
+- ✅ [#71](https://github.com/BoB-Compright/e-Prowler-mvp/issues/71) 공유 링크 활성/비활성 토글·폐기
+- ✅ [#72](https://github.com/BoB-Compright/e-Prowler-mvp/issues/72) 공유 뷰 판정 배지 (제품 결정: 판정 배지까지만 노출, 상세·건수 비노출)
+- ✅ [#73](https://github.com/BoB-Compright/e-Prowler-mvp/issues/73) 진행 중 점검 취소 (SSH 경로 강제 종료 한계 이슈에 문서화)
+- ✅ [#74](https://github.com/BoB-Compright/e-Prowler-mvp/issues/74) 점검 보고서 CSV 내보내기 (수식 인젝션 방지 포함)
+- ✅ [#75](https://github.com/BoB-Compright/e-Prowler-mvp/issues/75) 리포트 재스캔 트리거
+- ✅ [#76](https://github.com/BoB-Compright/e-Prowler-mvp/issues/76) 자산 모델 확장: OS·담당자
+- ✅ [#77](https://github.com/BoB-Compright/e-Prowler-mvp/issues/77) 자산·프로젝트 목록 검색
+- ✅ [#78](https://github.com/BoB-Compright/e-Prowler-mvp/issues/78) 자체 계정 인증 최소판 (ADR `docs/adr/0001`, 3단 가드; 보안 리뷰에서 우회 2건 발견·수정)
 
-순수 장식 항목과 UX 전환 판단이 필요한 항목(드로어 레이아웃, 스택 카드 피드 등)은 이슈화하지 않고 이 문서에만 남긴다.
+구현 계획: [`docs/superpowers/plans/2026-07-10-backlog-issues.md`](../plans/2026-07-10-backlog-issues.md).
+순수 장식 항목과 UX 전환 판단이 필요한 항목(드로어 레이아웃, 스택 카드 피드 등)은 이슈화하지 않고 이 문서에만 남긴다. 인증 후속(알림 시스템, 로그인 rate-limiting, SSO)도 향후 후보로 남는다.
 
 ## 앱 셸 (사이드바·헤더) — Task 3
 
