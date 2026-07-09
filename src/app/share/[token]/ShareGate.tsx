@@ -34,6 +34,7 @@ function formatTimestamp(iso: string): string {
 function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: string } {
   if (!run) return { status: "neutral", label: "점검 전" };
   if (run.status === "running") return { status: "progress", label: "진행 중" };
+  if (run.status === "cancelled") return { status: "neutral", label: "취소됨" };
   if (run.status === "failed") return { status: "fail", label: "실패" };
   if (run.status === "succeeded") return { status: "neutral", label: "완료" };
   return { status: "neutral", label: run.status };

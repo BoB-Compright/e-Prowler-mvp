@@ -16,6 +16,7 @@ const STATUS_BADGE: Record<AssetStatusKind, { status: BadgeStatus; label: string
   review: { status: "review", label: "검토" },
   error: { status: "fail", label: "실패" },
   running: { status: "progress", label: "진행 중" },
+  cancelled: { status: "neutral", label: "취소됨" },
   none: { status: "neutral", label: "미점검" },
 };
 

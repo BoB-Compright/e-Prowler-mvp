@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRepoAsset, createServerAsset } from "@/lib/assets/store";
-import { createRun, getRun, updateRunStage } from "@/lib/pipeline/runs";
+import { cancelRun, createRun, getRun, updateRunStage } from "@/lib/pipeline/runs";
 import { hasActiveRun, triggerRunForAsset, type TriggerDeps } from "./trigger";
 
 let db: Database;
@@ -25,6 +25,18 @@ describe("hasActiveRun", () => {
     expect(hasActiveRun(asset.id, db)).toBe(true);
 
     updateRunStage(run.id, "done", "succeeded", {}, db);
+    expect(hasActiveRun(asset.id, db)).toBe(false);
+  });
+
+  // (#73) A cancelled run must not block a fresh scan — cancelling should
+  // free the asset up for re-scanning immediately, same as succeeded/failed.
+  it("is false once a running run has been cancelled", () => {
+    const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
+    const run = createRun(asset.repoUrl!, "git", asset.id, db);
+    expect(hasActiveRun(asset.id, db)).toBe(true);
+
+    cancelRun(run.id, "취소", db);
+
     expect(hasActiveRun(asset.id, db)).toBe(false);
   });
 });

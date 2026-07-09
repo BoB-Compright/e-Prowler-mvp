@@ -20,7 +20,10 @@ export type Stage =
   | "claude_analysis"
   | "done";
 
-export type RunStatus = "running" | "succeeded" | "failed";
+// "cancelled" (#73): a running run the user explicitly stopped mid-pipeline.
+// Distinct from "failed" (an unexpected pipeline error) so history/dashboard
+// views never conflate a user-initiated stop with an actual failure.
+export type RunStatus = "running" | "succeeded" | "failed" | "cancelled";
 
 export type RunTriggerType = "manual" | "scheduled";
 

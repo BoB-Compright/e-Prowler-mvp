@@ -145,6 +145,31 @@ export function listRunEvents(runId: string, db: Database = getDb()): RunEvent[]
   }));
 }
 
+// Marks a run cancelled without changing its current stage (unlike
+// updateRunStage, which always writes both). The pipeline itself never calls
+// this — it's the write side of the cancel API (#73); the read side is
+// isCancelled, which orchestrator.ts/serverScan.ts poll at each stage
+// boundary so an in-flight run notices the cancellation instead of
+// clobbering it back to "succeeded"/"failed" once its current awaited step
+// resolves.
+export function cancelRun(runId: string, message: string, db: Database = getDb()): Run {
+  const run = getRun(runId, db);
+  if (!run) {
+    throw new Error(`run not found: ${runId}`);
+  }
+  const now = new Date().toISOString();
+  db.prepare(`UPDATE runs SET status = 'cancelled', updated_at = @updatedAt WHERE id = @id`).run({
+    id: runId,
+    updatedAt: now,
+  });
+  appendEvent(runId, run.stage, "cancelled", message, db);
+  return getRun(runId, db)!;
+}
+
+export function isCancelled(runId: string, db: Database = getDb()): boolean {
+  return getRun(runId, db)?.status === "cancelled";
+}
+
 export function markRunTriggerType(
   runId: string,
   triggerType: RunTriggerType,

@@ -11,7 +11,7 @@ import { StatusBadge } from "../_components/StatusBadge";
 
 const OUTCOME_LABEL: Record<RunOutcome, string> = { fail: "취약", review: "검토", pass: "양호" };
 
-type AssetSummaryStatus = RunOutcome | "neutral" | "progress" | "error";
+type AssetSummaryStatus = RunOutcome | "neutral" | "progress" | "error" | "cancelled";
 
 const KIND_TO_SUMMARY_STATUS: Record<AssetStatusKind, AssetSummaryStatus> = {
   pass: "pass",
@@ -19,6 +19,7 @@ const KIND_TO_SUMMARY_STATUS: Record<AssetStatusKind, AssetSummaryStatus> = {
   review: "review",
   error: "error",
   running: "progress",
+  cancelled: "cancelled",
   none: "neutral",
 };
 
@@ -71,6 +72,7 @@ export default async function ProjectsPage({
               neutral: 0,
               progress: 0,
               error: 0,
+              cancelled: 0,
             };
             for (const asset of projectAssets) {
               counts[outcomeForAsset(asset.id)] += 1;
@@ -110,6 +112,9 @@ export default async function ProjectsPage({
                       )}
                       {counts.progress > 0 && (
                         <StatusBadge status="progress">진행 중 {counts.progress}</StatusBadge>
+                      )}
+                      {counts.cancelled > 0 && (
+                        <StatusBadge status="neutral">취소됨 {counts.cancelled}</StatusBadge>
                       )}
                       {counts.neutral > 0 && (
                         <StatusBadge status="neutral">점검 전 {counts.neutral}</StatusBadge>

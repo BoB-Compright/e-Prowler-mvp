@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createProject } from "@/lib/projects/store";
 import { createServerAsset } from "@/lib/assets/store";
-import { getRun } from "@/lib/pipeline/runs";
+import { cancelRun, getRun } from "@/lib/pipeline/runs";
 import { createScanBatch } from "./scanBatches";
 import { listCheckResults } from "@/lib/checks/store";
 import { evaluateAllChecks } from "@/lib/checks/ruleEvaluation";
@@ -177,6 +177,66 @@ describe("runServerScanPipeline", () => {
     const finished = getRun(run.id, db)!;
     expect(finished.stage).toBe("done");
     expect(finished.status).toBe("succeeded");
+  });
+});
+
+// (#73) Same cooperative cancellation model as the container orchestrator:
+// no PID/handle is kept for the ansible-playbook SSH subprocess here, so a
+// cancel request can only flip run.status out-of-band and wait for
+// runServerScanPipeline to notice at its next await boundary — an in-flight
+// ansible-playbook invocation (up to SERVER_TIMEOUT_MS / retries) is *not*
+// force-killed for a server asset, unlike the container path where the
+// sandbox itself can be torn down. This is the documented limitation.
+describe("runServerScanPipeline cancellation (#73)", () => {
+  it("stops after the SSH/ansible step resolves once cancelled mid-scan, without saving results or advancing to rule_evaluation", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const deps = baseDeps({
+      runAnsibleForServer: vi.fn().mockImplementation(async () => {
+        cancelRun(run.id, "사용자가 취소", db);
+        return [{ taskName: "C-01: runtime uid", stdout: "1000\n" }];
+      }),
+    });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("connect");
+    expect(listCheckResults(run.id, db)).toEqual([]);
+  });
+
+  it("does not overwrite a cancelled run with 'failed' when the in-flight SSH/ansible step errors after cancellation", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const deps = baseDeps({
+      runAnsibleForServer: vi.fn().mockImplementation(async () => {
+        cancelRun(run.id, "사용자가 취소", db);
+        throw new Error("connection reset");
+      }),
+    });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled"); // not "failed"
+  });
+
+  it("stops after claude analysis resolves once cancelled mid-analysis, without marking the run done", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const deps = baseDeps({
+      analyzeAndSaveChecks: vi.fn().mockImplementation(async () => {
+        cancelRun(run.id, "사용자가 취소", db);
+        return undefined;
+      }),
+    });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("claude_analysis");
   });
 });
 

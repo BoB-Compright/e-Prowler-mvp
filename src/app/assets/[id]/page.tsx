@@ -52,6 +52,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                 <StatusBadge status="neutral">점검 전</StatusBadge>
               ) : latestRun.status === "running" ? (
                 <StatusBadge status="progress">진행 중</StatusBadge>
+              ) : latestRun.status === "cancelled" ? (
+                <StatusBadge status="neutral">취소됨</StatusBadge>
               ) : latestRun.status === "failed" ? (
                 <StatusBadge status="fail">실패</StatusBadge>
               ) : latestOutcome ? (
@@ -178,6 +180,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                       </span>
                       {run.status === "running" ? (
                         <StatusBadge status="progress">진행 중</StatusBadge>
+                      ) : run.status === "cancelled" ? (
+                        <StatusBadge status="neutral">취소됨</StatusBadge>
                       ) : run.status === "failed" ? (
                         <StatusBadge status="fail">실패</StatusBadge>
                       ) : (

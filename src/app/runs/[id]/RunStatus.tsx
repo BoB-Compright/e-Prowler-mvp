@@ -87,15 +87,18 @@ const STATUS_LABELS: Record<Run["status"], string> = {
   running: "진행 중",
   succeeded: "성공",
   failed: "실패",
+  cancelled: "취소됨",
 };
 
-type NodeState = "done" | "current" | "failed" | "pending";
+type NodeState = "done" | "current" | "failed" | "cancelled" | "pending";
 
 // Kinetic 타임라인 도트: 완료 pass, 진행 primary(+scan-pulse-ring), 대기 neutral/40, 실패 fail.
+// 취소됨은 실패(빨강)와 혼동되지 않도록 중립(neutral) 톤을 쓴다.
 const STEPPER_CIRCLE_STYLES: Record<NodeState, string> = {
   done: "bg-pass text-white",
   current: "bg-primary text-white animate-[scan-pulse-ring_1.8s_infinite]",
   failed: "bg-fail text-white",
+  cancelled: "bg-neutral/60 text-white",
   pending: "bg-neutral/40 text-muted",
 };
 
@@ -103,6 +106,7 @@ const STEPPER_LABEL_STYLES: Record<NodeState, string> = {
   done: "text-pass font-medium",
   current: "text-primary font-bold",
   failed: "text-fail font-medium",
+  cancelled: "text-muted font-medium",
   pending: "text-muted font-medium",
 };
 
@@ -110,6 +114,7 @@ const STATE_BADGE_LABELS: Record<NodeState, string> = {
   done: "완료",
   current: "진행중",
   failed: "실패",
+  cancelled: "취소됨",
   pending: "대기",
 };
 
@@ -117,6 +122,7 @@ const NODE_BADGE_STATUS: Record<NodeState, BadgeStatus> = {
   done: "pass",
   current: "progress",
   failed: "fail",
+  cancelled: "neutral",
   pending: "neutral",
 };
 
@@ -124,6 +130,7 @@ function computeNodeStates(stages: Stage[], stage: Stage, status: Run["status"])
   const currentIndex = stages.indexOf(stage);
   return stages.map((_, i) => {
     if (status === "failed" && i === currentIndex) return "failed";
+    if (status === "cancelled" && i === currentIndex) return "cancelled";
     if (i < currentIndex || (i === currentIndex && status === "succeeded")) return "done";
     if (i === currentIndex && status === "running") return "current";
     return "pending";
@@ -146,6 +153,9 @@ export function RunStatus({ runId }: { runId: string }) {
   const [checks, setChecks] = useState<DecoratedCheckResult[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [timelineVariant, setTimelineVariant] = useState<"horizontal" | "vertical">("horizontal");
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelPending, setCancelPending] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +186,23 @@ export function RunStatus({ runId }: { runId: string }) {
 
   if (notFound) return <p className="text-fail">해당 실행을 찾을 수 없습니다.</p>;
   if (!run) return <p className="text-muted">불러오는 중…</p>;
+
+  async function handleCancel() {
+    setCancelError(null);
+    setCancelPending(true);
+    try {
+      const res = await fetch(`/api/runs/${runId}/cancel`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCancelError(data.error ?? "취소에 실패했습니다");
+        return;
+      }
+      setRun(data.run);
+      setConfirmingCancel(false);
+    } finally {
+      setCancelPending(false);
+    }
+  }
 
   const hasChecks = checks.length > 0;
   const riskSummary = computeRiskSummary(checks);
@@ -222,7 +249,9 @@ export function RunStatus({ runId }: { runId: string }) {
               ? "text-fail"
               : run.status === "succeeded"
                 ? "text-pass"
-                : "text-primary"
+                : run.status === "cancelled"
+                  ? "text-muted"
+                  : "text-primary"
           }`}
         >
           {STAGE_LABELS[run.stage]} · {STATUS_LABELS[run.status]}
@@ -238,6 +267,43 @@ export function RunStatus({ runId }: { runId: string }) {
           </div>
         )}
       </div>
+
+      {run.status === "running" && (
+        <div className="mt-3">
+          {confirmingCancel ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[13px] font-medium">
+                정말 취소하시겠습니까? 진행 중인 점검이 중단됩니다.
+              </span>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelPending}
+                className="rounded-lg bg-fail px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {cancelPending ? "취소 중..." : "취소 확정"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingCancel(false)}
+                disabled={cancelPending}
+                className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5 disabled:opacity-50"
+              >
+                되돌리기
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingCancel(true)}
+              className="rounded-lg bg-fail px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+            >
+              점검 취소
+            </button>
+          )}
+          {cancelError && <p className="mt-1 text-[13px] text-fail">{cancelError}</p>}
+        </div>
+      )}
 
       {run.errorMessage && (
         <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-fail/30 bg-fail/5 p-3 text-xs text-fail">
@@ -292,7 +358,7 @@ export function RunStatus({ runId }: { runId: string }) {
                   <div
                     className={`relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
                   >
-                    {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
+                    {state === "done" ? "✓" : state === "failed" ? "✕" : state === "cancelled" ? "–" : i + 1}
                     {isAiStage && (
                       <span className="absolute -top-1.5 -right-2 rounded-full bg-violet-600 px-1 py-px text-[8px] font-bold text-white">
                         AI
@@ -322,7 +388,7 @@ export function RunStatus({ runId }: { runId: string }) {
                   <div
                     className={`flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full text-xs font-bold transition-colors duration-500 ${STEPPER_CIRCLE_STYLES[state]}`}
                   >
-                    {state === "done" ? "✓" : state === "failed" ? "✕" : i + 1}
+                    {state === "done" ? "✓" : state === "failed" ? "✕" : state === "cancelled" ? "–" : i + 1}
                   </div>
                   {i < stages.length - 1 && (
                     <div
@@ -360,9 +426,16 @@ export function RunStatus({ runId }: { runId: string }) {
         {events.length === 0 && <div className="text-[#64748b]">$ 점검이 시작되면 로그가 여기에 표시됩니다.</div>}
         {events.map((event) => {
           const isFailed = event.status === "failed";
+          const isCancelledEvent = event.status === "cancelled";
           const isRunning = event.status === "running";
-          const prefix = isFailed ? "✕" : isRunning ? "▶" : "✓";
-          const prefixColor = isFailed ? "#f87171" : isRunning ? "#38bdf8" : "#4ade80";
+          const prefix = isFailed ? "✕" : isCancelledEvent ? "■" : isRunning ? "▶" : "✓";
+          const prefixColor = isFailed
+            ? "#f87171"
+            : isCancelledEvent
+              ? "#94a3b8"
+              : isRunning
+                ? "#38bdf8"
+                : "#4ade80";
           return (
             <div key={event.id}>
               <span className="text-[#64748b]">[{event.createdAt}]</span>{" "}

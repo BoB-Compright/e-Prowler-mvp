@@ -1,7 +1,17 @@
 import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
-import { appendEvent, createRun, getRun, listRunEvents, listRuns, markRunTriggerType, updateRunStage } from "./runs";
+import {
+  appendEvent,
+  cancelRun,
+  createRun,
+  getRun,
+  isCancelled,
+  listRunEvents,
+  listRuns,
+  markRunTriggerType,
+  updateRunStage,
+} from "./runs";
 
 let db: Database;
 
@@ -80,5 +90,35 @@ describe("run store", () => {
     markRunTriggerType(run.id, "scheduled", db);
 
     expect(getRun(run.id, db)!.triggerType).toBe("scheduled");
+  });
+});
+
+describe("cancelRun (#73)", () => {
+  it("marks a running run cancelled without touching its current stage, and records an event", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    updateRunStage(run.id, "sandbox", "running", {}, db);
+
+    const cancelled = cancelRun(run.id, "사용자가 점검을 취소했습니다", db);
+
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.stage).toBe("sandbox"); // stage untouched — only status flips
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+
+    const events = listRunEvents(run.id, db);
+    const lastEvent = events[events.length - 1];
+    expect(lastEvent.status).toBe("cancelled");
+    expect(lastEvent.stage).toBe("sandbox");
+    expect(lastEvent.message).toBe("사용자가 점검을 취소했습니다");
+  });
+
+  it("isCancelled reflects the persisted status", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    expect(isCancelled(run.id, db)).toBe(false);
+
+    cancelRun(run.id, "취소", db);
+
+    expect(isCancelled(run.id, db)).toBe(true);
   });
 });

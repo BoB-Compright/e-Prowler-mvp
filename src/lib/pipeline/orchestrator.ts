@@ -5,7 +5,7 @@ import { detectDockerfile } from "./dockerfile";
 import { buildImage, removeImage } from "./build";
 import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
-import { updateRunStage } from "./runs";
+import { isCancelled, updateRunStage } from "./runs";
 import { runAllChecks } from "@/lib/checks";
 import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
@@ -49,6 +49,22 @@ export type RunSource =
 // Drives a run through clone -> build -> sandbox -> ansible -> rule_eval -> claude -> done.
 // For a local_image source, clone/build are marked succeeded immediately
 // (nothing to do) and the pipeline starts at sandbox with the chosen image.
+//
+// Cancellation (#73): this pipeline is a plain fire-and-forget async
+// function on the same Node process as the server (see POST /api/runs) —
+// there is no child-process/job handle for the whole run and no
+// AbortController threaded through it, so a real "kill this run" primitive
+// doesn't exist for most of it. Cancellation is therefore cooperative: the
+// cancel API (POST /api/runs/[id]/cancel) flips run.status to "cancelled"
+// out-of-band, and this function calls isCancelled() right after every
+// `await` (the only points where a concurrent request can actually
+// interleave — everything between two awaits runs synchronously on Node's
+// single thread) before writing its own "succeeded"/"failed" status, so it
+// stops advancing instead of clobbering the cancellation. The one stage that
+// *can* be forced for real is the sandbox container: the cancel API removes
+// it directly (`docker rm -f`), which also makes an in-flight Ansible
+// docker-exec against it fail immediately instead of running to its own
+// timeout.
 export async function runPipeline(
   runId: string,
   source: RunSource,
@@ -74,9 +90,11 @@ export async function runPipeline(
       const result = await deps.clone(source.repoUrl, runId);
       repoDir = result.dir;
     } catch (err) {
+      if (isCancelled(runId, db)) return;
       updateRunStage(runId, "clone", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
+    if (isCancelled(runId, db)) return;
     updateRunStage(runId, "clone", "succeeded", {}, db);
 
     dockerfilePath = deps.detectDockerfile(repoDir);
@@ -96,9 +114,11 @@ export async function runPipeline(
     try {
       await deps.build(repoDir, imageTag);
     } catch (err) {
+      if (isCancelled(runId, db)) return;
       updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
+    if (isCancelled(runId, db)) return;
     updateRunStage(runId, "build", "succeeded", { imageTag }, db);
   }
 
@@ -114,7 +134,15 @@ export async function runPipeline(
     try {
       await deps.startSandbox(imageTag, containerName);
     } catch (err) {
+      if (isCancelled(runId, db)) return;
       updateRunStage(runId, "sandbox", "failed", { errorMessage: errorMessage(err) }, db);
+      return;
+    }
+    if (isCancelled(runId, db)) {
+      // The container is up but its name was never persisted (we're
+      // returning before the "sandbox succeeded" write below) — stop it
+      // ourselves using the local variable so it isn't orphaned.
+      await deps.stopSandbox(containerName);
       return;
     }
     updateRunStage(runId, "sandbox", "succeeded", { containerName }, db);
@@ -129,11 +157,13 @@ export async function runPipeline(
     } catch (err) {
       clearTimeout(sandboxTimeout);
       await deps.stopSandbox(containerName);
+      if (isCancelled(runId, db)) return;
       updateRunStage(runId, "ansible", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
     clearTimeout(sandboxTimeout);
     await deps.stopSandbox(containerName);
+    if (isCancelled(runId, db)) return;
     updateRunStage(runId, "ansible", "succeeded", {}, db);
 
     updateRunStage(runId, "rule_eval", "running", {}, db);
@@ -144,11 +174,13 @@ export async function runPipeline(
     try {
       await deps.analyzeChecks(runId, results, db);
     } catch (err) {
+      if (isCancelled(runId, db)) return;
       // AI failure is independent of check failure: check_results above are
       // already committed and stay queryable even if analysis fails here.
       updateRunStage(runId, "claude", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
+    if (isCancelled(runId, db)) return;
     updateRunStage(runId, "claude", "succeeded", {}, db);
     updateRunStage(runId, "done", "succeeded", {}, db);
   } finally {

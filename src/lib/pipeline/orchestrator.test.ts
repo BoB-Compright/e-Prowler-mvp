@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
-import { createRun, getRun } from "./runs";
+import { cancelRun, createRun, getRun } from "./runs";
 import { listCheckResults } from "@/lib/checks/store";
 import { runPipeline, type PipelineDeps } from "./orchestrator";
 
@@ -188,5 +188,119 @@ describe("runPipeline", () => {
     expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`);
     // A local_image run reuses an image the user owns and must never delete it.
     expect(deps.removeImage).not.toHaveBeenCalled();
+  });
+});
+
+// (#73) The orchestrator has no way to forcibly abort an in-flight `await` in
+// this fire-and-forget, single-process pipeline — there's no cancellation
+// token/AbortController threaded through it. Cancellation is therefore
+// cooperative: the cancel API flips run.status to "cancelled" out-of-band
+// (simulated below by calling cancelRun from inside a dep mock, mid-await,
+// exactly as the real cancel endpoint would race with a real in-flight
+// step), and the pipeline checks isCancelled() at each stage boundary (right
+// after every await resolves/rejects) before writing its own status — so it
+// stops advancing and never clobbers "cancelled" back to "running"/
+// "succeeded"/"failed".
+describe("runPipeline cancellation (#73)", () => {
+  it("stops before build once cancelled during clone, without advancing the stage", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      return { dir: "/tmp/fake-repo" };
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("clone");
+    expect(deps.detectDockerfile).not.toHaveBeenCalled();
+    expect(deps.build).not.toHaveBeenCalled();
+  });
+
+  it("stops before sandbox once cancelled during build, without advancing the stage", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.build = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      return undefined;
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("build");
+    expect(deps.startSandbox).not.toHaveBeenCalled();
+  });
+
+  it("force-stops the sandbox container it just started when cancelled mid-startSandbox", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.startSandbox = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      return { containerName: `scan-${run.id}` };
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("sandbox");
+    // Cleanup happens even though the "sandbox succeeded" write never
+    // landed (and so run.containerName was never persisted) — the
+    // orchestrator still holds the containerName locally and stops it.
+    expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    expect(deps.runChecks).not.toHaveBeenCalled();
+  });
+
+  it("stops after ansible checks resolve once cancelled mid-check, without saving results or advancing to rule_eval", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.runChecks = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      return [{ id: "C-01", status: "fail", evidence: "uid 0" }];
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("ansible");
+    // Normal cleanup (container stop) still runs regardless of cancellation.
+    expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+    expect(listCheckResults(run.id, db)).toEqual([]);
+    expect(deps.analyzeChecks).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite a cancelled run with 'failed' when the in-flight ansible step errors after cancellation", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.runChecks = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      throw new Error("ansible-playbook exited 4 (container removed mid-run)");
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled"); // not "failed"
+    expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
+  });
+
+  it("stops after claude analysis resolves once cancelled mid-analysis, without marking the run done", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.analyzeChecks = vi.fn().mockImplementation(async () => {
+      cancelRun(run.id, "사용자가 취소", db);
+      return undefined;
+    });
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("cancelled");
+    expect(updated.stage).toBe("claude");
   });
 });

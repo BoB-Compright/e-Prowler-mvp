@@ -187,6 +187,8 @@ export default function DashboardPage() {
                                 <StatusBadge status="progress">진행 중</StatusBadge>
                               ) : status.kind === "error" ? (
                                 <StatusBadge status="fail">실패</StatusBadge>
+                              ) : status.kind === "cancelled" ? (
+                                <StatusBadge status="neutral">취소됨</StatusBadge>
                               ) : outcome ? (
                                 <StatusBadge status={outcome}>{OUTCOME_LABEL[outcome]}</StatusBadge>
                               ) : null}
@@ -250,9 +252,11 @@ export default function DashboardPage() {
                   const badge =
                     run.status === "failed"
                       ? { status: "fail" as const, label: "실패" }
-                      : run.status === "running"
-                        ? { status: "progress" as const, label: "진행 중" }
-                        : { status: "pass" as const, label: "완료" };
+                      : run.status === "cancelled"
+                        ? { status: "neutral" as const, label: "취소됨" }
+                        : run.status === "running"
+                          ? { status: "progress" as const, label: "진행 중" }
+                          : { status: "pass" as const, label: "완료" };
                   return (
                     <li key={run.id}>
                       <Link

@@ -92,9 +92,11 @@ export default async function RunsPage({
                   const badge: { status: BadgeStatus; label: string } =
                     run.status === "running"
                       ? { status: "progress", label: "진행 중" }
-                      : run.status === "failed"
-                        ? { status: "fail", label: "실패" }
-                        : { status: outcome, label: CHECK_STATUS_LABELS[outcome] };
+                      : run.status === "cancelled"
+                        ? { status: "neutral", label: "취소됨" }
+                        : run.status === "failed"
+                          ? { status: "fail", label: "실패" }
+                          : { status: outcome, label: CHECK_STATUS_LABELS[outcome] };
                   return (
                     <tr key={run.id} className="hover:bg-bg">
                       <td className="px-5 py-3">

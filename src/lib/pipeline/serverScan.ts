@@ -8,7 +8,7 @@ import { evaluateAllChecks } from "@/lib/checks/ruleEvaluation";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
 import { analyzeAndSaveChecks } from "@/lib/claude";
-import { createRun, updateRunStage } from "@/lib/pipeline/runs";
+import { createRun, isCancelled, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
 import { createScanBatch } from "./scanBatches";
 
@@ -65,6 +65,19 @@ export function createServerRun(
 // and runs the checks in one invocation — there's no separately observable
 // "connected, now scanning" boundary) rather than two independently
 // retryable steps.
+//
+// Cancellation (#73): unlike the container path, there is no container to
+// force-stop here — the SSH connection is a plain ansible-playbook child
+// process (via execFile) that this module never keeps a handle to, so it
+// cannot be killed on demand. Cancellation is purely cooperative: the cancel
+// API flips run.status to "cancelled" out-of-band, and this function checks
+// isCancelled() right after each await (retryOnConnectionFailure's wrapped
+// call, and analyzeAndSaveChecks) before writing its own status. In
+// practice this means an in-flight SSH connect/ansible-playbook run (which
+// can itself retry for minutes) keeps running to its natural completion
+// after cancel is requested — only once it settles does the pipeline stop
+// advancing; the run row itself is already "cancelled" immediately from the
+// user's perspective (the UI stops polling right away).
 export async function runServerScanPipeline(
   run: Run,
   asset: Asset,
@@ -79,9 +92,11 @@ export async function runServerScanPipeline(
     // Global constraint: never surface raw credentials/stderr for an auth
     // failure — only the fixed "인증 실패" message is recorded.
     const message = err instanceof AuthFailureError ? "인증 실패" : errorMessage(err);
+    if (isCancelled(run.id, db)) return;
     updateRunStage(run.id, "connect", "failed", { errorMessage: message }, db);
     return;
   }
+  if (isCancelled(run.id, db)) return;
   updateRunStage(run.id, "connect", "succeeded", {}, db);
   updateRunStage(run.id, "ansible_scan", "succeeded", {}, db);
 
@@ -94,12 +109,14 @@ export async function runServerScanPipeline(
   try {
     await deps.analyzeAndSaveChecks(run.id, results, db);
   } catch (err) {
+    if (isCancelled(run.id, db)) return;
     // AI failure is independent of check failure: check_results committed
     // above stay queryable even if analysis fails here (same guarantee as
     // the container pipeline's claude stage).
     updateRunStage(run.id, "claude_analysis", "failed", { errorMessage: errorMessage(err) }, db);
     return;
   }
+  if (isCancelled(run.id, db)) return;
   updateRunStage(run.id, "claude_analysis", "succeeded", {}, db);
   updateRunStage(run.id, "done", "succeeded", {}, db);
 }

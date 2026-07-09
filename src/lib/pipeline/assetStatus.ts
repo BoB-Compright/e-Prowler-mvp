@@ -6,7 +6,7 @@ import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { listRuns } from "./runs";
 import type { Run } from "./types";
 
-export type AssetStatusKind = RunOutcome | "error" | "running" | "none";
+export type AssetStatusKind = RunOutcome | "error" | "running" | "cancelled" | "none";
 
 export interface AssetStatus {
   kind: AssetStatusKind;
@@ -18,6 +18,8 @@ export interface AssetStatus {
 // - 최신 run이 진행 중이면 "running"(진행 중)
 // - 최신 run 자체가 실패(run.status === "failed")했으면 "error"("실패" — 취약과는
 //   별개의 판정이므로 혼동 금지)
+// - 최신 run이 취소(run.status === "cancelled")됐으면 "cancelled"("취소됨" —
+//   미점검("none")과도, 실패/양호/취약과도 구분되는 별개의 중립 판정)
 // - 최신 run이 성공했으면 체크 결과 기반 outcome("pass" | "fail" | "review")
 export function getAssetStatusMap(db: Database = getDb()): Map<string, AssetStatus> {
   const assets = listAssets({}, db);
@@ -44,6 +46,10 @@ export function getAssetStatusMap(db: Database = getDb()): Map<string, AssetStat
     }
     if (run.status === "failed") {
       statusByAsset.set(asset.id, { kind: "error", runId: run.id });
+      continue;
+    }
+    if (run.status === "cancelled") {
+      statusByAsset.set(asset.id, { kind: "cancelled", runId: run.id });
       continue;
     }
     const summary = getRunRiskSummary(run.id, db);

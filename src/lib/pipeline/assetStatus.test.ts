@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRepoAsset } from "@/lib/assets/store";
-import { createRun, updateRunStage } from "./runs";
+import { cancelRun, createRun, updateRunStage } from "./runs";
 import { saveCheckResults } from "@/lib/checks/store";
 import { getAssetStatusMap } from "./assetStatus";
 
@@ -32,6 +32,19 @@ describe("getAssetStatusMap", () => {
     const map = getAssetStatusMap(db);
 
     expect(map.get(asset.id)).toEqual({ kind: "running", runId: run.id });
+  });
+
+  // (#73) A cancelled run must render as its own kind, distinct from both
+  // "none" (never scanned) and "error" (pipeline failure) — neutral display,
+  // not a vulnerability/failure verdict.
+  it("returns 'cancelled' (not 'none' or 'error') when the latest run was cancelled", () => {
+    const asset = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/x/a" }, db);
+    const run = createRun("https://github.com/x/a", "git", asset.id, db);
+    cancelRun(run.id, "사용자가 점검을 취소했습니다", db);
+
+    const map = getAssetStatusMap(db);
+
+    expect(map.get(asset.id)).toEqual({ kind: "cancelled", runId: run.id });
   });
 
   it("returns 'error' (not 'fail') when the pipeline run itself failed", () => {
