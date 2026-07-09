@@ -4,12 +4,10 @@ import { listRunsByBatch } from "@/lib/pipeline/scanBatches";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
-
-const OUTCOME_COLOR: Record<RunOutcome, string> = {
-  fail: "var(--color-fail)",
-  review: "var(--color-review)",
-  pass: "var(--color-pass)",
-};
+import { Card } from "../../../_components/Card";
+import { SectionLabel } from "../../../_components/SectionLabel";
+import { StatusBadge } from "../../../_components/StatusBadge";
+import type { BadgeStatus } from "../../../_components/statusBadgeStyles";
 
 function formatTimestamp(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
@@ -27,67 +25,66 @@ export default async function BatchPage({
   const runningCount = runs.filter((run) => run.status === "running").length;
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10">
-      <div className="mb-3 flex items-baseline gap-2.5">
-        <h1 className="text-base font-bold">서버 일괄 점검 결과</h1>
-        <span className="text-xs text-[var(--color-muted)]">
-          서버 {runs.length}대
-          {runningCount > 0 ? ` · ${runningCount}대 진행 중` : ""}
-        </span>
+    <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">서버 일괄 점검 결과</h1>
+          <p className="text-[13px] text-muted">
+            서버 {runs.length}대
+            {runningCount > 0 ? ` · ${runningCount}대 진행 중` : ""}
+          </p>
+        </div>
       </div>
 
-      <div className="overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)]">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-[var(--color-surface)] text-left">
-              <th className="px-3.5 py-2.5 font-mono text-[11px] tracking-wide text-[var(--color-muted)] uppercase">
-                서버
-              </th>
-              <th className="px-3.5 py-2.5 font-mono text-[11px] tracking-wide text-[var(--color-muted)] uppercase">
-                마지막 갱신
-              </th>
-              <th className="px-3.5 py-2.5 font-mono text-[11px] tracking-wide text-[var(--color-muted)] uppercase">
-                상태
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((run) => {
-              const summary = getRunRiskSummary(run.id);
-              const outcome = overallRunOutcome(summary);
-              const color = run.status === "failed" ? OUTCOME_COLOR.fail : OUTCOME_COLOR[outcome];
-              return (
-                <tr key={run.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]">
-                  <td className="px-3.5 py-2.5">
-                    <Link
-                      href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
-                      className="font-mono font-bold hover:underline"
-                    >
-                      {run.repoUrl}
-                    </Link>
-                  </td>
-                  <td className="px-3.5 py-2.5 font-mono text-[var(--color-muted)]">
-                    {formatTimestamp(run.updatedAt)}
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold"
-                      style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                      {run.status === "running"
-                        ? "진행 중"
-                        : run.status === "failed"
-                          ? "실패"
-                          : CHECK_STATUS_LABELS[outcome]}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <Card bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-5 py-3">
+                  <SectionLabel>서버</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>마지막 갱신</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
+                  <SectionLabel>상태</SectionLabel>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {runs.map((run) => {
+                const summary = getRunRiskSummary(run.id);
+                const outcome: RunOutcome = overallRunOutcome(summary);
+                const badge: { status: BadgeStatus; label: string } =
+                  run.status === "running"
+                    ? { status: "progress", label: "진행 중" }
+                    : run.status === "failed"
+                      ? { status: "fail", label: "실패" }
+                      : { status: outcome, label: CHECK_STATUS_LABELS[outcome] };
+                return (
+                  <tr key={run.id} className="hover:bg-bg">
+                    <td className="px-5 py-3">
+                      <Link
+                        href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
+                        className="font-mono font-bold hover:underline"
+                      >
+                        {run.repoUrl}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-3 font-mono text-[13px] text-muted">
+                      {formatTimestamp(run.updatedAt)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </main>
   );
 }

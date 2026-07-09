@@ -7,11 +7,13 @@ import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { computeRiskSummary, overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
+import { StatusBadge } from "@/app/_components/StatusBadge";
+import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
 
-const OUTCOME_BORDER_COLOR: Record<RunOutcome, string> = {
-  fail: "var(--color-fail)",
-  review: "var(--color-review)",
-  pass: "var(--color-pass)",
+const OUTCOME_BORDER_CLASS: Record<RunOutcome, string> = {
+  fail: "border-l-fail",
+  review: "border-l-review",
+  pass: "border-l-pass",
 };
 
 // Marks the Claude analysis step as AI-driven, distinct from the rule-based
@@ -35,7 +37,7 @@ function CheckCircleIcon() {
       height="22"
       viewBox="0 0 24 24"
       fill="none"
-      className="stroke-[var(--color-pass)] flex-none"
+      className="flex-none stroke-pass"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -89,18 +91,19 @@ const STATUS_LABELS: Record<Run["status"], string> = {
 
 type NodeState = "done" | "current" | "failed" | "pending";
 
+// Kinetic 타임라인 도트: 완료 pass, 진행 primary(+scan-pulse-ring), 대기 neutral/40, 실패 fail.
 const STEPPER_CIRCLE_STYLES: Record<NodeState, string> = {
-  done: "bg-green-500 text-white",
-  current: "bg-blue-500 text-white animate-[scan-pulse-ring_1.8s_infinite]",
-  failed: "bg-red-500 text-white",
-  pending: "bg-white border-2 border-[var(--color-border)] text-[var(--color-muted)]",
+  done: "bg-pass text-white",
+  current: "bg-primary text-white animate-[scan-pulse-ring_1.8s_infinite]",
+  failed: "bg-fail text-white",
+  pending: "bg-neutral/40 text-white",
 };
 
 const STEPPER_LABEL_STYLES: Record<NodeState, string> = {
-  done: "text-green-800 font-medium",
-  current: "text-blue-700 font-bold",
-  failed: "text-red-700 font-medium",
-  pending: "text-[var(--color-muted)] font-medium",
+  done: "text-pass font-medium",
+  current: "text-primary font-bold",
+  failed: "text-fail font-medium",
+  pending: "text-muted font-medium",
 };
 
 const STATE_BADGE_LABELS: Record<NodeState, string> = {
@@ -110,11 +113,11 @@ const STATE_BADGE_LABELS: Record<NodeState, string> = {
   pending: "대기",
 };
 
-const STATE_BADGE_STYLES: Record<NodeState, string> = {
-  done: "bg-green-100 text-green-800",
-  current: "bg-blue-100 text-blue-700",
-  failed: "bg-red-100 text-red-800",
-  pending: "bg-slate-100 text-[var(--color-muted)]",
+const NODE_BADGE_STATUS: Record<NodeState, BadgeStatus> = {
+  done: "pass",
+  current: "progress",
+  failed: "fail",
+  pending: "neutral",
 };
 
 function computeNodeStates(stages: Stage[], stage: Stage, status: Run["status"]): NodeState[] {
@@ -171,8 +174,8 @@ export function RunStatus({ runId }: { runId: string }) {
     };
   }, [runId]);
 
-  if (notFound) return <p className="text-red-600">해당 실행을 찾을 수 없습니다.</p>;
-  if (!run) return <p className="text-[var(--color-muted)]">불러오는 중…</p>;
+  if (notFound) return <p className="text-fail">해당 실행을 찾을 수 없습니다.</p>;
+  if (!run) return <p className="text-muted">불러오는 중…</p>;
 
   const hasChecks = checks.length > 0;
   const riskSummary = computeRiskSummary(checks);
@@ -181,7 +184,7 @@ export function RunStatus({ runId }: { runId: string }) {
 
   const stages = run.sourceType === "server" ? SERVER_STAGES : CONTAINER_STAGES;
   const nodeStates = computeNodeStates(stages, run.stage, run.status);
-  const connectorColor = (state: NodeState) => (state === "done" ? "bg-green-500" : "bg-slate-200");
+  const connectorColor = (state: NodeState) => (state === "done" ? "bg-pass" : "bg-border");
   const progressPct = Math.round(
     (nodeStates.filter((s) => s === "done").length / stages.length) * 100,
   );
@@ -210,16 +213,16 @@ export function RunStatus({ runId }: { runId: string }) {
           </span>
         )}
       </div>
-      <p className="mt-1.5 break-all text-sm text-[var(--color-muted)]">{run.repoUrl}</p>
+      <p className="mt-1.5 break-all text-sm text-muted">{run.repoUrl}</p>
 
-      <div className="mt-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-slate-700">
+      <div className="mt-5 rounded-lg border border-border bg-surface p-3.5 text-sm leading-relaxed">
         <div
           className={`font-semibold ${
             run.status === "failed"
-              ? "text-red-700"
+              ? "text-fail"
               : run.status === "succeeded"
-                ? "text-green-800"
-                : "text-blue-700"
+                ? "text-pass"
+                : "text-primary"
           }`}
         >
           {STAGE_LABELS[run.stage]} · {STATUS_LABELS[run.status]}
@@ -237,32 +240,32 @@ export function RunStatus({ runId }: { runId: string }) {
       </div>
 
       {run.errorMessage && (
-        <pre className="mt-3 whitespace-pre-wrap rounded-[var(--radius-nh)] border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+        <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-fail/30 bg-fail/5 p-3 text-xs text-fail">
           {run.errorMessage}
         </pre>
       )}
 
       <div className="mt-7 flex items-center justify-between gap-2.5">
-        <span className="text-[12px] font-semibold text-[var(--color-muted)]">
+        <span className="text-[12px] font-semibold text-muted">
           파이프라인 진행상태 <span className="font-mono">· {progressPct}%</span>
         </span>
-        <div className="flex overflow-hidden rounded-[var(--radius-nh)] border border-[var(--color-border)]">
+        <div className="flex overflow-hidden rounded-lg border border-border">
           <button
             onClick={() => setTimelineVariant("horizontal")}
             className={`px-3 py-1 text-[12.5px] ${
               timelineVariant === "horizontal"
-                ? "bg-blue-50 font-semibold text-blue-700"
-                : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
+                ? "bg-primary/10 font-semibold text-primary"
+                : "bg-surface text-muted hover:bg-bg"
             }`}
           >
             가로 타임라인
           </button>
           <button
             onClick={() => setTimelineVariant("vertical")}
-            className={`border-l border-[var(--color-border)] px-3 py-1 text-[12.5px] ${
+            className={`border-l border-border px-3 py-1 text-[12.5px] ${
               timelineVariant === "vertical"
-                ? "bg-blue-50 font-semibold text-blue-700"
-                : "bg-white text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
+                ? "bg-primary/10 font-semibold text-primary"
+                : "bg-surface text-muted hover:bg-bg"
             }`}
           >
             세로 타임라인
@@ -273,11 +276,11 @@ export function RunStatus({ runId }: { runId: string }) {
       {timelineVariant === "horizontal" ? (
         <div className="relative mt-6">
           <div
-            className="absolute top-4 h-0.5 bg-[var(--color-border)]"
+            className="absolute top-4 h-0.5 bg-border"
             style={{ left: `${edgeMarginPct}%`, right: `${edgeMarginPct}%` }}
           />
           <div
-            className="absolute top-4 h-0.5 bg-[var(--color-pass)] transition-[width] duration-500 ease-out"
+            className="absolute top-4 h-0.5 bg-pass transition-[width] duration-500 ease-out"
             style={{ left: `${edgeMarginPct}%`, width: `${fillWidthPct}%` }}
           />
           <div className="relative z-[1] flex items-start">
@@ -328,19 +331,22 @@ export function RunStatus({ runId }: { runId: string }) {
                     />
                   )}
                 </div>
-                <div className="pb-3.5">
+                {/* AI 분석 단계는 실데이터(isAiStage)가 있을 때만 강조 카드로 감싼다. */}
+                <div
+                  className={
+                    isAiStage
+                      ? "mb-1 flex-1 rounded-lg border border-primary/40 bg-primary/5 p-3"
+                      : "flex-1 pb-3.5"
+                  }
+                >
                   <div className="flex items-center gap-2">
                     <span className={`text-[13px] font-semibold ${STEPPER_LABEL_STYLES[state]}`}>
                       {STAGE_LABELS[stage]}
                     </span>
                     {isAiStage && <ClaudeSparkleIcon />}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATE_BADGE_STYLES[state]}`}
-                    >
-                      {STATE_BADGE_LABELS[state]}
-                    </span>
+                    <StatusBadge status={NODE_BADGE_STATUS[state]}>{STATE_BADGE_LABELS[state]}</StatusBadge>
                   </div>
-                  <div className="mt-0.5 font-mono text-[11.5px] text-[var(--color-muted)]">
+                  <div className="mt-0.5 font-mono text-[11.5px] text-muted">
                     {event?.message ?? (event ? `${STAGE_LABELS[stage]} → ${STATUS_LABELS[event.status]}` : "-")}
                   </div>
                 </div>
@@ -350,7 +356,7 @@ export function RunStatus({ runId }: { runId: string }) {
         </div>
       )}
 
-      <div className="mt-4 min-h-[72px] rounded-[var(--radius-nh)] border border-[#1e293b] bg-[#0b1220] p-3 font-mono text-[12.5px] leading-relaxed text-[#cbd5e1]">
+      <div className="mt-4 min-h-[72px] rounded-lg bg-[#0e1d2b] p-4 font-mono text-[12.5px] leading-relaxed text-[#e9f1ff]">
         {events.length === 0 && <div className="text-[#64748b]">$ 점검이 시작되면 로그가 여기에 표시됩니다.</div>}
         {events.map((event) => {
           const isFailed = event.status === "failed";
@@ -382,18 +388,17 @@ export function RunStatus({ runId }: { runId: string }) {
 
       {hasChecks && run.status !== "running" && (
         <div
-          className="mt-3.5 flex items-center gap-3.5 rounded-[var(--radius-nh)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3.5"
-          style={{ borderLeft: `3px solid ${OUTCOME_BORDER_COLOR[riskOutcome]}` }}
+          className={`mt-3.5 flex items-center gap-3.5 rounded-lg border border-l-[3px] border-border bg-bg p-3.5 ${OUTCOME_BORDER_CLASS[riskOutcome]}`}
         >
           <CheckCircleIcon />
           <div className="flex-1">
             <div className="font-bold">점검 완료 · {getRepoDisplayName(run.repoUrl)}</div>
-            <div className="text-xs text-[var(--color-muted)]">
+            <div className="text-xs text-muted">
               {checks.length}개 항목 점검 ·{" "}
-              <b className="text-[var(--color-fail)]">심각 {riskSummary.severityCounts.Critical}</b> ·{" "}
-              <b className="text-[var(--color-review)]">높음 {riskSummary.severityCounts.High}</b> 발견 ·{" "}
+              <b className="text-fail">심각 {riskSummary.severityCounts.Critical}</b> ·{" "}
+              <b className="text-review">높음 {riskSummary.severityCounts.High}</b> 발견 ·{" "}
               {aiCount > 0 ? (
-                <span className="inline-flex items-center gap-1 align-[-2px] text-[var(--color-secondary)]">
+                <span className="inline-flex items-center gap-1 align-[-2px] text-secondary">
                   개선안 생성됨 <ClaudeSparkleIcon />
                 </span>
               ) : (
@@ -403,7 +408,7 @@ export function RunStatus({ runId }: { runId: string }) {
           </div>
           <Link
             href={`/runs/${runId}/report`}
-            className="rounded-[var(--radius-nh)] bg-[var(--color-primary)] px-4 py-2 text-[13px] font-semibold whitespace-nowrap text-white hover:opacity-90"
+            className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold whitespace-nowrap text-white hover:opacity-90"
           >
             상세 리포트 보기 →
           </Link>
