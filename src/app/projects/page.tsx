@@ -3,7 +3,9 @@ import { listProjects } from "@/lib/projects/store";
 import { listAssets } from "@/lib/assets/store";
 import { type RunOutcome } from "@/lib/checks/riskSummary";
 import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
+import { matchesProjectQuery } from "@/lib/search/match";
 import { ProjectForm } from "./ProjectForm";
+import { ProjectSearch } from "./ProjectSearch";
 import { Card } from "../_components/Card";
 import { StatusBadge } from "../_components/StatusBadge";
 
@@ -20,8 +22,15 @@ const KIND_TO_SUMMARY_STATUS: Record<AssetStatusKind, AssetSummaryStatus> = {
   none: "neutral",
 };
 
-export default async function ProjectsPage() {
-  const projects = listProjects();
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const query = q ?? "";
+  const allProjects = listProjects();
+  const projects = allProjects.filter((project) => matchesProjectQuery(project, query));
   const assets = listAssets();
   const statusMap = getAssetStatusMap();
 
@@ -41,9 +50,15 @@ export default async function ProjectsPage() {
         <ProjectForm />
       </Card>
 
+      <div className="mb-6 rounded-lg border border-border bg-surface p-4">
+        <ProjectSearch />
+      </div>
+
       {projects.length === 0 ? (
         <Card>
-          <p className="text-[13px] text-muted italic">등록된 프로젝트가 없습니다.</p>
+          <p className="text-[13px] text-muted italic">
+            {allProjects.length === 0 ? "등록된 프로젝트가 없습니다." : "검색 결과가 없습니다."}
+          </p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -3,6 +3,7 @@ import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
+import { matchesAssetQuery } from "@/lib/search/match";
 import { AssetFilters } from "./AssetFilters";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
@@ -21,14 +22,15 @@ const STATUS_BADGE: Record<AssetStatusKind, { status: BadgeStatus; label: string
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string; type?: string }>;
+  searchParams: Promise<{ projectId?: string; type?: string; q?: string }>;
 }) {
-  const { projectId, type } = await searchParams;
+  const { projectId, type, q } = await searchParams;
   const filter: Parameters<typeof listAssets>[0] = {};
   if (projectId) filter.projectId = projectId === "unassigned" ? null : projectId;
   if (type === "repo" || type === "server") filter.type = type;
 
-  const assets = listAssets(filter);
+  const query = q ?? "";
+  const assets = listAssets(filter).filter((asset) => matchesAssetQuery(asset, query));
   const projects = listProjects();
   const statusMap = getAssetStatusMap();
 
