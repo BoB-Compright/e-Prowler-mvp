@@ -1,0 +1,400 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Guardian Console - Security Scan Report</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "secondary-fixed-dim": "#b4c6f3",
+                "on-error": "#ffffff",
+                "error": "#ba1a1a",
+                "tertiary": "#005a35",
+                "on-surface": "#0e1d2b",
+                "inverse-on-surface": "#e9f1ff",
+                "surface-bright": "#f8f9ff",
+                "secondary": "#4c5e85",
+                "on-surface-variant": "#434656",
+                "primary-fixed": "#dde1ff",
+                "on-background": "#0e1d2b",
+                "background": "#f8f9ff",
+                "on-primary-fixed-variant": "#0038b6",
+                "surface": "#f8f9ff",
+                "surface-container-low": "#eef4ff",
+                "primary-container": "#0052ff",
+                "on-tertiary-fixed": "#002110",
+                "on-secondary": "#ffffff",
+                "surface-container-highest": "#d5e4f8",
+                "surface-container": "#e4efff",
+                "tertiary-fixed-dim": "#44e092",
+                "on-error-container": "#93000a",
+                "surface-container-high": "#dbe9fe",
+                "outline-variant": "#c3c5d9",
+                "on-primary": "#ffffff",
+                "on-secondary-fixed-variant": "#35466c",
+                "inverse-surface": "#243141",
+                "tertiary-fixed": "#66fdac",
+                "on-primary-container": "#dfe3ff",
+                "error-container": "#ffdad6",
+                "surface-tint": "#004ced",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-fixed-variant": "#00522f",
+                "on-tertiary": "#ffffff",
+                "outline": "#737688",
+                "on-primary-fixed": "#001452",
+                "primary-fixed-dim": "#b7c4ff",
+                "surface-variant": "#d5e4f8",
+                "on-secondary-container": "#485980",
+                "secondary-container": "#bfd1ff",
+                "on-secondary-fixed": "#051a3e",
+                "surface-dim": "#cddbf0",
+                "secondary-fixed": "#d8e2ff",
+                "primary": "#003ec7",
+                "on-tertiary-container": "#69ffae",
+                "inverse-primary": "#b7c4ff",
+                "tertiary-container": "#007546"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "xs": "4px",
+                "gutter": "16px",
+                "margin-mobile": "16px",
+                "md": "16px",
+                "lg": "24px",
+                "container-max": "1440px",
+                "sm": "8px",
+                "xl": "32px",
+                "margin-desktop": "32px",
+                "base": "4px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "Inter"
+                ],
+                "headline-md": [
+                        "Inter"
+                ],
+                "display-lg": [
+                        "Inter"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "data-mono": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "headline-sm": [
+                        "Inter"
+                ],
+                "headline-lg-mobile": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "data-mono": [
+                        "13px",
+                        {
+                                "lineHeight": "18px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-sm": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "30px",
+                                "fontWeight": "700"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="bg-surface dark:bg-inverse-surface text-primary dark:text-inverse-primary font-body-md text-body-md h-screen w-64 fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col py-lg px-md transition-colors duration-200 ease-in-out z-40">
+<div class="mb-xl px-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">shield</span>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">NH-Guardian</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant">AI 기반 실시간 보안&nbsp;<span class="" style="letter-spacing: 0.05em;">점검 솔루션</span></p>
+</div>
+</div>
+<nav class="flex flex-col gap-sm flex-1">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="">대시보드</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="">자산 관리</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="">프로젝트</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg bg-surface-container-high dark:bg-secondary-fixed-variant text-primary dark:text-primary-fixed-dim font-bold transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="">점검 이력</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="">카탈로그</span>
+</a>
+</nav>
+<div class="mt-auto pt-md border-t border-outline-variant flex items-center gap-sm px-sm cursor-pointer hover:bg-surface-container rounded-lg p-sm transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold border border-outline-variant">U</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface">User</span>
+<span class="text-xs text-on-surface-variant">Role</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface dark:bg-inverse-surface text-primary dark:text-inverse-primary font-label-caps text-label-caps w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline flex justify-between items-center h-16 px-margin-desktop transition-opacity duration-150">
+<!-- Left: Links -->
+<div class="flex items-center h-full gap-lg">
+<!-- Active Link (Determined by context) -->
+<a class="h-full flex items-center text-primary dark:text-inverse-primary border-b-2 border-primary pt-[2px]" href="#">
+                    상세 보고서
+                </a>
+<!-- Inactive Link -->
+<a class="h-full flex items-center text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">
+                    전체 보고서
+                </a>
+</div>
+<!-- Right: Actions -->
+<div class="flex items-center gap-md">
+<div class="relative text-on-surface-variant hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="pl-9 pr-4 py-1.5 border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary outline-none rounded-lg bg-surface text-body-md w-64 transition-all" placeholder="Search..." type="text">
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-sm rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-sm rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<main class="flex-1 p-margin-desktop bg-background overflow-y-auto">
+<!-- Header Section -->
+<div class="mb-xl flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-xs">보안 점검 보고서</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Asset: <span class="font-bold text-on-surface">PROD-DB-CLUSTER-01</span></p>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm rounded-lg border border-primary text-primary hover:bg-surface-container-low transition-colors font-headline-sm text-body-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">download</span> 보고서 내보내기
+</button>
+<button class="px-md py-sm rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors font-headline-sm text-body-md flex items-center gap-xs shadow-sm">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">radar</span> 재스캔
+</button>
+</div>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-gutter mb-xl">
+<div class="col-span-4 lg:col-span-3 bg-surface border border-outline-variant rounded-lg p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-sm uppercase">Total Checks</h3>
+<div class="font-display-lg text-display-lg text-on-surface">102</div>
+</div>
+<div class="col-span-4 lg:col-span-3 bg-surface border border-outline-variant rounded-lg p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] border-l-4 border-l-tertiary">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-sm uppercase">Pass (양호)</h3>
+<div class="font-display-lg text-display-lg text-tertiary">85</div>
+</div>
+<div class="col-span-4 lg:col-span-3 bg-surface border border-outline-variant rounded-lg p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] border-l-4 border-l-error">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-sm uppercase">Fail (취약)</h3>
+<div class="font-display-lg text-display-lg text-error">12</div>
+</div>
+<div class="col-span-4 lg:col-span-3 bg-surface border border-outline-variant rounded-lg p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] border-l-4 border-l-[#F59E0B]">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant mb-sm uppercase">Review (검토)</h3>
+<div class="font-display-lg text-display-lg text-[#F59E0B]">5</div>
+</div>
+</div>
+<hr class="border-outline-variant mb-xl">
+<!-- Findings Section -->
+<div>
+<div class="flex items-center gap-sm mb-lg">
+<span class="material-symbols-outlined text-primary text-[28px]" style="font-variation-settings: &quot;FILL&quot; 1;">auto_awesome</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Claude AI 취약점 분석 (Failed Items)</h2>
+</div>
+<div class="flex flex-col gap-lg">
+<!-- Finding Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<div class="p-lg border-b border-outline-variant bg-surface flex justify-between items-start">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="px-2 py-0.5 rounded-full bg-error/10 text-error font-label-caps text-label-caps">CRITICAL</span>
+<span class="font-data-mono text-data-mono text-outline">DB-SEC-042</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">PostgreSQL 기본 포트 외부 노출 및 인증 우회 가능성</h3>
+</div>
+</div>
+<div class="p-lg grid grid-cols-12 gap-xl">
+<div class="col-span-12 md:col-span-7">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Vulnerability Description (취약점 설명)</h4>
+<p class="font-body-md text-body-md text-on-surface mb-md">
+                                데이터베이스 클러스터의 마스터 노드가 0.0.0.0 바인딩을 통해 공인 IP에서 접근 가능한 상태입니다. 또한 `pg_hba.conf` 설정에서 특정 대역에 대해 `trust` 인증을 사용하고 있어, IP 스푸핑을 통한 인증 우회 공격에 취약합니다.
+                            </p>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Evidence Log (증거 로그)</h4>
+<div class="bg-inverse-surface rounded p-sm overflow-x-auto mb-md">
+<pre class="font-data-mono text-data-mono text-on-secondary whitespace-pre-wrap"># postgresql.conf
+listen_addresses = '*'  # 취약: 모든 IP 허용
+
+# pg_hba.conf
+host    all             all             10.0.0.0/8            trust  # 취약: 인증 없음</pre>
+</div>
+</div>
+<div class="col-span-12 md:col-span-5 bg-surface-container-low rounded-lg p-md border border-outline-variant">
+<h4 class="font-label-caps text-label-caps text-primary mb-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">build</span>
+                                Remediation (조치 방안)
+                            </h4>
+<p class="font-body-md text-body-md text-on-surface mb-sm">
+                                1. 리슨 주소를 로컬호스트 또는 내부 VPC 대역으로 제한하십시오.<br>
+                                2. `trust` 인증 방식을 `scram-sha-256`으로 변경하여 강력한 패스워드 인증을 강제하십시오.
+                            </p>
+<div class="bg-inverse-surface rounded p-sm overflow-x-auto">
+<pre class="font-data-mono text-data-mono text-tertiary-container whitespace-pre-wrap"># postgresql.conf 조치 후
+listen_addresses = 'localhost, 10.10.0.0/16'
+
+# pg_hba.conf 조치 후
+host    all             all             10.10.0.0/16          scram-sha-256</pre>
+</div>
+</div>
+</div>
+</div>
+<!-- Finding Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<div class="p-lg border-b border-outline-variant bg-surface flex justify-between items-start">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="px-2 py-0.5 rounded-full bg-[#F59E0B]/10 text-[#D97706] font-label-caps text-label-caps">HIGH</span>
+<span class="font-data-mono text-data-mono text-outline">DB-ENC-011</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">전송 구간 암호화(TLS/SSL) 미적용</h3>
+</div>
+</div>
+<div class="p-lg grid grid-cols-12 gap-xl">
+<div class="col-span-12 md:col-span-7">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Vulnerability Description (취약점 설명)</h4>
+<p class="font-body-md text-body-md text-on-surface mb-md">
+                                클라이언트와 데이터베이스 간의 통신 구간에 TLS 암호화가 강제되어 있지 않습니다. 이로 인해 동일 네트워크 내에서 패킷 스니핑을 통한 중요 데이터(쿼리 내용, 결과 값) 유출 위험이 존재합니다.
+                            </p>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Evidence Log (증거 로그)</h4>
+<div class="bg-inverse-surface rounded p-sm overflow-x-auto mb-md">
+<pre class="font-data-mono text-data-mono text-on-secondary whitespace-pre-wrap">$ psql -h prod-db-cluster -U admin
+psql (14.2)
+Type "help" for help.
+
+# 연결 상태 확인
+SSL connection (protocol: none, cipher: none)  # 취약: SSL 미적용</pre>
+</div>
+</div>
+<div class="col-span-12 md:col-span-5 bg-surface-container-low rounded-lg p-md border border-outline-variant">
+<h4 class="font-label-caps text-label-caps text-primary mb-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">build</span>
+                                Remediation (조치 방안)
+                            </h4>
+<p class="font-body-md text-body-md text-on-surface mb-sm">
+                                데이터베이스 설정에서 SSL을 활성화하고, `pg_hba.conf`에서 클라이언트 연결 시 `hostssl`을 강제하도록 설정하십시오. 유효한 인증서 적용이 필요합니다.
+                            </p>
+<div class="bg-inverse-surface rounded p-sm overflow-x-auto">
+<pre class="font-data-mono text-data-mono text-tertiary-container whitespace-pre-wrap"># postgresql.conf
+ssl = on
+ssl_cert_file = 'server.crt'
+ssl_key_file = 'server.key'
+
+# pg_hba.conf 조치 후 (host 대신 hostssl 사용)
+hostssl all             all             0.0.0.0/0             scram-sha-256</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

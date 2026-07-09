@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NH-Guardian | 보안 스캔 진행 중</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#bfd1ff",
+                    "on-background": "#0e1d2b",
+                    "surface-variant": "#d5e4f8",
+                    "surface-tint": "#004ced",
+                    "primary-fixed": "#dde1ff",
+                    "primary-container": "#0052ff",
+                    "error-container": "#ffdad6",
+                    "error": "#ba1a1a",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "outline-variant": "#c3c5d9",
+                    "on-tertiary-container": "#69ffae",
+                    "surface-container-high": "#dbe9fe",
+                    "surface": "#f8f9ff",
+                    "tertiary": "#005a35",
+                    "on-primary-fixed-variant": "#0038b6",
+                    "background": "#f8f9ff",
+                    "on-secondary-fixed-variant": "#35466c",
+                    "on-surface-variant": "#434656",
+                    "on-tertiary-fixed": "#002110",
+                    "primary-fixed-dim": "#b7c4ff",
+                    "on-primary-container": "#dfe3ff",
+                    "surface-dim": "#cddbf0",
+                    "on-error": "#ffffff",
+                    "on-secondary-container": "#485980",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed": "#d8e2ff",
+                    "inverse-primary": "#b7c4ff",
+                    "surface-bright": "#f8f9ff",
+                    "inverse-on-surface": "#e9f1ff",
+                    "surface-container-highest": "#d5e4f8",
+                    "primary": "#003ec7",
+                    "surface-container": "#e4efff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed": "#051a3e",
+                    "on-primary": "#ffffff",
+                    "secondary": "#4c5e85",
+                    "on-tertiary-fixed-variant": "#00522f",
+                    "inverse-surface": "#243141",
+                    "tertiary-fixed-dim": "#44e092",
+                    "on-primary-fixed": "#001452",
+                    "on-surface": "#0e1d2b",
+                    "tertiary-fixed": "#66fdac",
+                    "outline": "#737688",
+                    "tertiary-container": "#007546",
+                    "surface-container-low": "#eef4ff",
+                    "secondary-fixed-dim": "#b4c6f3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-max": "1440px",
+                    "xl": "32px",
+                    "xs": "4px",
+                    "gutter": "16px",
+                    "margin-mobile": "16px",
+                    "base": "4px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "margin-desktop": "32px",
+                    "lg": "24px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "data-mono": ["JetBrains Mono"],
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "700"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "data-mono": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "headline-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .pulse-ring {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .5; transform: scale(1.1); }
+        }
+        
+        /* AI Stage Animations */
+        @keyframes aiGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(105, 255, 174, 0.3), 0 0 20px rgba(0, 82, 255, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(105, 255, 174, 0.6), 0 0 45px rgba(0, 82, 255, 0.4); }
+        }
+        @keyframes sparkleTwinkle {
+            0%, 100% { opacity: 0.2; transform: scale(0.8) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1.2) rotate(15deg); }
+        }
+        @keyframes sparkleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .ai-glow-container {
+            animation: aiGlow 3s ease-in-out infinite;
+            background: linear-gradient(135deg, rgba(0, 82, 255, 0.05), rgba(105, 255, 174, 0.15));
+            border: 2px solid rgba(105, 255, 174, 0.4);
+        }
+        .ai-icon-gradient {
+            background: -webkit-linear-gradient(45deg, #0052ff, #007546);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sparkle-large {
+            animation: sparkleTwinkle 2s ease-in-out infinite, sparkleFloat 3s ease-in-out infinite;
+        }
+        .sparkle-small {
+            animation: sparkleTwinkle 1.5s ease-in-out infinite alternate, sparkleFloat 2.5s ease-in-out infinite;
+        }
+        .ai-shimmer-wrapper {
+            position: relative;
+            overflow: visible;
+        }
+        .ai-shimmer-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: -10px;
+            background: radial-gradient(circle, rgba(105, 255, 174, 0.1) 0%, transparent 70%);
+            animation: pulse 4s infinite alternate;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md flex h-screen overflow-hidden antialiased">
+<!-- Shared Component: SideNavBar -->
+<nav class="hidden md:flex flex-col h-screen p-md gap-sm bg-surface-container-low border-r border-outline-variant fixed left-0 top-0 h-full w-64 z-20">
+<!-- Header -->
+<div class="flex items-center gap-sm px-sm py-md mb-md">
+<span class="material-symbols-outlined text-primary text-[32px]" style="font-variation-settings: 'FILL' 1;">shield</span>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-black text-primary">Guardian Console</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Security Analyst</p>
+</div>
+</div>
+<!-- Primary Action -->
+<button class="bg-primary-container text-on-primary-container font-headline-sm text-headline-sm rounded-lg py-sm px-md flex items-center justify-center gap-sm mb-lg shadow-sm hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined">add</span>
+            Start New Scan
+        </button>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-xs flex-1">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<!-- Active Tab -->
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-lg transition-all active:scale-95 duration-100 shadow-[0px_4px_12px_rgba(0,0,0,0.05)]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+                Asset Scan
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+                Active Pipelines
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">analytics</span>
+                Vulnerability Reports
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">group</span>
+                Team Settings
+            </a>
+</div>
+<!-- Footer Links -->
+<div class="flex flex-col gap-xs mt-auto pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">description</span>
+                Documentation
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">help</span>
+                Support
+            </a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 p-margin-mobile md:p-margin-desktop h-full overflow-y-auto bg-background flex flex-col">
+<!-- Header Area -->
+<header class="flex flex-col md:flex-row md:items-end justify-between mb-xl gap-md">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs flex items-center gap-xs uppercase">
+<span class="material-symbols-outlined text-[16px]">radar</span> 실시간 모니터링
+                </p>
+<h2 class="font-display-lg text-display-lg text-on-surface flex items-center gap-md">
+                    보안 스캔 진행 중
+                    <span class="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-surface-container-high border border-outline-variant font-data-mono text-data-mono text-on-surface text-sm">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                        PROD-DB-CLUSTER-01
+                    </span>
+</h2>
+</div>
+<button class="bg-surface border border-error text-error font-headline-sm text-headline-sm px-lg py-sm rounded-lg hover:bg-error-container hover:text-on-error-container transition-colors shadow-sm self-start md:self-auto flex items-center gap-sm">
+<span class="material-symbols-outlined text-[20px]">cancel</span>
+                스캔 취소
+            </button>
+</header>
+<!-- Main Bento Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter flex-1">
+<!-- Core Pipeline Card (Spans across) -->
+<div class="lg:col-span-12 bg-surface border border-outline-variant rounded-xl p-xl shadow-[0px_4px_12px_rgba(0,0,0,0.05)] flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xl">분석 파이프라인 진행 상태</h3>
+<!-- Stepper UI -->
+<div class="flex flex-col md:flex-row items-start md:items-center justify-between relative z-10 w-full px-md md:px-0">
+<!-- Line connecting steps (Desktop only for visual simplicity) -->
+<div class="hidden md:block absolute top-1/2 left-[5%] right-[5%] h-[2px] bg-outline-variant -z-10 -translate-y-1/2"></div>
+<!-- Active progress line segment -->
+<div class="hidden md:block absolute top-1/2 left-[5%] w-[30%] h-[2px] bg-primary -z-10 -translate-y-1/2 transition-all duration-1000"></div>
+<!-- Step 1: Success -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm mb-lg md:mb-0 bg-surface md:bg-transparent px-sm">
+<div class="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center border-4 border-surface z-10">
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="text-left md:text-center">
+<p class="font-label-caps text-label-caps text-tertiary uppercase">1단계 - 완료</p>
+<p class="font-headline-sm text-headline-sm text-on-surface">자산 연결</p>
+</div>
+</div>
+<!-- Step 2: In Progress -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm mb-lg md:mb-0 bg-surface md:bg-transparent px-sm">
+<div class="relative w-12 h-12 flex items-center justify-center z-10">
+<div class="absolute inset-0 rounded-full border-4 border-primary/30 pulse-ring"></div>
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg relative">
+<span class="material-symbols-outlined text-on-primary animate-spin">sync</span>
+</div>
+</div>
+<div class="text-left md:text-center">
+<p class="font-label-caps text-label-caps text-primary uppercase">2단계 - 진행 중</p>
+<p class="font-headline-sm text-headline-sm text-on-surface font-bold">증거 수집</p>
+</div>
+</div>
+<!-- Step 3: Pending -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm mb-lg md:mb-0 bg-surface md:bg-transparent px-sm opacity-50">
+<div class="w-12 h-12 rounded-full bg-surface-variant border-2 border-outline flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-outline">gavel</span>
+</div>
+<div class="text-left md:text-center">
+<p class="font-label-caps text-label-caps text-outline uppercase">3단계 - 대기 중</p>
+<p class="font-headline-sm text-headline-sm text-outline">규칙 평가</p>
+</div>
+</div>
+<!-- Step 4: Pending (AI Magical) -->
+<div class="flex md:flex-col items-center gap-md md:gap-sm bg-surface md:bg-transparent px-sm ai-shimmer-wrapper">
+<div class="relative w-12 h-12 rounded-full ai-glow-container flex items-center justify-center z-10">
+<!-- Large Sparkle -->
+<svg class="absolute -top-2 -right-2 w-5 h-5 text-tertiary-container sparkle-large" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"></path>
+</svg>
+<!-- Small Sparkle -->
+<svg class="absolute bottom-0 -left-1 w-3 h-3 text-primary sparkle-small" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"></path>
+</svg>
+<span class="material-symbols-outlined ai-icon-gradient text-[24px]">psychology</span>
+</div>
+<div class="text-left md:text-center z-10 relative">
+<p class="font-label-caps text-label-caps text-outline uppercase">4단계 - 대기 중</p>
+<p class="font-headline-sm text-headline-sm text-on-surface-variant">AI 분석</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Detail Grid: Live Logs & Context -->
+<div class="lg:col-span-8 bg-surface border border-outline-variant rounded-xl flex flex-col overflow-hidden">
+<div class="border-b border-outline-variant p-md bg-surface-container-lowest flex justify-between items-center">
+<h4 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">terminal</span> 실시간 실행 로그
+                    </h4>
+<span class="font-label-caps text-label-caps text-primary bg-primary-container/10 px-sm py-xs rounded">수집률: 45%</span>
+</div>
+<div class="p-md bg-[#0a1118] flex-1 font-data-mono text-data-mono text-sm overflow-y-auto space-y-2 h-[300px]">
+<div class="flex items-start gap-sm text-outline">
+<span class="text-secondary opacity-70">[10:42:01]</span>
+<span>[SYS] Initiating connection protocol for PROD-DB-CLUSTER-01...</span>
+</div>
+<div class="flex items-start gap-sm text-tertiary-container">
+<span class="text-secondary opacity-70">[10:42:05]</span>
+<span>[OK] Authentication successful. Access token acquired.</span>
+</div>
+<div class="flex items-start gap-sm text-outline">
+<span class="text-secondary opacity-70">[10:42:06]</span>
+<span>[SYS] Moving to Stage 2: Evidence Collection.</span>
+</div>
+<div class="flex items-start gap-sm text-on-tertiary-container">
+<span class="text-secondary opacity-70">[10:42:10]</span>
+<span>[INFO] Fetching access control lists (ACLs)...</span>
+</div>
+<div class="flex items-start gap-sm text-on-tertiary-container">
+<span class="text-secondary opacity-70">[10:42:12]</span>
+<span>[INFO] Analyzing port configuration and network bounds...</span>
+</div>
+<div class="flex items-start gap-sm text-[#a3defe] animate-pulse">
+<span class="text-secondary opacity-70">[10:42:15]</span>
+<span>[WORK] Extracting encryption key metadata (In Progress)...</span>
+</div>
+</div>
+</div>
+<!-- Sidebar Info Panel -->
+<div class="lg:col-span-4 flex flex-col gap-gutter">
+<!-- Asset Context -->
+<div class="bg-surface border border-outline-variant rounded-xl p-lg flex flex-col">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-md uppercase border-b border-outline-variant pb-xs">대상 자산 정보</h4>
+<div class="space-y-md">
+<div>
+<p class="font-label-caps text-label-caps text-outline">자산명</p>
+<p class="font-body-md text-body-md text-on-surface font-semibold">PROD-DB-CLUSTER-01</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-outline">자산 유형</p>
+<p class="font-body-md text-body-md text-on-surface flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">database</span> PostgreSQL Cluster
+                             </p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-outline">환경</p>
+<span class="inline-flex items-center mt-xs px-sm py-xs rounded-full bg-error-container text-on-error-container font-label-caps text-label-caps uppercase">Production</span>
+</div>
+</div>
+</div>
+<!-- Estimated Time -->
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-lg flex-1 flex flex-col justify-center items-center text-center">
+<span class="material-symbols-outlined text-[48px] text-primary mb-sm opacity-80" style="font-variation-settings: 'wght' 200;">hourglass_top</span>
+<h4 class="font-label-caps text-label-caps text-on-surface-variant uppercase mb-xs">예상 남은 시간</h4>
+<p class="font-display-lg text-display-lg text-on-surface">02:15</p>
+<p class="font-body-md text-body-md text-outline mt-sm">수집 데이터 크기에 따라<br/>변동될 수 있습니다.</p>
+</div>
+</div>
+</div>
+</main>
+</body></html>

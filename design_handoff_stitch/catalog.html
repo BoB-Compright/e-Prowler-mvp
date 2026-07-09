@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Catalog - NH-Guardian</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#007546",
+                        "secondary-fixed-dim": "#b4c6f3",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f8f9ff",
+                        "on-secondary-fixed": "#051a3e",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "on-secondary-container": "#485980",
+                        "outline": "#737688",
+                        "outline-variant": "#c3c5d9",
+                        "on-background": "#0e1d2b",
+                        "secondary": "#4c5e85",
+                        "on-tertiary-container": "#69ffae",
+                        "on-tertiary-fixed": "#002110",
+                        "primary": "#003ec7",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#b7c4ff",
+                        "inverse-on-surface": "#e9f1ff",
+                        "surface-variant": "#d5e4f8",
+                        "surface-container-high": "#dbe9fe",
+                        "on-secondary-fixed-variant": "#35466c",
+                        "tertiary": "#005a35",
+                        "background": "#f8f9ff",
+                        "surface": "#f8f9ff",
+                        "on-surface-variant": "#434656",
+                        "on-primary-container": "#dfe3ff",
+                        "surface-container": "#e4efff",
+                        "secondary-container": "#bfd1ff",
+                        "surface-container-highest": "#d5e4f8",
+                        "on-secondary": "#ffffff",
+                        "on-surface": "#0e1d2b",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "surface-dim": "#cddbf0",
+                        "surface-tint": "#004ced",
+                        "tertiary-fixed": "#66fdac",
+                        "primary-fixed": "#dde1ff",
+                        "on-tertiary-fixed-variant": "#00522f",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#243141",
+                        "primary-container": "#0052ff",
+                        "tertiary-fixed-dim": "#44e092",
+                        "surface-container-low": "#eef4ff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001452"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "container-max": "1440px",
+                        "margin-desktop": "32px",
+                        "lg": "24px",
+                        "margin-mobile": "16px",
+                        "xs": "4px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "700" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "data-mono": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #f8f9ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased overflow-hidden flex h-screen">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-surface z-50 transition-all duration-200 ease-in-out">
+<div class="p-lg flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary font-headline-sm">
+                NH
+            </div>
+<div>
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface">NH-Guardian</div>
+<div class="text-label-caps font-label-caps text-on-surface-variant uppercase">Security Assessment</div>
+</div>
+</div>
+<div class="px-md mb-lg">
+<button class="w-full py-sm px-md bg-primary-container text-on-primary rounded-lg font-headline-sm text-body-md hover:bg-primary transition-colors flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined">add</span>
+                Start New Scan
+            </button>
+</div>
+<ul class="flex-1 flex flex-col gap-xs px-md font-body-md text-body-md">
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                    Dashboard
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+                    Assets
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+                    Projects
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">history</span>
+                    Run History
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg bg-secondary-container text-on-secondary-container font-bold hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+                    Catalog
+                </a>
+</li>
+</ul>
+<ul class="mt-auto flex flex-col gap-xs p-md border-t border-outline-variant">
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+                    Support
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-md p-sm rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+                    Sign Out
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-64 h-full overflow-hidden">
+<!-- TopNavBar -->
+<header class="h-16 w-full border-b border-outline-variant bg-surface-container-lowest sticky top-0 z-40 flex justify-between items-center px-margin-desktop md:px-lg lg:px-xl transition-opacity duration-150">
+<div class="md:hidden flex items-center gap-md">
+<div class="font-headline-md text-headline-md font-black text-primary">NH-Guardian</div>
+</div>
+<div class="hidden md:flex flex-1 items-center max-w-md ml-auto mr-lg">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-xl pr-md py-sm bg-surface-container rounded-full border-none focus:ring-2 focus:ring-primary text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant" placeholder="Search catalog..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant cursor-pointer">
+<!-- Placeholder avatar -->
+<img class="w-full h-full object-cover" data-alt="Professional headshot of a female security analyst in her 30s with dark hair, wearing a sleek modern headset. The background is a slightly blurred, high-tech corporate office setting with subtle cool blue lighting reflecting the brand's 'controlled vigilance' aesthetic. The image is high resolution and sharply focused." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSv_5xcTr1sJm_5SHscvjo1KbPzoa8hzoCRynauw9wghm4sj7rWhyBSKZ9FzPfPiUsmMZqE1S90z19av1LEbzbEW-jdroTEnhb4SkGfHR8HVamwRXvv5wOLuk8ocYsiz87mPJm6C91dHh0tzFSVp9G7QaW3JFCRiIZ9xdYa6BimQlPEqVD_KMLLAlSt6cwJnreGR4sE-ZcI0-ew3qljFP0A-fLfoh3CsPoqglLcFAYbrq6FsPVXo8ye-XU_GLVwJ27iRHG2g4FoA"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto p-margin-desktop md:p-lg lg:p-xl bg-background">
+<div class="max-w-container-max mx-auto h-full flex flex-col gap-lg">
+<!-- Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-md">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface">Security Check Catalog</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">102 items organized by framework (KISA Guide)</p>
+</div>
+<div class="flex items-center gap-sm">
+<button class="px-md py-sm border border-outline-variant rounded-lg flex items-center gap-xs text-body-md font-headline-sm text-on-surface hover:bg-surface-container-highest transition-colors bg-surface">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Filter
+                        </button>
+<button class="px-md py-sm bg-primary-container text-on-primary rounded-lg flex items-center gap-xs text-body-md font-headline-sm hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            Export
+                        </button>
+</div>
+</div>
+<!-- Content Area: Bento Layout -->
+<div class="grid grid-cols-12 gap-gutter flex-1 min-h-0">
+<!-- Sidebar Filters (Desktop) -->
+<div class="hidden lg:flex lg:col-span-3 flex-col gap-md">
+<div class="bg-surface border border-outline-variant rounded-xl p-md flex flex-col gap-md shadow-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Categories</h3>
+<ul class="flex flex-col gap-xs font-body-md text-body-md">
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input checked="" class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">All Frameworks</span>
+<span class="ml-auto text-on-surface-variant text-xs">102</span>
+</label>
+</li>
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">Container/Image Hardening</span>
+<span class="ml-auto text-on-surface-variant text-xs">34</span>
+</label>
+</li>
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">KISA Unix</span>
+<span class="ml-auto text-on-surface-variant text-xs">45</span>
+</label>
+</li>
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">KISA Web</span>
+<span class="ml-auto text-on-surface-variant text-xs">23</span>
+</label>
+</li>
+</ul>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-md flex flex-col gap-md shadow-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Status</h3>
+<ul class="flex flex-col gap-xs font-body-md text-body-md">
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">Automated</span>
+</label>
+</li>
+<li>
+<label class="flex items-center gap-sm cursor-pointer p-xs hover:bg-surface-container-lowest rounded">
+<input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-on-surface">Manual</span>
+</label>
+</li>
+</ul>
+</div>
+</div>
+<!-- Main Data Table Area -->
+<div class="col-span-12 lg:col-span-9 bg-surface border border-outline-variant rounded-xl flex flex-col overflow-hidden shadow-sm">
+<!-- Table Toolbar -->
+<div class="p-md border-b border-outline-variant flex items-center justify-between bg-surface-container-lowest">
+<div class="flex items-center gap-sm">
+<span class="font-body-md text-on-surface-variant">Showing 102 items</span>
+</div>
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant hover:text-primary p-xs"><span class="material-symbols-outlined text-[20px]">view_list</span></button>
+<button class="text-on-surface-variant hover:text-primary p-xs"><span class="material-symbols-outlined text-[20px]">grid_view</span></button>
+</div>
+</div>
+<!-- Table -->
+<div class="flex-1 overflow-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-lowest sticky top-0 z-10 border-b border-outline-variant shadow-sm">
+<tr>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant uppercase whitespace-nowrap w-24">ID</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant uppercase">Check Name</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant uppercase whitespace-nowrap w-40">Framework</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant uppercase whitespace-nowrap w-32">Status</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant uppercase whitespace-nowrap w-16 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Row 1 -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">CNT-01</td>
+<td class="p-md font-headline-sm text-on-surface">Root User Execution Prevention</td>
+<td class="p-md text-on-surface-variant">Container Hardening</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-surface-container text-primary font-label-caps text-[10px] uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                                Automated
+                                            </span>
+</td>
+<td class="p-md text-right text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">U-01</td>
+<td class="p-md font-headline-sm text-on-surface">Root Login Restriction</td>
+<td class="p-md text-on-surface-variant">KISA Unix</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-surface-container text-primary font-label-caps text-[10px] uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                                Automated
+                                            </span>
+</td>
+<td class="p-md text-right text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">U-02</td>
+<td class="p-md font-headline-sm text-on-surface">Password Complexity Setting</td>
+<td class="p-md text-on-surface-variant">KISA Unix</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant font-label-caps text-[10px] uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                                Manual
+                                            </span>
+</td>
+<td class="p-md text-right text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-highest transition-colors cursor-pointer group">
+<td class="p-md font-data-mono text-data-mono text-on-surface-variant">W-01</td>
+<td class="p-md font-headline-sm text-on-surface">Directory Listing Vulnerability</td>
+<td class="p-md text-on-surface-variant">KISA Web</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-surface-container text-primary font-label-caps text-[10px] uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                                Automated
+                                            </span>
+</td>
+<td class="p-md text-right text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

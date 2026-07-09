@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>자산 상세 정보 - NH-Guardian</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#e9f1ff",
+                        "surface-container-high": "#dbe9fe",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#0e1d2b",
+                        "surface-variant": "#d5e4f8",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "secondary-container": "#bfd1ff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#243141",
+                        "primary": "#003ec7",
+                        "outline": "#737688",
+                        "on-tertiary-container": "#69ffae",
+                        "on-background": "#0e1d2b",
+                        "tertiary-fixed-dim": "#44e092",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "on-error-container": "#93000a",
+                        "surface-tint": "#004ced",
+                        "inverse-primary": "#b7c4ff",
+                        "surface-container-low": "#eef4ff",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#434656",
+                        "tertiary-fixed": "#66fdac",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#051a3e",
+                        "secondary": "#4c5e85",
+                        "surface-container": "#e4efff",
+                        "tertiary": "#005a35",
+                        "on-tertiary-fixed": "#002110",
+                        "background": "#f8f9ff",
+                        "surface-container-highest": "#d5e4f8",
+                        "surface": "#f8f9ff",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#b4c6f3",
+                        "on-primary-container": "#dfe3ff",
+                        "on-primary-fixed": "#001452",
+                        "surface-dim": "#cddbf0",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#35466c",
+                        "on-secondary-container": "#485980",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#dde1ff",
+                        "secondary-fixed": "#d8e2ff",
+                        "tertiary-container": "#007546",
+                        "primary-container": "#0052ff",
+                        "outline-variant": "#c3c5d9",
+                        "surface-bright": "#f8f9ff",
+                        "on-tertiary-fixed-variant": "#00522f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "base": "4px",
+                        "gutter": "16px",
+                        "lg": "24px",
+                        "margin-desktop": "32px",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "fontWeight": "700" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "data-mono": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #F8F9FF; color: #0e1d2b; }
+        .drawer-overlay {
+            background-color: rgba(14, 29, 43, 0.4);
+            backdrop-filter: blur(2px);
+        }
+        .asset-drawer {
+            box-shadow: -12px 0 32px rgba(0, 0, 0, 0.1);
+        }
+        .status-badge-danger {
+            background-color: rgba(186, 26, 26, 0.1);
+            color: #ba1a1a;
+        }
+        .status-badge-success {
+            background-color: rgba(0, 90, 53, 0.1);
+            color: #005a35;
+        }
+        .status-badge-warning {
+            background-color: rgba(255, 165, 0, 0.1);
+            color: #d97706;
+        }
+        .nav-active {
+            border-bottom: 2px solid #0052ff;
+            color: #003ec7;
+        }
+        /* Custom scrollbar for data tables */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c3c5d9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #737688; }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased overflow-hidden flex h-screen">
+<!-- TopNavBar -->
+<!-- Suppressed Top Nav, using drawer context instead -->
+<!-- Main Canvas Context (Background layout) -->
+<div class="flex-1 flex flex-col h-full opacity-30 pointer-events-none p-margin-desktop">
+<h1 class="font-headline-md text-headline-md text-on-surface mb-lg">Assets Overview</h1>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg h-full p-md">
+<!-- Simulated background content -->
+<div class="h-12 border-b border-outline-variant mb-md flex items-center"><div class="w-1/4 h-4 bg-outline-variant rounded"></div></div>
+<div class="h-12 border-b border-outline-variant mb-md flex items-center"><div class="w-1/3 h-4 bg-outline-variant rounded"></div></div>
+</div>
+</div>
+<!-- Overlay Drawer (Asset Detail Panel) -->
+<div class="fixed inset-0 drawer-overlay z-50 flex justify-end transition-opacity duration-300">
+<div class="asset-drawer bg-surface-container-lowest w-full md:w-[600px] h-full flex flex-col transform transition-transform duration-300 translate-x-0 overflow-y-auto">
+<!-- Drawer Header -->
+<header class="p-lg border-b border-outline-variant sticky top-0 bg-surface-container-lowest z-10">
+<div class="flex justify-between items-start mb-md">
+<div>
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">dns</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">운영 DB 클러스터 01</h2>
+</div>
+<p class="font-data-mono text-data-mono text-on-surface-variant">192.168.10.55 • Ubuntu 22.04 LTS</p>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface p-sm rounded hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<div class="flex items-center justify-between mt-lg">
+<div class="flex gap-sm items-center">
+<span class="px-sm py-[2px] rounded-full status-badge-danger font-label-caps text-label-caps flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">error</span> 위험
+                        </span>
+<span class="px-sm py-[2px] rounded-full bg-surface-container text-on-surface-variant font-label-caps text-label-caps">
+                            서버 자산
+                        </span>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-sm rounded-lg border border-primary-container text-primary-container font-headline-sm text-headline-sm hover:bg-surface-container transition-colors flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">edit</span> 편집
+                        </button>
+<button class="px-md py-sm rounded-lg bg-primary-container text-on-primary font-headline-sm text-headline-sm hover:bg-primary transition-colors flex items-center gap-xs shadow-sm">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">radar</span> 스캔 실행
+                        </button>
+</div>
+</div>
+</header>
+<!-- Drawer Content (Tabs & Sections) -->
+<div class="p-lg flex-1">
+<!-- Project Association Context -->
+<div class="mb-lg p-md bg-surface-container-low border border-outline-variant rounded-lg flex items-center justify-between">
+<div>
+<p class="font-label-caps text-label-caps text-outline mb-xs">소속 프로젝트</p>
+<p class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-[18px]">account_tree</span>
+                            Alpha-Centauri Migration
+                        </p>
+</div>
+<a class="text-primary hover:text-primary-fixed-dim font-headline-sm text-headline-sm flex items-center gap-xs" href="#">
+                        View Project <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+<!-- Tabs -->
+<div class="flex border-b border-outline-variant mb-lg">
+<button class="px-md py-sm font-headline-sm text-headline-sm nav-active mr-sm">감지된 CVE (3)</button>
+<button class="px-md py-sm font-headline-sm text-headline-sm text-on-surface-variant hover:text-on-surface mr-sm">스캔 설정</button>
+<button class="px-md py-sm font-headline-sm text-headline-sm text-on-surface-variant hover:text-on-surface">점검 이력</button>
+</div>
+<!-- Tab Content: CVEs -->
+<div class="space-y-md">
+<!-- CVE Card 1 -->
+<div class="border border-outline-variant rounded-lg p-md bg-surface-container-lowest hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<span class="px-sm py-[2px] rounded-full status-badge-danger font-label-caps text-label-caps">CVSS 9.8 (위험)</span>
+<h3 class="font-data-mono text-data-mono font-bold text-on-surface">CVE-2023-4863</h3>
+</div>
+<span class="text-outline font-body-md text-body-md text-xs">Detected: 2hrs ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-sm">
+                            다중 처리 루틴에 영향을 미치는 libwebp의 힙 버퍼 오버플로우. 이 취약점은 조작된 WebP 이미지를 통한 임의 코드 실행을 허용합니다.
+                        </p>
+<div class="bg-surface p-sm rounded border border-outline-variant flex items-start gap-sm">
+<span class="material-symbols-outlined text-primary mt-[2px] text-[18px]">smart_toy</span>
+<div>
+<p class="font-label-caps text-label-caps text-outline mb-xs">AI 분석 결과 (Claude)</p>
+<p class="font-body-md text-body-md text-on-surface text-sm">사용자 업로드를 처리하는 이 자산의 최우선 순위입니다. libwebp를 v1.3.2로 즉시 패치할 것을 권장합니다. 해결 방법: webp 처리 서비스를 일시적으로 비활성화합니다.</p>
+</div>
+</div>
+</div>
+<!-- CVE Card 2 -->
+<div class="border border-outline-variant rounded-lg p-md bg-surface-container-lowest hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<span class="px-sm py-[2px] rounded-full status-badge-warning font-label-caps text-label-caps">CVSS 7.5 (높음)</span>
+<h3 class="font-data-mono text-data-mono font-bold text-on-surface">CVE-2023-38545</h3>
+</div>
+<span class="text-outline font-body-md text-body-md text-xs">Detected: 1 day ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-sm">
+                            curl의 SOCKS5 힙 버퍼 오버플로우. libcurl이 SOCKS5 프록시를 사용하도록 구성되어 있고 리디렉션을 따르는 경우 악용될 수 있습니다.
+                        </p>
+<div class="bg-surface p-sm rounded border border-outline-variant flex items-start gap-sm">
+<span class="material-symbols-outlined text-primary mt-[2px] text-[18px]">smart_toy</span>
+<div>
+<p class="font-label-caps text-label-caps text-outline mb-xs">AI 분석 결과 (Claude)</p>
+<p class="font-body-md text-body-md text-on-surface text-sm">자산 구성에 따르면 SOCKS5 프록시는 거의 사용되지 않습니다. 위험이 완화되었지만 다음 유지 관리 기간 중에 curl 8.4.0으로 패치하는 것이 좋습니다.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,467 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>NH-Guardian - 대시보드</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-on-surface": "#e9f1ff",
+                        "surface-container-high": "#dbe9fe",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#0e1d2b",
+                        "surface-variant": "#d5e4f8",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "secondary-container": "#bfd1ff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#243141",
+                        "primary": "#003ec7",
+                        "outline": "#737688",
+                        "on-tertiary-container": "#69ffae",
+                        "on-background": "#0e1d2b",
+                        "tertiary-fixed-dim": "#44e092",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "on-error-container": "#93000a",
+                        "surface-tint": "#004ced",
+                        "inverse-primary": "#b7c4ff",
+                        "surface-container-low": "#eef4ff",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#434656",
+                        "tertiary-fixed": "#66fdac",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#051a3e",
+                        "secondary": "#4c5e85",
+                        "surface-container": "#e4efff",
+                        "tertiary": "#005a35",
+                        "on-tertiary-fixed": "#002110",
+                        "background": "#f8f9ff",
+                        "surface-container-highest": "#d5e4f8",
+                        "surface": "#f8f9ff",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#b4c6f3",
+                        "on-primary-container": "#dfe3ff",
+                        "on-primary-fixed": "#001452",
+                        "surface-dim": "#cddbf0",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#35466c",
+                        "on-secondary-container": "#485980",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#dde1ff",
+                        "secondary-fixed": "#d8e2ff",
+                        "tertiary-container": "#007546",
+                        "primary-container": "#0052ff",
+                        "outline-variant": "#c3c5d9",
+                        "surface-bright": "#f8f9ff",
+                        "on-tertiary-fixed-variant": "#00522f"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "xs": "4px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "base": "4px",
+                        "gutter": "16px",
+                        "container-max": "1440px"
+                    },
+                    fontFamily: {
+                        "label-caps": ["Inter", "sans-serif"],
+                        "headline-lg-mobile": ["Inter", "sans-serif"],
+                        "display-lg": ["Inter", "sans-serif"],
+                        "headline-sm": ["Inter", "sans-serif"],
+                        "body-lg": ["Inter", "sans-serif"],
+                        "headline-md": ["Inter", "sans-serif"],
+                        "data-mono": ["JetBrains Mono", "monospace"],
+                        "body-md": ["Inter", "sans-serif"]
+                    },
+                    fontSize: {
+                        "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "700" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "30px", fontWeight: "700" }],
+                        "display-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "headline-sm": ["18px", { lineHeight: "24px", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "data-mono": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap');
+        
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Thin scrollbar for data density */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c3c5d9;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased flex">
+<!-- SideNavBar (Shared Component) -->
+<aside class="bg-surface dark:bg-inverse-surface text-primary dark:text-inverse-primary font-body-md text-body-md h-screen w-64 fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col py-lg px-md transition-colors duration-200 ease-in-out z-40">
+<!-- Brand / Header -->
+<div class="mb-xl px-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">shield</span>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">NH-Guardian</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant">AI 기반 실시간 보안&nbsp;<span style="letter-spacing: 0.05em;">점검 솔루션</span></p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex flex-col gap-sm flex-1">
+<!-- Active Tab: Dashboard -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg bg-surface-container-high dark:bg-secondary-fixed-variant text-primary dark:text-primary-fixed-dim font-bold transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="">대시보드</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="">자산 관리</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="">프로젝트</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="">점검 이력</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container dark:hover:bg-on-secondary-fixed-variant transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="">카탈로그</span>
+</a>
+</nav>
+<!-- User Profile Avatar (Bottom) -->
+<div class="mt-auto pt-md border-t border-outline-variant flex items-center gap-sm px-sm cursor-pointer hover:bg-surface-container rounded-lg p-sm transition-colors">
+<img class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="A professional, high-contrast corporate headshot of a cybersecurity analyst in a modern office environment, cool lighting, clear focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkPiG334iYwTk3Cnmt1hWTclkl3OWpMLG3Luz5aIfMRK9hMzFeAHGSyfGptIcua0h2V1UPdNuOFlYLgi2DqofIWcVrjeLUpCBhKlBPYDZZkH0GQfzPmWNQ44_sRBBtjQnujYEyWU5tRQ3EFuqOiW7clItJHWFrGNjGA_--8LmKgydmEcbbUUmKh6XrVh1TBkBu8gJo3yor_HEY0rb4FKq6DvydhyXsi1ejlVWguEaVbCPczPGLUEuIYJCwC1tGwhLVcQFYoJsrYA">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface">Admin User</span>
+<span class="text-xs text-on-surface-variant">System Lead</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper (Offsets Sidebar) -->
+<div class="ml-64 flex-1 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface dark:bg-inverse-surface text-primary dark:text-inverse-primary font-label-caps text-label-caps w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline flex justify-between items-center h-16 px-margin-desktop transition-opacity duration-150">
+<!-- Left: Links -->
+<div class="flex items-center h-full gap-lg">
+<!-- Active Link (Determined by context) -->
+<a class="h-full flex items-center text-primary dark:text-inverse-primary border-b-2 border-primary pt-[2px]" href="#">
+                    시스템 상태
+                </a>
+<!-- Inactive Link -->
+<a class="h-full flex items-center text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">
+                    연결된 자산
+                </a>
+</div>
+<!-- Right: Actions -->
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-sm rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-sm rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<!-- Canvas / Main Dashboard Content -->
+<main class="flex-1 p-margin-desktop">
+<!-- Page Header -->
+<div class="mb-lg flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">보안 현황 개요</h2>
+<p class="text-on-surface-variant mt-sm">Security posture and active metrics across all institutional assets.</p>
+</div>
+<div class="flex gap-sm">
+<button class="bg-transparent border border-outline hover:border-primary text-on-surface hover:text-primary font-label-caps text-label-caps px-md py-sm rounded transition-colors flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">download</span> 보고서 내보내기
+                    </button>
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-label-caps text-label-caps px-md py-sm rounded transition-colors shadow-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">radar</span> 전체 스캔 실행
+                    </button>
+</div>
+</div>
+<!-- Fluid Grid Layout -->
+<div class="grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-gutter">
+<!-- Metric Cards (Row 1) -->
+<!-- Total Assets -->
+<div class="col-span-4 lg:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg shadow-[0px_4px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">전체 자산</span>
+<div class="p-sm bg-surface-container rounded-md text-primary">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-on-surface">24</span>
+<p class="text-xs text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[14px] text-tertiary-container">arrow_upward</span> +2 since last scan</p>
+</div>
+</div>
+<!-- Vulnerable Assets -->
+<div class="col-span-4 lg:col-span-3 bg-surface-container-lowest border border-error/30 rounded-lg p-lg shadow-[0px_4px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between relative overflow-hidden">
+<!-- Subtle alert background indicator -->
+<div class="absolute top-0 right-0 w-24 h-24 bg-error/5 rounded-bl-full -mr-8 -mt-8 pointer-events-none"></div>
+<div class="flex justify-between items-start mb-md relative z-10">
+<span class="font-label-caps text-label-caps text-error">취약 자산</span>
+<div class="p-sm bg-error-container text-on-error-container rounded-md">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+</div>
+<div class="relative z-10">
+<span class="font-display-lg text-display-lg text-error">5</span>
+<p class="text-xs text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[14px] text-error">arrow_upward</span> +1 critical finding</p>
+</div>
+</div>
+<!-- Unresolved CVEs -->
+<div class="col-span-4 lg:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg shadow-[0px_4px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">미해결 CVE</span>
+<div class="p-sm bg-surface-container rounded-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">bug_report</span>
+</div>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-on-surface">12</span>
+<div class="w-full bg-surface-variant h-1 rounded-full mt-sm overflow-hidden">
+<div class="bg-error h-full" style="width: 45%;"></div>
+</div>
+<p class="text-xs text-on-surface-variant mt-xs">45% High Severity</p>
+</div>
+</div>
+<!-- Active Schedules -->
+<div class="col-span-4 lg:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg shadow-[0px_4px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<span class="font-label-caps text-label-caps text-on-surface-variant">활성 스케줄</span>
+<div class="p-sm bg-surface-container rounded-md text-primary">
+<span class="material-symbols-outlined text-[20px]">schedule</span>
+</div>
+</div>
+<div>
+<span class="font-display-lg text-display-lg text-on-surface">8</span>
+<p class="text-xs text-on-surface-variant mt-xs flex items-center gap-xs"><span class="material-symbols-outlined text-[14px] text-tertiary-container">check_circle</span> All routines healthy</p>
+</div>
+</div>
+<!-- Main Tables & Feeds (Row 2) -->
+<!-- Asset Security Status Table -->
+<div class="col-span-4 md:col-span-8 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.02)] overflow-hidden">
+<div class="p-md border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">자산 보안 상태</h3>
+<button class="text-primary hover:text-primary-fixed text-sm font-semibold flex items-center gap-xs">View All <span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface border-b border-outline-variant">
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Asset Name</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Status</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant">Last Scan Date</th>
+<th class="p-md font-label-caps text-label-caps text-on-surface-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="p-md font-data-mono text-data-mono font-semibold">prod-web-cluster-01</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-[2px] rounded-full bg-error-container text-on-error-container text-xs font-bold font-label-caps">
+<span class="w-2 h-2 rounded-full bg-error"></span> 취약
+                                        </span>
+</td>
+<td class="p-md text-on-surface-variant">Oct 24, 14:32 UTC</td>
+<td class="p-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="p-md font-data-mono text-data-mono font-semibold">core-db-primary</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-[2px] rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold font-label-caps">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span> 양호
+                                        </span>
+</td>
+<td class="p-md text-on-surface-variant">Oct 24, 12:00 UTC</td>
+<td class="p-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="p-md font-data-mono text-data-mono font-semibold">api-gateway-us-east</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-[2px] rounded-full bg-surface-variant text-on-surface text-xs font-bold font-label-caps">
+<span class="w-2 h-2 rounded-full bg-outline"></span> 검토
+                                        </span>
+</td>
+<td class="p-md text-on-surface-variant">Oct 23, 09:15 UTC</td>
+<td class="p-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/50 transition-colors">
+<td class="p-md font-data-mono text-data-mono font-semibold">auth-service-v2</td>
+<td class="p-md">
+<span class="inline-flex items-center gap-xs px-sm py-[2px] rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-bold font-label-caps">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span> 양호
+                                        </span>
+</td>
+<td class="p-md text-on-surface-variant">Oct 23, 08:30 UTC</td>
+<td class="p-md text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Risk CVE Top 5 Section -->
+<div class="col-span-4 md:col-span-4 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+<div class="p-md border-b border-outline-variant bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">고위험 CVE TOP 5</h3>
+<p class="text-xs text-on-surface-variant mt-xs">Highest CVSS scores detected.</p>
+</div>
+<div class="flex-1 overflow-y-auto max-h-[320px] p-md flex flex-col gap-sm">
+<!-- CVE Item -->
+<div class="border border-error/20 bg-error/5 rounded p-sm flex items-start gap-md">
+<div class="w-10 h-10 rounded-full border-4 border-error flex items-center justify-center font-bold text-error text-sm shrink-0">
+                                9.8
+                            </div>
+<div>
+<a class="font-data-mono text-data-mono font-semibold text-on-surface hover:text-primary transition-colors" href="#">CVE-2023-38545</a>
+<p class="text-xs text-on-surface-variant mt-[2px]">Impacts: <span class="font-semibold text-on-surface">prod-web-cluster-01</span></p>
+</div>
+</div>
+<!-- CVE Item -->
+<div class="border border-error/20 bg-error/5 rounded p-sm flex items-start gap-md">
+<div class="w-10 h-10 rounded-full border-4 border-error flex items-center justify-center font-bold text-error text-sm shrink-0">
+                                8.5
+                            </div>
+<div>
+<a class="font-data-mono text-data-mono font-semibold text-on-surface hover:text-primary transition-colors" href="#">CVE-2023-44487</a>
+<p class="text-xs text-on-surface-variant mt-[2px]">Impacts: <span class="font-semibold text-on-surface">api-gateway-us-east</span></p>
+</div>
+</div>
+<!-- CVE Item -->
+<div class="border border-outline-variant bg-surface rounded p-sm flex items-start gap-md">
+<div class="w-10 h-10 rounded-full border-4 border-[#eab308] flex items-center justify-center font-bold text-[#ca8a04] text-sm shrink-0">
+                                7.2
+                            </div>
+<div>
+<a class="font-data-mono text-data-mono font-semibold text-on-surface hover:text-primary transition-colors" href="#">CVE-2022-24823</a>
+<p class="text-xs text-on-surface-variant mt-[2px]">Impacts: <span class="font-semibold text-on-surface">internal-tooling-vm</span></p>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity Feed (Row 3) -->
+<div class="col-span-4 md:col-span-8 lg:col-span-6 bg-surface-container-lowest border border-outline-variant rounded-lg flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.02)]">
+<div class="p-md border-b border-outline-variant bg-surface-bright">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">최근 활동 피드</h3>
+</div>
+<div class="p-md flex flex-col gap-lg relative">
+<!-- Connecting line -->
+<div class="absolute left-[31px] top-md bottom-md w-px bg-outline-variant"></div>
+<!-- Feed Item -->
+<div class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-surface-container border-2 border-surface-container-lowest flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[16px]">radar</span>
+</div>
+<div class="pt-1">
+<p class="text-sm text-on-surface"><span class="font-semibold">Scheduled Scan</span> completed on <span class="font-data-mono text-xs">core-db-primary</span>.</p>
+<span class="text-xs text-on-surface-variant">10 minutes ago</span>
+</div>
+</div>
+<!-- Feed Item -->
+<div class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-error-container border-2 border-surface-container-lowest flex items-center justify-center text-on-error-container shrink-0">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+</div>
+<div class="pt-1">
+<p class="text-sm text-on-surface"><span class="font-semibold">Critical Vulnerability</span> detected in <span class="font-data-mono text-xs">prod-web-cluster-01</span>.</p>
+<span class="text-xs text-on-surface-variant">45 minutes ago</span>
+</div>
+</div>
+<!-- Feed Item -->
+<div class="flex gap-md relative z-10">
+<div class="w-8 h-8 rounded-full bg-surface-container border-2 border-surface-container-lowest flex items-center justify-center text-on-surface-variant shrink-0">
+<span class="material-symbols-outlined text-[16px]">person</span>
+</div>
+<div class="pt-1">
+<p class="text-sm text-on-surface"><span class="font-semibold">Admin User</span> updated scan schedule policy.</p>
+<span class="text-xs text-on-surface-variant">2 hours ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Local Image Scan Fallback Section (Row 3) -->
+<div class="col-span-4 md:col-span-8 lg:col-span-6 bg-surface-container border border-primary/20 rounded-lg p-lg shadow-sm flex flex-col justify-center relative overflow-hidden">
+<!-- Decorative background element -->
+<div class="absolute -right-12 -bottom-12 opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-[150px]">terminal</span>
+</div>
+<div class="relative z-10 flex items-start gap-md">
+<div class="p-sm bg-primary-container text-on-primary rounded shadow-sm shrink-0">
+<span class="material-symbols-outlined">terminal</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-xs">로컬 이미지 스캔 폴백</h3>
+<p class="text-sm text-on-surface-variant mb-md leading-relaxed">
+                                Pipeline disconnected or git build failed? You can manually initiate a scan on locally built container images to ensure security compliance before deployment.
+                            </p>
+<div class="flex gap-sm">
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-label-caps text-label-caps px-md py-sm rounded transition-colors shadow-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">upload</span> Select Image Archive
+                                </button>
+<button class="bg-transparent border border-outline hover:border-on-surface text-on-surface font-label-caps text-label-caps px-md py-sm rounded transition-colors">
+                                    View Docs
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

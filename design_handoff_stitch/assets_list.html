@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NH-Guardian - Assets</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#007546",
+                        "secondary-fixed-dim": "#b4c6f3",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f8f9ff",
+                        "on-secondary-fixed": "#051a3e",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "on-secondary-container": "#485980",
+                        "outline": "#737688",
+                        "outline-variant": "#c3c5d9",
+                        "on-background": "#0e1d2b",
+                        "secondary": "#4c5e85",
+                        "on-tertiary-container": "#69ffae",
+                        "on-tertiary-fixed": "#002110",
+                        "primary": "#003ec7",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#b7c4ff",
+                        "inverse-on-surface": "#e9f1ff",
+                        "surface-variant": "#d5e4f8",
+                        "surface-container-high": "#dbe9fe",
+                        "on-secondary-fixed-variant": "#35466c",
+                        "tertiary": "#005a35",
+                        "background": "#f8f9ff",
+                        "surface": "#f8f9ff",
+                        "on-surface-variant": "#434656",
+                        "on-primary-container": "#dfe3ff",
+                        "surface-container": "#e4efff",
+                        "secondary-container": "#bfd1ff",
+                        "surface-container-highest": "#d5e4f8",
+                        "on-secondary": "#ffffff",
+                        "on-surface": "#0e1d2b",
+                        "on-primary-fixed-variant": "#0038b6",
+                        "surface-dim": "#cddbf0",
+                        "surface-tint": "#004ced",
+                        "tertiary-fixed": "#66fdac",
+                        "primary-fixed": "#dde1ff",
+                        "on-tertiary-fixed-variant": "#00522f",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#243141",
+                        "primary-container": "#0052ff",
+                        "tertiary-fixed-dim": "#44e092",
+                        "surface-container-low": "#eef4ff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001452"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "container-max": "1440px",
+                        "margin-desktop": "32px",
+                        "lg": "24px",
+                        "margin-mobile": "16px",
+                        "xs": "4px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "headline-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "700"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "data-mono": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+    </style>
+</head>
+<body class="flex min-h-screen bg-background font-body-md text-body-md text-on-background">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 border-r border-outline-variant bg-surface z-40">
+<div class="flex items-center gap-3 p-lg border-b border-outline-variant">
+<div class="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary font-bold text-lg">NH</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-on-surface">NH-Guardian</h1>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">Security Assessment</p>
+</div>
+</div>
+<div class="p-4">
+<button class="w-full py-2 px-4 bg-primary-container text-on-primary rounded-lg font-headline-sm text-headline-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                Start New Scan
+            </button>
+</div>
+<ul class="flex-1 py-4 flex flex-col gap-1 px-2">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-bold transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-body-md text-body-md">Assets</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-body-md text-body-md">Projects</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-body-md text-body-md">Run History</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-body-md text-body-md">Catalog</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto border-t border-outline-variant p-2">
+<ul class="flex flex-col gap-1">
+<li>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 md:ml-64 flex flex-col min-h-screen relative">
+<!-- TopNavBar -->
+<header class="h-16 w-full border-b border-outline-variant bg-surface-container-lowest flex justify-between items-center px-margin-desktop sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-black text-primary md:hidden">NH-Guardian</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none font-body-md text-body-md w-64 transition-all" placeholder="Search assets..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-opacity duration-150 cursor-pointer">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-opacity duration-150 cursor-pointer">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant border border-outline-variant overflow-hidden cursor-pointer">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional headshot of an IT security analyst in a bright, modern corporate setting. The lighting is crisp and even, highlighting a serious but approachable expression. The background is slightly blurred showing high-tech screens with data. Corporate modern aesthetic, high contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAq2bNQdbh7lkMFHYGYadrJg4sUePXgadbVmpB-5P_BOHXsn47P_vpBxVx9xwguR79JtAhAKXfjkl8974isdGiC6mx1axuB5mXbBApn86F9e5YPtCarUlxdaT9tXzycpZ9yK3R_5tK3-BTKYNQicmaRC2UXhSlpVk8fFInqYv-ivcV73GiMoQxdmLo5PiPoPOecYgmowOfFNvhjISF8MjE8zdbwjMeJvPkxoIV4N5C9dH2ZtI2ew8QDP_ly8LazWLVmDuGDEyz4kg"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-margin-desktop bg-background">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Registered Assets</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-1">Manage and monitor all your repositories and servers.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 border border-outline-variant rounded-lg bg-surface hover:bg-surface-container-low text-primary font-headline-sm text-body-md flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined">upload_file</span>
+                        Excel Upload
+                    </button>
+<div class="relative group">
+<button class="px-4 py-2 bg-primary-container text-on-primary rounded-lg font-headline-sm text-body-md flex items-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">add</span>
+                            Add Asset
+                            <span class="material-symbols-outlined text-sm">arrow_drop_down</span>
+</button>
+<!-- Dropdown (Hidden by default, shown on hover for simplicity in static HTML) -->
+<div class="absolute right-0 mt-2 w-48 bg-surface border border-outline-variant rounded-lg shadow-[0_12px_32px_rgba(0,0,0,0.1)] hidden group-hover:block z-10 overflow-hidden">
+<a class="block px-4 py-3 hover:bg-surface-container-highest text-on-surface font-body-md text-body-md border-b border-outline-variant" href="#">Add Repository</a>
+<a class="block px-4 py-3 hover:bg-surface-container-highest text-on-surface font-body-md text-body-md" href="#">Add Server</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters & Controls -->
+<div class="mb-6 flex flex-wrap gap-4 items-center justify-between bg-surface p-4 rounded-lg border border-outline-variant">
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">filter_list</span>
+<select class="pl-9 pr-8 py-1.5 border border-outline-variant rounded-lg bg-surface text-on-surface font-body-md text-body-md focus:border-primary focus:ring-0 appearance-none cursor-pointer">
+<option>All Types</option>
+<option>Repository</option>
+<option>Server</option>
+</select>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">check_circle</span>
+<select class="pl-9 pr-8 py-1.5 border border-outline-variant rounded-lg bg-surface text-on-surface font-body-md text-body-md focus:border-primary focus:ring-0 appearance-none cursor-pointer">
+<option>All Statuses</option>
+<option>Pass</option>
+<option>Fail</option>
+<option>Review</option>
+</select>
+</div>
+</div>
+<div class="font-body-md text-body-md text-on-surface-variant">
+                    Showing <span class="font-bold text-on-surface">5</span> of <span class="font-bold text-on-surface">124</span> assets
+                </div>
+</div>
+<!-- Data Table -->
+<div class="bg-surface rounded-lg border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase">Display Name</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase">Type</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase">Project</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase">Status</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase">Last Scan Date</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-on-secondary-container uppercase text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">folder_data</span>
+</div>
+<div>
+<p class="font-headline-sm text-body-md font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer">auth-service-api</p>
+<p class="font-data-mono text-data-mono text-outline">github.com/nh-corp/auth-service</p>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-caps text-label-caps">
+                                    Repo
+                                </span>
+</td>
+<td class="py-4 px-4 font-body-md text-body-md text-on-surface">Core Infrastructure</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E6F4EA] text-[#137333] font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Pass
+                                </span>
+</td>
+<td class="py-4 px-4 font-data-mono text-data-mono text-on-surface-variant">2023-10-24 14:30</td>
+<td class="py-4 px-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Run Scan">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Edit">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-1.5 text-outline hover:text-error rounded hover:bg-error-container transition-colors" title="Delete">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">dns</span>
+</div>
+<div>
+<p class="font-headline-sm text-body-md font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer">prod-db-cluster-01</p>
+<p class="font-data-mono text-data-mono text-outline">10.0.45.112</p>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-container-highest text-on-surface font-label-caps text-label-caps">
+                                    Server
+                                </span>
+</td>
+<td class="py-4 px-4 font-body-md text-body-md text-on-surface">Data Lake</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FCE8E6] text-[#C5221F] font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">error</span> Fail
+                                </span>
+</td>
+<td class="py-4 px-4 font-data-mono text-data-mono text-on-surface-variant">2023-10-24 12:15</td>
+<td class="py-4 px-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Run Scan">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Edit">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-1.5 text-outline hover:text-error rounded hover:bg-error-container transition-colors" title="Delete">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">folder_data</span>
+</div>
+<div>
+<p class="font-headline-sm text-body-md font-bold text-on-surface group-hover:text-primary transition-colors cursor-pointer">payment-gateway-ui</p>
+<p class="font-data-mono text-data-mono text-outline">github.com/nh-corp/payment-ui</p>
+</div>
+</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-caps text-label-caps">
+                                    Repo
+                                </span>
+</td>
+<td class="py-4 px-4 font-body-md text-body-md text-on-surface">E-Commerce App</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FEF7E0] text-[#E67C73] font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">warning</span> Review
+                                </span>
+</td>
+<td class="py-4 px-4 font-data-mono text-data-mono text-on-surface-variant">2023-10-23 09:00</td>
+<td class="py-4 px-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Run Scan">
+<span class="material-symbols-outlined">play_arrow</span>
+</button>
+<button class="p-1.5 text-outline hover:text-primary rounded hover:bg-surface-container-high transition-colors" title="Edit">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="p-1.5 text-outline hover:text-error rounded hover:bg-error-container transition-colors" title="Delete">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</main>
+</div>
+</body></html>

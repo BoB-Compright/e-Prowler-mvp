@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NH-Guardian Project Share - Alpha Core Infrastructure</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-secondary-fixed-variant": "#35466c",
+                      "surface-container-high": "#dbe9fe",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#00522f",
+                      "primary": "#003ec7",
+                      "primary-container": "#0052ff",
+                      "surface-container-highest": "#d5e4f8",
+                      "on-primary-container": "#dfe3ff",
+                      "on-error": "#ffffff",
+                      "on-primary": "#ffffff",
+                      "on-surface-variant": "#434656",
+                      "surface-dim": "#cddbf0",
+                      "tertiary-fixed": "#66fdac",
+                      "surface-container-lowest": "#ffffff",
+                      "inverse-surface": "#243141",
+                      "secondary-fixed-dim": "#b4c6f3",
+                      "outline-variant": "#c3c5d9",
+                      "surface-variant": "#d5e4f8",
+                      "surface-bright": "#f8f9ff",
+                      "surface-container-low": "#eef4ff",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-fixed-dim": "#44e092",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary-fixed": "#002110",
+                      "inverse-primary": "#b7c4ff",
+                      "tertiary": "#005a35",
+                      "on-primary-fixed-variant": "#0038b6",
+                      "inverse-on-surface": "#e9f1ff",
+                      "outline": "#737688",
+                      "on-secondary-fixed": "#051a3e",
+                      "error": "#ba1a1a",
+                      "primary-fixed": "#dde1ff",
+                      "secondary-container": "#bfd1ff",
+                      "on-secondary-container": "#485980",
+                      "on-primary-fixed": "#001452",
+                      "surface": "#f8f9ff",
+                      "on-background": "#0e1d2b",
+                      "tertiary-container": "#007546",
+                      "on-tertiary-container": "#69ffae",
+                      "primary-fixed-dim": "#b7c4ff",
+                      "background": "#f8f9ff",
+                      "surface-tint": "#004ced",
+                      "secondary-fixed": "#d8e2ff",
+                      "on-surface": "#0e1d2b",
+                      "surface-container": "#e4efff",
+                      "secondary": "#4c5e85"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "32px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "margin-mobile": "16px",
+                      "base": "4px",
+                      "sm": "8px",
+                      "md": "16px",
+                      "xs": "4px",
+                      "margin-desktop": "32px",
+                      "container-max": "1440px"
+              },
+              "fontFamily": {
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "data-mono": [
+                              "13px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "30px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-sm": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #f8f9ff; /* bg-surface */
+        }
+      </style>
+</head>
+<body class="font-body-lg text-body-lg text-on-background min-h-screen flex flex-col">
+<!-- Top Navigation (No Side Nav per rules) -->
+<header class="bg-surface-container-lowest h-16 w-full border-b border-outline-variant flex justify-between items-center px-margin-desktop sticky top-0 z-50 shadow-sm">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary font-bold text-2xl">security</span>
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md font-black text-primary leading-tight">NH-Guardian</span>
+<span class="font-label-caps text-label-caps text-outline leading-tight">Project Share</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="bg-surface-container px-sm py-xs rounded-full font-label-caps text-label-caps text-secondary flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+                Read-Only View
+            </span>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer transition-opacity duration-150" data-icon="help">help</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col md:flex-row gap-lg p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Left Column: Content -->
+<div class="flex-grow flex flex-col gap-lg md:w-3/4">
+<!-- Project Header -->
+<div class="flex flex-col gap-xs mb-md">
+<h1 class="font-display-lg text-display-lg text-on-surface">Alpha Core Infrastructure</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Security Assessment Report shared via secure link.</p>
+</div>
+<!-- Overview Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<span class="font-label-caps text-label-caps text-outline">Total Assets</span>
+<div class="flex items-end gap-sm">
+<span class="font-display-lg text-display-lg text-on-surface leading-none">142</span>
+<span class="font-body-md text-body-md text-on-surface-variant mb-1">items scanned</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<span class="font-label-caps text-label-caps text-outline">Overall Risk Score</span>
+<div class="flex items-center gap-md">
+<!-- Simulated Gauge -->
+<div class="relative w-12 h-12 rounded-full border-4 border-error flex items-center justify-center bg-error-container/20">
+<span class="font-headline-sm text-headline-sm text-error font-bold">88</span>
+</div>
+<span class="font-body-md text-body-md text-error font-semibold">Critical Risk</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<span class="font-label-caps text-label-caps text-outline">Last Scan Date</span>
+<div class="flex items-end gap-sm">
+<span class="font-headline-md text-headline-md text-on-surface leading-none">Oct 24, 2023</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant">08:45 AM UTC</span>
+</div>
+</div>
+<!-- Asset List -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col mt-md">
+<div class="bg-surface p-md border-b border-outline-variant flex justify-between items-center">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Asset Security Status</h2>
+<div class="flex gap-sm">
+<button class="px-sm py-xs bg-surface-container rounded font-body-md text-body-md text-secondary hover:bg-surface-container-highest transition-colors flex items-center gap-xs border border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filter
+                        </button>
+</div>
+</div>
+<!-- Group 1 -->
+<div class="border-b border-outline-variant last:border-0">
+<div class="bg-surface-bright px-md py-sm font-label-caps text-label-caps text-outline">Database Servers (3)</div>
+<div class="flex flex-col">
+<!-- Item -->
+<div class="px-md py-sm border-b border-outline-variant last:border-0 flex justify-between items-center hover:bg-surface transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline">dns</span>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">db-prod-alpha-01</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">10.0.1.45</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="bg-error-container/20 text-error border border-error/30 px-sm py-xs rounded-full font-label-caps text-label-caps flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">cancel</span> Fail
+                                </span>
+<button class="text-primary hover:text-primary-fixed-dim font-label-caps text-label-caps opacity-0 group-hover:opacity-100 transition-opacity">View Report</button>
+</div>
+</div>
+<!-- Item -->
+<div class="px-md py-sm border-b border-outline-variant last:border-0 flex justify-between items-center hover:bg-surface transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline">dns</span>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">db-prod-alpha-02</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">10.0.1.46</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="bg-tertiary-container/10 text-tertiary border border-tertiary/30 px-sm py-xs rounded-full font-label-caps text-label-caps flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Pass
+                                </span>
+<button class="text-primary hover:text-primary-fixed-dim font-label-caps text-label-caps opacity-0 group-hover:opacity-100 transition-opacity">View Report</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Group 2 -->
+<div class="border-b border-outline-variant last:border-0">
+<div class="bg-surface-bright px-md py-sm font-label-caps text-label-caps text-outline">Edge Routers (2)</div>
+<div class="flex flex-col">
+<!-- Item -->
+<div class="px-md py-sm border-b border-outline-variant last:border-0 flex justify-between items-center hover:bg-surface transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-outline">router</span>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">er-eu-west-1</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">192.168.100.1</span>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="bg-secondary-container/30 text-on-secondary-container border border-outline-variant px-sm py-xs rounded-full font-label-caps text-label-caps flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">info</span> Review
+                                </span>
+<button class="text-primary hover:text-primary-fixed-dim font-label-caps text-label-caps opacity-0 group-hover:opacity-100 transition-opacity">View Report</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: Sidebar Info -->
+<aside class="md:w-1/4 flex flex-col gap-md">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-md flex flex-col gap-md">
+<h3 class="font-headline-sm text-headline-sm text-on-surface border-b border-outline-variant pb-sm">Project Details</h3>
+<div class="flex flex-col gap-sm">
+<span class="font-label-caps text-label-caps text-outline">Project Manager</span>
+<div class="flex items-center gap-sm">
+<img class="w-10 h-10 rounded-full object-cover border border-outline-variant" data-alt="A professional headshot of a corporate IT project manager, neutral lighting, minimalist background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFwNQwpMieI--mbpU6OrL72oj0OmzEsSLZbYY3AG93Ab1YqtLFhoIJCPeRrWbTwCkdXNHqDDVltAdmSUjVaSFkUY9JJTTu5ppQcaYMjlcKHD2q-9UI2ScFkkBb5jCQc2HowPWbPkJU0Hnnr0VrzrAjNJhNVE-rP6sijxosZUxl6bwzwJveGySU-fN4ZK5A0mY5wXlmHtQuGt9AOwWfmPZJiYGCi7V6gJBaeymvBlc8eLUEs4ry7UvmbpNNjwsJ9xVFr8eL8BdMKw"/>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">Sarah Jenkins</span>
+<span class="font-body-md text-body-md text-on-surface-variant text-[12px]">sarah.j@alpha.corp</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-sm pt-sm border-t border-outline-variant">
+<span class="font-label-caps text-label-caps text-outline">Support Contact</span>
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary bg-surface-container p-sm rounded-full">support_agent</span>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md font-semibold text-on-surface">SecOps Desk</span>
+<span class="font-body-md text-body-md text-on-surface-variant text-[12px]">Ext. 4022</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container border border-outline-variant rounded-lg p-md flex flex-col gap-sm">
+<div class="flex items-center gap-xs text-secondary">
+<span class="material-symbols-outlined">lock</span>
+<span class="font-headline-sm text-headline-sm font-semibold">Secure Share</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant text-[13px]">This link is valid for 7 days. Do not forward this URL. For full access, log into the NH-Guardian portal.</p>
+</div>
+</aside>
+</main>
+</body></html>
