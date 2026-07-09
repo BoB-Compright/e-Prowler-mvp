@@ -108,4 +108,70 @@ describe("buildReportCsv", () => {
     expect(csv).toContain("취약,0");
     expect(csv).toContain("검토,0");
   });
+
+  describe("formula injection prevention", () => {
+    it("prepends single quote to fields starting with =", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ reason: "=SUM(A1:A10)" }),
+      ]);
+
+      expect(csv).toContain("'=SUM(A1:A10)");
+    });
+
+    it("prepends single quote to fields starting with +", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ remediation: "+1234" }),
+      ]);
+
+      expect(csv).toContain("'+1234");
+    });
+
+    it("prepends single quote to fields starting with -", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ reason: "-5000" }),
+      ]);
+
+      expect(csv).toContain("'-5000");
+    });
+
+    it("prepends single quote to fields starting with @", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ remediation: "@SUM(A1)" }),
+      ]);
+
+      expect(csv).toContain("'@SUM(A1)");
+    });
+
+    it("prepends single quote to fields starting with tab character", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ reason: "\tmalicious" }),
+      ]);
+
+      expect(csv).toContain("'\tmalicious");
+    });
+
+    it("prepends single quote to fields starting with carriage return", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ remediation: "\rmalicious" }),
+      ]);
+
+      expect(csv).toContain("'\rmalicious");
+    });
+
+    it("does not affect fields with formula triggers in the middle", () => {
+      const checks: CheckResult[] = [{ id: "U-01", status: "fail", evidence: "" }];
+      const csv = buildReportCsv(makeRun(), checks, [
+        analysis({ reason: "계산값은 =1000 정도" }),
+      ]);
+
+      expect(csv).toContain("계산값은 =1000 정도");
+      expect(csv).not.toContain("'계산값은");
+    });
+  });
 });

@@ -16,8 +16,21 @@ const CRLF = "\r\n";
 
 // Quotes a single field per RFC4180: any field containing a comma, quote, or
 // newline must be wrapped in quotes, with embedded quotes doubled.
+// Also neutralizes formula injection by prepending a single quote to fields
+// starting with =, +, -, @, tab, or carriage return.
 function escapeCsvField(value: string | number): string {
   const text = String(value);
+
+  // Neutralize formula injection by prepending single quote to trigger characters
+  if (/^[=+\-@\t\r]/.test(text)) {
+    // If the text also needs quoting per RFC4180, quote it; otherwise just prepend the single quote
+    if (/[",\n\r]/.test(text)) {
+      return `"'${text.replace(/"/g, '""')}"`;
+    }
+    return `'${text}`;
+  }
+
+  // Standard RFC4180 quoting for comma, quote, or newline
   if (/[",\n\r]/.test(text)) {
     return `"${text.replace(/"/g, '""')}"`;
   }
