@@ -7,10 +7,14 @@ export async function POST(req: NextRequest) {
   invalidateSession(token);
 
   const res = NextResponse.json({ ok: true });
+  // Same attribute set as the login route's Set-Cookie — differing flags
+  // (secure in particular) can make browsers treat this as a different
+  // cookie and leave the real session cookie in place instead of clearing it.
   res.cookies.set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 0,
   });
   return res;

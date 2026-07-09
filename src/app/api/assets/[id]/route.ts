@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { AssetInUseError, deleteAsset, getAsset } from "@/lib/assets/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { listRuns } from "@/lib/pipeline/runs";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const asset = getAsset(id);
   if (!asset) {
@@ -12,7 +16,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({ asset, runs });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   try {
     deleteAsset(id);

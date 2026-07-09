@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { cancelRun, getRun } from "@/lib/pipeline/runs";
 import { stopSandbox } from "@/lib/pipeline/sandbox";
 
@@ -19,9 +20,12 @@ import { stopSandbox } from "@/lib/pipeline/sandbox";
 //   naturally settles, at which point the pipeline's own isCancelled()
 //   check stops it from advancing instead of overwriting this status.
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const run = getRun(id);
   if (!run) {

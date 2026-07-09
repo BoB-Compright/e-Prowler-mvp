@@ -14,10 +14,40 @@ function params(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
+function cancelRequest(cookie?: string): Request {
+  return new Request("http://localhost/api/runs/x/cancel", {
+    method: "POST",
+    headers: cookie ? { cookie } : undefined,
+  });
+}
+
+// Creates a real user + session in the same in-memory DB the route handler
+// uses (same module registry — everything is imported after resetModules),
+// and returns the Cookie header value for authenticated requests.
+async function authCookie(): Promise<string> {
+  const { createUser } = await import("@/lib/auth/users");
+  const { createSession } = await import("@/lib/auth/session");
+  const { SESSION_COOKIE_NAME } = await import("@/lib/auth/constants");
+  const user = createUser("tester", "test-pw");
+  const { token } = createSession(user.id);
+  return `${SESSION_COOKIE_NAME}=${token}`;
+}
+
 describe("POST /api/runs/[id]/cancel", () => {
+  it("returns 401 without a valid session (no cookie, and forged cookie)", async () => {
+    const { SESSION_COOKIE_NAME } = await import("@/lib/auth/constants");
+    const { POST } = await import("./route");
+
+    const noCookie = await POST(cancelRequest(), params("whatever"));
+    expect(noCookie.status).toBe(401);
+
+    const forged = await POST(cancelRequest(`${SESSION_COOKIE_NAME}=garbage`), params("whatever"));
+    expect(forged.status).toBe(401);
+  });
+
   it("returns 404 when the run does not exist", async () => {
     const { POST } = await import("./route");
-    const res = await POST(new Request("http://localhost/api/runs/nope/cancel", { method: "POST" }), params("nope"));
+    const res = await POST(cancelRequest(await authCookie()), params("nope"));
     expect(res.status).toBe(404);
   });
 
@@ -27,7 +57,7 @@ describe("POST /api/runs/[id]/cancel", () => {
 
     const run = createRun("https://github.com/nh/pay.git");
 
-    const res = await POST(new Request("http://localhost/api/runs/x/cancel", { method: "POST" }), params(run.id));
+    const res = await POST(cancelRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -44,7 +74,7 @@ describe("POST /api/runs/[id]/cancel", () => {
     const run = createRun("https://github.com/nh/pay.git");
     updateRunStage(run.id, "done", "succeeded");
 
-    const res = await POST(new Request("http://localhost/api/runs/x/cancel", { method: "POST" }), params(run.id));
+    const res = await POST(cancelRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(409);
   });
 
@@ -55,7 +85,7 @@ describe("POST /api/runs/[id]/cancel", () => {
     const run = createRun("https://github.com/nh/pay.git");
     updateRunStage(run.id, "build", "failed", { errorMessage: "boom" });
 
-    const res = await POST(new Request("http://localhost/api/runs/x/cancel", { method: "POST" }), params(run.id));
+    const res = await POST(cancelRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(409);
   });
 
@@ -66,7 +96,7 @@ describe("POST /api/runs/[id]/cancel", () => {
     const run = createRun("https://github.com/nh/pay.git");
     cancelRun(run.id, "먼저 취소됨");
 
-    const res = await POST(new Request("http://localhost/api/runs/x/cancel", { method: "POST" }), params(run.id));
+    const res = await POST(cancelRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(409);
   });
 });

@@ -6,8 +6,12 @@ import {
   revokeShareLink,
   setShareLinkEnabled,
 } from "@/lib/projects/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const newPassword = typeof body?.password === "string" ? body.password : "";
@@ -24,6 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 // Toggles (active <-> disabled) or permanently revokes a project's share link.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const action = body?.action;

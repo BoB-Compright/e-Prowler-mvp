@@ -15,16 +15,24 @@ import { PUBLIC_ROUTE_HEADER, SESSION_COOKIE_NAME, isPublicPath } from "@/lib/au
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Strip any client-supplied x-public-route header on EVERY request before
+  // forwarding — the root layout trusts this header to decide whether to
+  // skip its DB-backed session check, so it must only ever see proxy-authored
+  // values. Without this, sending "x-public-route: 1" by hand (plus any
+  // garbage cookie to get past the presence check below) would render
+  // protected pages unauthenticated.
+  const headers = new Headers(request.headers);
+  headers.delete(PUBLIC_ROUTE_HEADER);
+
   if (isPublicPath(pathname)) {
     // Tell the root layout this route must stay reachable without a session,
     // so it skips the real (DB-backed) check for /login and /share/*.
-    const headers = new Headers(request.headers);
     headers.set(PUBLIC_ROUTE_HEADER, "1");
     return NextResponse.next({ request: { headers } });
   }
 
   if (request.cookies.has(SESSION_COOKIE_NAME)) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers } });
   }
 
   if (pathname.startsWith("/api/")) {

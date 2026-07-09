@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getProject } from "@/lib/projects/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { startProjectFleetScan } from "@/lib/pipeline/serverScan";
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const project = getProject(id);
   if (!project) {

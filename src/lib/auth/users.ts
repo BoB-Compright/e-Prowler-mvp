@@ -41,6 +41,12 @@ export function countUsers(db: Database = getDb()): number {
   return row.count;
 }
 
+// Fixed decoy hash (computed once at module load) verified against when the
+// username doesn't exist, so both failure paths pay the same scrypt cost —
+// otherwise the fast unknown-username return would let an attacker enumerate
+// valid usernames by timing the login endpoint.
+const DECOY_HASH = hashPassword("decoy-password-for-timing-equalization");
+
 // Returns the user on success, or null for an unknown username / wrong
 // password. Deliberately doesn't distinguish the two in its return value —
 // callers must not leak which one failed.
@@ -52,7 +58,13 @@ export function verifyCredentials(
   const row = db.prepare(`SELECT * FROM users WHERE username = ?`).get(username) as
     | UserRow
     | undefined;
-  if (!row) return null;
+  if (!row) {
+    // Burn the same scrypt work as the known-username path. This can never
+    // verify: the decoy hash was derived from a fixed literal with a random
+    // salt, not from the submitted password.
+    verifyPassword(password, DECOY_HASH);
+    return null;
+  }
   if (!verifyPassword(password, row.password_hash)) return null;
   return toUser(row);
 }

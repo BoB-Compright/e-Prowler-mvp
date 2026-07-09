@@ -65,34 +65,39 @@ Next 16은 `middleware.ts` 컨벤션을 `proxy.ts`로 개명했다(동작은 동
 프리페치된 라우트에서도 실행되므로 DB 조회 없이 쿠키만 읽는 낙관적(optimistic) 검사만
 하라"고 권고한다.
 
-**결정**: 2단계 구조를 쓴다.
+**결정**: 프록시(낙관적 선별) + 실검증 2계층(페이지는 레이아웃, API는 핸들러) 구조를 쓴다.
 
 1. **`src/proxy.ts` (경량, DB 미접근)** — `src/lib/auth/constants.ts`(DB 의존성 없음)만
    import해서 요청 경로가 공개 경로인지 분류하고, 보호 경로라면 세션 쿠키의 "존재 여부"만
    확인한다. 쿠키가 없으면: API 경로는 401 JSON, 페이지 경로는 `/login`으로 리다이렉트.
    쿠키가 있으면(값의 유효성은 검증하지 않고) 통과시키되, 공개 경로 여부를 응답 요청
    헤더(`x-public-route: 1`)로 표시해 다음 단계(서버 컴포넌트)가 재사용할 수 있게 한다.
-2. **`requireSessionUserOrRedirect()` (실제 검증, DB 접근)** — 루트 레이아웃
+   **스푸핑 차단**: 프록시는 매 요청마다 클라이언트가 보낸 `x-public-route` 헤더를 먼저
+   제거한 뒤 전달한다 — 이 헤더는 프록시만 쓸 수 있어야 하며, 지우지 않으면 공격자가
+   직접 `x-public-route: 1`을 붙여 레이아웃의 실검증을 건너뛸 수 있다.
+2. **`requireSessionUserOrRedirect()` (페이지 실검증, DB 접근)** — 루트 레이아웃
    (`src/app/layout.tsx`)이 모든 페이지를 감싸므로, 여기서 `x-public-route` 헤더가 없는
    요청(=보호 페이지)에 대해서만 쿠키의 세션 토큰을 DB와 대조해 실제로 유효한지 검사한다.
    무효/만료 세션이면 `redirect("/login")`. 공개 경로(`/login`, `/share/*`)에서는 이 검사를
    건너뛰고, 대신 비검증 조회(`getSessionUserFromCookies()`)로 "로그인은 돼 있으나 공개
    페이지를 보는 중"인 경우에 한해 헤더 프로필 블록을 채우는 데만 쓴다.
-   API 라우트를 보호해야 하는 새 엔드포인트가 생기면 `requireSession(request)`(route
-   helper, `src/lib/auth/requireSession.ts`)를 호출해 401을 직접 반환한다.
+3. **`requireApiSession(request)` (API 실검증, DB 접근)** — 모든 보호 API 라우트 핸들러의
+   첫 문장에서 호출한다(`src/lib/auth/requireSession.ts`). 유효한(DB 대조, 미만료) 세션이
+   없으면 401 JSON 응답을 반환하고, 유효하면 null을 반환해 핸들러가 진행한다. 프록시의
+   쿠키 존재 검사는 낙관적 선별일 뿐이라 위조 쿠키(`eprowler_session=garbage`)를 통과시키므로,
+   실제로 요청을 막는 것은 이 핸들러 레벨 검증이다(종적 방어, defense in depth).
+   `/api/share/[token]`(공유 링크)과 `/api/auth/*`(로그인 플로우 자체)에는 넣지 않는다.
 
-**기존 API 라우트 핸들러는 이번 작업에서 건드리지 않는다.** 628개 기존 테스트는 라우트
-핸들러를 프록시 없이 직접 호출한다(`POST(jsonRequest(...))` 형태) — 여기에 `requireSession`
-호출을 끼워 넣으면 테스트마다 로그인 쿠키를 준비해야 해서 대량으로 깨진다. 대신 실제 HTTP
-경로에서는 `proxy.ts`가 그 앞을 막으므로, "핸들러 유닛 테스트는 인증을 우회하지만 실제
-요청은 항상 프록시를 통과한다"는 전제가 성립하는 한 안전하다.
+**라우트 핸들러 유닛 테스트는 인증을 정직하게 통과한다**: 각 테스트가 자기 in-memory
+DB에 실제 사용자+세션을 만들고(`createUser`/`createSession`) 그 세션 쿠키를 요청 헤더로
+전달한다. env 플래그 같은 인증 우회 장치는 두지 않는다 — 테스트용 우회 장치는 그 자체가
+프로덕션 우회 경로가 되기 때문이다. 보호 API 테스트 파일마다 "유효 세션 없이는 401"
+케이스를 함께 둔다.
 
-**트레이드오프**: 이 설계는 기존 핸들러 각각에 인가 로직이 없다는 뜻이다 — 만약 프록시를
-우회하는 다른 진입 경로(예: 서버 액션 직접 호출, 다른 프록시 앞단)가 생기면 보호가
-뚫린다. 현재는 App Router route handler가 유일한 API 진입점이고 모두 `proxy.ts`의
-matcher(정적 자산 제외 전체 경로)를 통과하므로 문제 없지만, 향후 라우트 핸들러 수가
-늘거나 팀이 커지면 각 핸들러 내부에도 `requireSession()`을 명시적으로 추가하는 종적
-방어(defense in depth)로 전환하는 것을 후속 과제로 남긴다.
+**이력**: 최초 구현(0fbdc91)은 "프록시 단일 경계 + 기존 핸들러 미변경"이었으나, 위조
+쿠키가 프록시의 존재 검사를 통과해 모든 보호 API에 접근할 수 있다는 보안 리뷰
+지적(Critical)에 따라 핸들러 레벨 `requireApiSession()` 종적 방어로 전환했다.
+`x-public-route` 스푸핑 차단(위 1의 헤더 제거)도 같은 리뷰에서 나왔다.
 
 ### 5. 초기 관리자 계정 — 첫 기동 시 env 기반 생성
 
@@ -125,7 +130,8 @@ matcher(정적 자산 제외 전체 경로)를 통과하므로 문제 없지만,
 | JWT stateless 세션(서명된 쿠키만, DB 미조회) | 로그아웃 시 즉시 무효화가 안 됨(만료까지 유효) — 바인딩 요구사항(로그아웃 시 무효화)과 충돌 |
 | bcrypt/argon2 | 신규 의존성 — Node 내장 scrypt로 충분 |
 | `proxy.ts`에서 `better-sqlite3`로 직접 세션 검증 | 네이티브 addon의 프록시 번들 제약, 매 요청 DB 조회 비용 — Next 공식 가이드도 낙관적 검사만 권고 |
-| 모든 기존 라우트 핸들러에 `requireSession()` 삽입 | 628개 기존 테스트가 대량으로 깨짐 — 대신 프록시 단일 경계로 처리(트레이드오프는 위에 명시) |
+| 프록시 단일 경계(핸들러 미변경, 최초 구현) | 위조 쿠키가 존재 검사를 통과해 모든 보호 API 접근 가능(보안 리뷰 Critical) — 핸들러 레벨 `requireApiSession()` 종적 방어로 전환, 기존 테스트는 실제 세션 쿠키를 만들어 정직하게 통과시킴 |
+| 테스트용 인증 우회 env 플래그 | 우회 장치 자체가 프로덕션 우회 경로가 됨 — 테스트가 실제 사용자+세션을 생성해 인증을 통과하는 쪽을 선택 |
 
 ## 결과
 
@@ -135,6 +141,7 @@ matcher(정적 자산 제외 전체 경로)를 통과하므로 문제 없지만,
 - 신규 모듈: `src/lib/auth/{constants,password,users,session,requireSession,seedAdmin}.ts`.
 - 신규 라우트: `src/app/login/page.tsx`, `src/app/api/auth/login/route.ts`,
   `src/app/api/auth/logout/route.ts`.
-- 신규 가드: `src/proxy.ts`.
+- 신규 가드: `src/proxy.ts` + 모든 보호 API 핸들러 첫 줄의 `requireApiSession()`.
 - 변경: `src/app/_components/AppHeader.tsx`(프로필 블록), `src/app/layout.tsx`(세션 조회 +
-  보호 페이지 리다이렉트), `src/instrumentation.ts`(관리자 시드 호출).
+  보호 페이지 리다이렉트), `src/instrumentation.ts`(관리자 시드 호출), 보호 API 라우트
+  16개 파일(핸들러 21개)에 세션 가드 삽입.

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { importAssetsFromWorkbook } from "@/lib/assets/excelImport";
+import { requireApiSession } from "@/lib/auth/requireSession";
 
 export async function POST(req: NextRequest) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const formData = await req.formData().catch(() => null);
   const file = formData?.get("file");
   if (!(file instanceof File)) {

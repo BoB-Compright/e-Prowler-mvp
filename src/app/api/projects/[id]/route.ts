@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ProjectNotFoundError, deleteProject, getProject, updateProject } from "@/lib/projects/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { listAssets } from "@/lib/assets/store";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const project = getProject(id);
   if (!project) return NextResponse.json({ error: "project not found" }, { status: 404 });
@@ -10,6 +14,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const body = await req.json().catch(() => null);
   try {
@@ -27,7 +34,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   deleteProject(id);
   return NextResponse.json({ ok: true });

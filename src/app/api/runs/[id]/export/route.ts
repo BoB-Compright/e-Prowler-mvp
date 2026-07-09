@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { getRun } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
 import { listCheckResults } from "@/lib/checks/store";
@@ -26,9 +27,12 @@ function buildExportFilename(run: Run): string {
 // (matches the report page itself, which only offers this button once
 // run.status !== "running" and skips it whenever there's nothing to show).
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const run = getRun(id);
   if (!run) {

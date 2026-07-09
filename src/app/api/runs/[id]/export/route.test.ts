@@ -14,10 +14,39 @@ function params(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
+function exportRequest(cookie?: string): Request {
+  return new Request("http://localhost/api/runs/x/export", {
+    headers: cookie ? { cookie } : undefined,
+  });
+}
+
+// Creates a real user + session in the same in-memory DB the route handler
+// uses (same module registry — everything is imported after resetModules),
+// and returns the Cookie header value for authenticated requests.
+async function authCookie(): Promise<string> {
+  const { createUser } = await import("@/lib/auth/users");
+  const { createSession } = await import("@/lib/auth/session");
+  const { SESSION_COOKIE_NAME } = await import("@/lib/auth/constants");
+  const user = createUser("tester", "test-pw");
+  const { token } = createSession(user.id);
+  return `${SESSION_COOKIE_NAME}=${token}`;
+}
+
 describe("GET /api/runs/[id]/export", () => {
+  it("returns 401 without a valid session (no cookie, and forged cookie)", async () => {
+    const { SESSION_COOKIE_NAME } = await import("@/lib/auth/constants");
+    const { GET } = await import("./route");
+
+    const noCookie = await GET(exportRequest(), params("whatever"));
+    expect(noCookie.status).toBe(401);
+
+    const forged = await GET(exportRequest(`${SESSION_COOKIE_NAME}=garbage`), params("whatever"));
+    expect(forged.status).toBe(401);
+  });
+
   it("returns 404 when the run does not exist", async () => {
     const { GET } = await import("./route");
-    const res = await GET(new Request("http://localhost/api/runs/nope/export"), params("nope"));
+    const res = await GET(exportRequest(await authCookie()), params("nope"));
     expect(res.status).toBe(404);
   });
 
@@ -27,7 +56,7 @@ describe("GET /api/runs/[id]/export", () => {
 
     const run = createRun("https://github.com/nh/pay.git");
 
-    const res = await GET(new Request("http://localhost/api/runs/x/export"), params(run.id));
+    const res = await GET(exportRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(400);
   });
 
@@ -38,7 +67,7 @@ describe("GET /api/runs/[id]/export", () => {
     const run = createRun("https://github.com/nh/pay.git");
     updateRunStage(run.id, "done", "failed", { errorMessage: "boom" });
 
-    const res = await GET(new Request("http://localhost/api/runs/x/export"), params(run.id));
+    const res = await GET(exportRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(400);
   });
 
@@ -56,7 +85,7 @@ describe("GET /api/runs/[id]/export", () => {
     saveCheckResults(run.id, [{ id: "U-01", status: "pass", evidence: "ok" }]);
     updateRunStage(run.id, "done", "succeeded");
 
-    const res = await GET(new Request("http://localhost/api/runs/x/export"), params(run.id));
+    const res = await GET(exportRequest(await authCookie()), params(run.id));
     expect(res.status).toBe(200);
 
     const disposition = res.headers.get("Content-Disposition") ?? "";

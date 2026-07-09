@@ -50,4 +50,18 @@ describe("verifyCredentials", () => {
   it("returns null for an unknown username", () => {
     expect(verifyCredentials("nobody", "hunter2", db)).toBeNull();
   });
+
+  // Guards the anti-enumeration property: unknown username and wrong password
+  // must be indistinguishable in the return value (both plain null, no
+  // error/undefined split). The equal-cost decoy hashing that equalizes the
+  // *timing* of the two paths lives in verifyCredentials itself — timing is
+  // not asserted here.
+  it("is indistinguishable between unknown username and wrong password", () => {
+    createUser("admin", "hunter2", db);
+    const unknownUser = verifyCredentials("nobody", "hunter2", db);
+    const wrongPassword = verifyCredentials("admin", "wrong", db);
+    expect(unknownUser).toBeNull();
+    expect(wrongPassword).toBeNull();
+    expect(unknownUser).toStrictEqual(wrongPassword);
+  });
 });

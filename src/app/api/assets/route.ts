@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DuplicateAssetError, createRepoAsset, createServerAsset, listAssets } from "@/lib/assets/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 
 function optionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -8,6 +9,9 @@ function optionalString(value: unknown): string | null {
 }
 
 export function GET(req: NextRequest) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const projectIdParam = req.nextUrl.searchParams.get("projectId");
   const typeParam = req.nextUrl.searchParams.get("type");
   const filter: Parameters<typeof listAssets>[0] = {};
@@ -21,6 +25,9 @@ export function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const body = await req.json().catch(() => null);
   const type = body?.type;
   try {

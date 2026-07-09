@@ -4,14 +4,21 @@ import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { createServerRun, runServerScanPipeline } from "@/lib/pipeline/serverScan";
 import { listLocalImages } from "@/lib/pipeline/localImages";
 import { getAsset } from "@/lib/assets/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 import { hasActiveRun } from "@/lib/scheduling/trigger";
 
-export function GET() {
+export function GET(req: Request) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   return NextResponse.json({ runs: listRuns() });
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const body = await req.json().catch(() => null);
   const imageTag = typeof body?.imageTag === "string" ? body.imageTag.trim() : "";
 

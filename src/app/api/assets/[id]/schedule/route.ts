@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAsset } from "@/lib/assets/store";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { deleteScheduleForAsset, getScheduleByAsset, upsertSchedule } from "@/lib/scheduling/store";
 import type { ScheduleFrequency } from "@/lib/scheduling/types";
 
@@ -46,7 +47,10 @@ function validateInput(body: unknown): ValidScheduleInput | { error: string } {
   return { frequency, dayOfWeek, dayOfMonth, timeOfDay, enabled };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const asset = getAsset(id);
   if (!asset) {
@@ -56,6 +60,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const asset = getAsset(id);
   if (!asset) {
@@ -72,7 +79,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ schedule });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   deleteScheduleForAsset(id);
   return NextResponse.json({ ok: true });

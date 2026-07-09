@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
+import { requireApiSession } from "@/lib/auth/requireSession";
 import { getRun, listRunEvents } from "@/lib/pipeline/runs";
 import { listCheckResults } from "@/lib/checks/store";
 import { listAnalysisReports } from "@/lib/claude";
 import { getCatalogItem } from "@/lib/catalog";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const unauthorized = requireApiSession(req);
+  if (unauthorized) return unauthorized;
+
   const { id } = await params;
   const run = getRun(id);
   if (!run) {
