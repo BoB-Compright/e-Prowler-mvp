@@ -64,6 +64,26 @@ docker-compose up -d
 
 ---
 
+## 🔑 로그인 계정 (인증)
+
+`/login` 외의 모든 화면·API는 로그인이 필요하다(공유 링크 `/share/[token]`과 그 API는
+예외 — 설계 근거는 `docs/adr/0001-authentication-local-accounts.md` 참고).
+
+최초 관리자 계정은 서버가 처음 기동될 때(Next.js `instrumentation.ts`) 아래 두 환경변수가
+설정돼 있고 계정이 하나도 없는 경우에만 자동으로 생성된다(멱등 — 이미 계정이 있으면
+아무 동작도 하지 않는다):
+
+```
+AUTH_ADMIN_USERNAME=admin
+AUTH_ADMIN_PASSWORD=<원하는 초기 비밀번호>
+```
+
+`.env`에 위 값을 넣고 서버를 (재)기동하면 콘솔에 `[auth] created initial admin account: admin`
+로그가 출력된다(비밀번호는 어떤 로그에도 남기지 않는다). 이후 `/login`에서 해당
+아이디/비밀번호로 로그인한다. 계정이 이미 만들어진 뒤에는 이 환경변수를 지워도 무방하다.
+
+---
+
 ## 🔐 보안 설정
 
 ### 암호화 키 관리
