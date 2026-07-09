@@ -6,10 +6,13 @@ import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
 
+type AssetVerdict = "pass" | "fail" | "review" | "error" | "running" | "cancelled" | "none";
+
 interface ShareAsset {
   id: string;
   displayName: string;
   type: "repo" | "server";
+  verdict: AssetVerdict;
 }
 
 interface ShareRun {
@@ -29,8 +32,8 @@ function formatTimestamp(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
 }
 
-// 공유 뷰는 파이프라인 실행 상태(running/succeeded/failed)만 노출한다 — 취약점 판정
-// (양호/취약/검토)은 API가 반환하지 않으므로 새 데이터를 추가하지 않고 그대로 표시만 한다.
+// 공유 뷰는 파이프라인 실행 상태(running/succeeded/failed)만 이력 표시에 사용한다 —
+// 취약점 판정(양호/취약/검토)은 자산 테이블의 판정 배지(verdictBadge)로만 노출한다.
 function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: string } {
   if (!run) return { status: "neutral", label: "점검 전" };
   if (run.status === "running") return { status: "progress", label: "진행 중" };
@@ -39,6 +42,19 @@ function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: stri
   if (run.status === "succeeded") return { status: "neutral", label: "완료" };
   return { status: "neutral", label: run.status };
 }
+
+// 자산별 판정 배지 매핑 (#72) — 내부 자산 관리 화면(src/app/assets/page.tsx의
+// STATUS_BADGE)과 동일한 규칙을 사용한다: 실패(error, 파이프라인 자체 실패)는
+// 취약(fail, 점검은 성공했지만 취약점 발견)과 구분되는 별개의 배지다.
+const VERDICT_BADGE: Record<AssetVerdict, { status: BadgeStatus; label: string }> = {
+  pass: { status: "pass", label: "양호" },
+  fail: { status: "fail", label: "취약" },
+  review: { status: "review", label: "검토" },
+  error: { status: "fail", label: "실패" },
+  running: { status: "progress", label: "진행 중" },
+  cancelled: { status: "neutral", label: "취소됨" },
+  none: { status: "neutral", label: "미점검" },
+};
 
 type ShareLinkStatus = { ok: true } | { ok: false; reason: "not_found" | "disabled" | "revoked" };
 
@@ -124,14 +140,14 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                           <SectionLabel>최근 점검</SectionLabel>
                         </th>
                         <th className="px-5 py-3">
-                          <SectionLabel>상태</SectionLabel>
+                          <SectionLabel>판정</SectionLabel>
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {data.assets.map((asset) => {
                         const run = latestRunByAsset.get(asset.id);
-                        const badge = runBadge(run);
+                        const verdictBadge = VERDICT_BADGE[asset.verdict];
                         return (
                           <tr key={asset.id} className="hover:bg-bg">
                             <td className="px-5 py-3 font-semibold">{asset.displayName}</td>
@@ -142,7 +158,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                               {run ? formatTimestamp(run.createdAt) : "—"}
                             </td>
                             <td className="px-5 py-3">
-                              <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                              <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
                             </td>
                           </tr>
                         );
