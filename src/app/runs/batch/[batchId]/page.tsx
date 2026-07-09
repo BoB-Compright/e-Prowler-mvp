@@ -55,7 +55,7 @@ export default async function BatchPage({
             {runs.map((run) => {
               const summary = getRunRiskSummary(run.id);
               const outcome = overallRunOutcome(summary);
-              const color = OUTCOME_COLOR[outcome];
+              const color = run.status === "failed" ? OUTCOME_COLOR.fail : OUTCOME_COLOR[outcome];
               return (
                 <tr key={run.id} className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface)]">
                   <td className="px-3.5 py-2.5">
@@ -75,7 +75,11 @@ export default async function BatchPage({
                       style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                      {run.status === "running" ? "진행 중" : CHECK_STATUS_LABELS[outcome]}
+                      {run.status === "running"
+                        ? "진행 중"
+                        : run.status === "failed"
+                          ? "실패"
+                          : CHECK_STATUS_LABELS[outcome]}
                     </span>
                   </td>
                 </tr>

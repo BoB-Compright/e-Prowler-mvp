@@ -84,7 +84,7 @@ export default async function RunsPage({
               {runs.map((run) => {
                 const summary = getRunRiskSummary(run.id);
                 const outcome = overallRunOutcome(summary);
-                const color = OUTCOME_COLOR[outcome];
+                const color = run.status === "failed" ? OUTCOME_COLOR.fail : OUTCOME_COLOR[outcome];
                 return (
                   <tr
                     key={run.id}
@@ -135,7 +135,11 @@ export default async function RunsPage({
                         style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color }}
                       >
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
-                        {run.status === "running" ? "진행 중" : CHECK_STATUS_LABELS[outcome]}
+                        {run.status === "running"
+                          ? "진행 중"
+                          : run.status === "failed"
+                            ? "실패"
+                            : CHECK_STATUS_LABELS[outcome]}
                       </span>
                     </td>
                   </tr>
