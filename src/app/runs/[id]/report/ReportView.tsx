@@ -58,6 +58,25 @@ function formatTimestamp(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
 }
 
+function InlineCodeText({ text }: { text: string }) {
+  const parts = text.split("`");
+  // 백틱 짝이 안 맞으면 스타일 없이 원문 그대로
+  if (parts.length % 2 === 0) return <>{text}</>;
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <code key={i} className="rounded bg-bg px-1.5 py-0.5 font-mono text-[12.5px]">
+            {part}
+          </code>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 export function ReportView({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [checks, setChecks] = useState<DecoratedCheckResult[]>([]);
@@ -260,7 +279,11 @@ export function ReportView({ runId }: { runId: string }) {
                     : "설명"}
                 </SectionLabel>
                 <p className="mt-1.5 text-sm leading-relaxed">
-                  {selected.reason ?? "아직 분석되지 않았습니다."}
+                  {selected.reason ? (
+                    <InlineCodeText text={selected.reason} />
+                  ) : (
+                    "아직 분석되지 않았습니다."
+                  )}
                 </p>
               </div>
 
@@ -274,7 +297,9 @@ export function ReportView({ runId }: { runId: string }) {
               {selected.remediation && (
                 <div className="mt-4.5">
                   <SectionLabel>조치방안</SectionLabel>
-                  <p className="mt-1.5 text-sm leading-relaxed">{selected.remediation}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed">
+                    <InlineCodeText text={selected.remediation} />
+                  </p>
                 </div>
               )}
 
