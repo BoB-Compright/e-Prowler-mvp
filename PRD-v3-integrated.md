@@ -9,7 +9,7 @@
 
 ## 0. 이 문서가 통합하는 범위
 
-초기 PRD(v2)는 "GitHub 레포 → Docker 빌드 → Sandbox → Ansible 점검 → Claude 분석 → Dashboard"의 **단건 컨테이너 점검 파이프라인**이었다. 이후 다음 5개 서브 프로젝트가 순차 구현되어 제품의 중심 축이 **자산(Asset)**으로 이동했다:
+초기 PRD(v2)는 "GitHub 레포 → Docker 빌드 → Sandbox → Ansible 점검 → Claude 분석 → Dashboard"의 **단건 컨테이너 점검 파이프라인**이었다. 이후 다음 6개 서브 프로젝트가 구현되어 제품의 중심 축이 **자산(Asset)**으로 이동했다:
 
 | 코드 | 이름 | 핵심 추가 |
 |---|---|---|
@@ -48,20 +48,23 @@
 
 ### F1. 자산 관리 + 프로젝트 그룹핑 (A1)
 - 레포 자산(GitHub URL) / 서버 자산(host IP·SSH 인증정보) 등록·조회·삭제
-- 수동 등록 폼 + 엑셀 일괄 업로드(레포 시트 / 서버 시트, 행별 best-effort)
-- 프로젝트 CRUD + PM 연락처 + 공유링크 발급/재발급
+- 수동 등록 폼 + 엑셀 일괄 업로드(레포 시트 / 서버 시트, 행별 best-effort) + **작성용 템플릿 다운로드** 제공
+- 프로젝트 CRUD + PM 연락처 + 공유링크 발급/재발급 — 비밀번호 5회 실패 시 15분 잠금, 잠금 만료 후 실패 카운터 자동 리셋
 - 자산을 프로젝트로 그룹핑(미분류 허용)
 - 서버 자산의 SSH 자격증명은 AES-256-GCM(`INFRA_SECURITY_MASTER_KEY`)으로 암호화 저장, 응답·로그·AI payload에 평문 노출 금지
 - 중복 방지: 레포는 정규화 URL, 서버는 `host_ip`+`ssh_port` 조합
+- 삭제 안전장치: 진행 중 run이 있는 자산은 삭제 차단, 삭제 시 자식 데이터는 §5의 cascade 정책대로 함께 정리
 
 ### F2. 컨테이너(레포) 점검 파이프라인 (v2 기반)
 `clone → build → sandbox → ansible → rule_eval → claude → done` 6단계. GitHub clone/Docker build 실패 시 **로컬 이미지 재점검(fallback)**으로 sandbox부터 재개(대시보드 하단 접이식 섹션).
 
+리소스 안전장치: sandbox 단계에 10분 최대 수명 타임아웃(초과 시 컨테이너 강제 종료 + run 실패 처리), git 소스 run의 일회용 빌드 이미지(`scan-<runId>`)는 성공/실패와 무관하게 자동 삭제(로컬 이미지 재점검은 사용자 소유 이미지이므로 삭제하지 않음).
+
 ### F3. 서버(SSH) 점검 실행 엔진 (A2)
 - 서버 자산 단건 점검: `connect → ansible_scan → rule_evaluation → claude_analysis → done` (4+1단계)
 - 프로젝트 단위 **fleet scan**(최대 5대 동시, 실패 격리 — 한 서버 실패가 배치 전체를 중단시키지 않음)
-- 인증: 비밀번호(paramiko, extra-var 전달) / 키(복호화 → 0600 임시파일 → 실행 후 즉시 삭제)
-- 연결 실패만 재시도(30초 간격 3회), 인증 실패는 즉시 실패(자격증명 노출 없이 "인증 실패"만 기록)
+- 인증: 비밀번호(ansible `-c paramiko` 커넥션 + extra-var 전달) / 키(복호화 → 0600 임시파일 → `-c ssh --private-key` → 실행 후 즉시 삭제)
+- 연결 실패만 재시도(30초 간격, 최대 총 3회 시도), 인증 실패는 즉시 실패(자격증명 노출 없이 "인증 실패"만 기록)
 
 ### F4. 컴플라이언스 프레임워크 (B)
 - 점검 항목 카탈로그를 **프레임워크 축**으로 일반화. 현재 KISA 가이드 1개 등록
@@ -85,6 +88,7 @@
 - **홈 대시보드(`/`)**: 지표 카드 4장(총 자산 / 취약 자산 / 미해결 CVE / 활성 스케줄) + 위험 CVE Top5 + 자산별 보안 현황 테이블 + 최근 점검 활동 피드
 - **자산 상세 = 허브(`/assets/[id]`)**: 점검 시작 버튼 + 정기 점검 설정 + (서버) 감지된 CVE + 점검 이력(배지·리포트 링크) + 소속 프로젝트 링크
 - 점검 진입점을 자산 상세로 통일("점검 실행" 탭 제거)
+- 다크/라이트 테마 토글(헤더)
 
 ### F8. AI 분석 (v2 기반)
 Ansible evidence + 룰 평가 결과를 입력받아 취약점 설명·위험도·판정 근거·조치방안(remediation)·설정 예시를 한국어로 생성. Claude가 점검 기준을 임의 생성하거나 판정을 대체하지 않음. 입력 전 민감정보 sanitize. `CLAUDE_ANALYSIS_ENABLED` 환경변수로 게이트(토큰 절약).
@@ -122,10 +126,10 @@ Ansible evidence + 룰 평가 결과를 입력받아 취약점 설명·위험도
 | `scan_batches` | fleet scan 묶음 | `project_id` |
 | `schedules` | 자산별 정기 점검 | `asset_id`(UNIQUE), `frequency`, `day_of_week`, `day_of_month`, `time_of_day`, `enabled`, `next_run_at`, `last_run_at`, `last_skip_reason` |
 | `installed_packages` | 서버 설치 패키지 스냅샷 | `asset_id`, `name`, `version`, `collected_at` |
-| `cve_matches` | 자산×CVE 매칭 | `asset_id`, `cve_id`, `cvss_score`, `severity`, `summary`, `first_seen_at`, `checked_at`, `dismissed`, `ai_impact`, `ai_remediation` |
+| `cve_matches` | 자산×CVE 매칭 | `asset_id`, `cve_id`, `package_name`, `package_version`, `cvss_score`, `severity`, `summary`, `published_at`, `first_seen_at`, `checked_at`, `dismissed`, `ai_impact`, `ai_remediation` |
 | `nvd_query_cache` | NVD 응답 캐시(TTL 24h) | `package_name`(PK), `raw_response`, `fetched_at` |
 
-**Cascade 정책:** SQLite FK cascade에 의존하지 않고 `deleteAsset`의 명시적 트랜잭션이 자식(`schedules`/`installed_packages`/`cve_matches`/`run_events`/`check_results`/`analysis_reports`/`runs`)을 먼저 지운다. 진행 중 run이 있는 자산은 삭제 차단. 프로젝트 삭제 시 소속 자산은 삭제하지 않고 미분류로 이동.
+**Cascade 정책:** SQLite FK cascade에 의존하지 않고 `deleteAsset`의 명시적 트랜잭션이 자식을 먼저 지운다 (실제 실행 순서: `cve_matches` → `installed_packages` → `schedules` → run별 `run_events`/`check_results`/`analysis_reports` → `runs` → `assets`). 진행 중 run이 있는 자산은 삭제 차단. 프로젝트 삭제 시 소속 자산은 삭제하지 않고 미분류로 이동. `runs`의 `asset_id`/`batch_id`/`trigger_type`은 base 스키마가 아니라 idempotent 마이그레이션(`PRAGMA table_info` 가드 + `ALTER TABLE`)으로 추가된 컬럼이다.
 
 ---
 
@@ -167,11 +171,12 @@ Ansible evidence + 룰 평가 결과를 입력받아 취약점 설명·위험도
 - **프론트/백:** Next.js 16 App Router / React 19 / TypeScript strict
 - **DB:** better-sqlite3 (단일 파일, 로컬 단일 프로세스 전제)
 - **스타일:** Tailwind v4 + `var(--color-*)` CSS 변수 (Coinbase 톤 디자인 토큰)
-- **점검 엔진:** Ansible(`ansible-runner`), Docker SDK(sandbox), paramiko/ssh(서버)
-- **AI:** Claude API (`@anthropic-ai/sdk`)
+- **점검 엔진:** `ansible-playbook` CLI 직접 실행(별도 ansible-runner 라이브러리 미사용), Docker CLI 직접 실행(sandbox/build, SDK 미사용). 서버 SSH는 ansible 커넥션 플러그인 선택으로 처리(비밀번호=`-c paramiko`, 키=`-c ssh`) — 이 저장소의 직접 의존성이 아니라 ansible 실행 옵션이다
+- **AI:** Claude API (`@anthropic-ai/sdk`), 응답 스키마 검증에 `zod`
+- **엑셀:** `xlsx` (자산 일괄 업로드 파싱/템플릿 생성)
 - **외부 연동:** NVD API(CVE), GitHub(PAT clone)
 - **백그라운드:** `instrumentation.ts`에서 스케줄러(C) + CVE 폴러(D) 기동 (외부 큐/cron 없이 in-process interval)
-- **테스트:** Vitest (현행 전체 1054개 통과)
+- **테스트:** Vitest — 현행 527개 테스트 / 39개 파일 전체 통과 (2026-07-09 실측)
 
 ---
 
@@ -190,6 +195,34 @@ Ansible evidence + 룰 평가 결과를 입력받아 취약점 설명·위험도
 
 ## 10. 로드맵 히스토리
 
-`A1(자산) → A2(SSH 점검) → C(스케줄링) → D(CVE 감시)` 순으로 구현됐고, `B(프레임워크 일반화)`와 `UX(자산 중심 정합화)`가 병행/후속으로 병합됐다. B는 원래 A2 다음 순서였으나 사용자 판단으로 C를 먼저 진행하고 나중에 병합했다. 각 단계의 상세 설계·구현 계획은 `docs/superpowers/specs/` 및 `docs/superpowers/plans/`에 서브 프로젝트별로 보존돼 있다.
+**설계 순서**는 `A1(자산) → A2(SSH 점검) → B(프레임워크 일반화) → C(스케줄링) → D(CVE 감시)`로 계획됐고, 여러 세션이 병렬 워크트리에서 작업한 결과 **실제 main 병합 순서**는 이와 달랐다 (git 병합 커밋 기준, 2026-07-08~09):
+
+```
+B(프레임워크) → A1(자산) → A2(SSH 점검) → D(CVE 감시) → C(스케줄링) → UX(자산 중심 정합화)
+```
+
+B는 다른 서브 프로젝트와 의존관계가 없어 가장 먼저 병합됐고, D는 C보다 먼저 병합됐다(코드상 의존은 A1·A2뿐이므로 문제없음). 각 단계의 상세 설계·구현 계획은 `docs/superpowers/specs/` 및 `docs/superpowers/plans/`에 서브 프로젝트별로 보존돼 있다.
 
 > **참고:** 이 확장 로드맵(A1~D)은 초기 해커톤 PRD(`PRD.md`)의 "제외 범위"에 있던 항목들(실시간 CVE DB 연동, 스케줄링 등)과 의도적으로 겹치는 스코프 확장이다. 각 단계마다 사용자 승인 후 진행됐다.
+
+---
+
+## 부록 A. API 엔드포인트 (현행)
+
+| 메서드 · 경로 | 역할 | 관련 기능 |
+|---|---|---|
+| `GET/POST /api/assets` | 자산 목록 / 등록 | F1 |
+| `GET/DELETE /api/assets/[id]` | 자산 조회 / 삭제 | F1 |
+| `GET/PUT/DELETE /api/assets/[id]/schedule` | 자산별 스케줄 조회/저장/삭제 | F5 |
+| `POST /api/assets/upload` | 엑셀 일괄 업로드 | F1 |
+| `GET /api/assets/upload/template` | 엑셀 템플릿 다운로드 | F1 |
+| `GET/POST /api/projects` | 프로젝트 목록 / 생성 | F1 |
+| `GET/PATCH/DELETE /api/projects/[id]` | 프로젝트 조회/수정/삭제 | F1 |
+| `POST /api/projects/[id]/scan` | 프로젝트 서버 fleet scan 트리거 | F3 |
+| `POST /api/projects/[id]/share` | 공유링크 발급/재발급 | F1 |
+| `POST /api/share/[token]` | PM 공유 뷰 비밀번호 검증(잠금 연동) | F1 |
+| `GET/POST /api/runs` | run 목록 / 점검 시작(자산·로컬이미지) | F2·F3·F7 |
+| `GET /api/runs/[id]` | run 상태/결과 조회 | F2·F3 |
+| `PATCH /api/cve-matches/[id]` | CVE 무시 토글 | F6 |
+| `GET /api/catalog` | 점검 카탈로그(+프레임워크) | F4 |
+| `GET /api/local-images` | 로컬 Docker 이미지 목록(폴백용) | F2 |
