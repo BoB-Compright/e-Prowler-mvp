@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const inputClass =
@@ -16,22 +16,35 @@ export function ProjectSearch() {
   // (e.g. browser back/forward navigation). Adjusting state during render
   // (rather than in an effect) avoids an extra render pass.
   const [syncedQuery, setSyncedQuery] = useState(urlQuery);
+  // Tracks the last "q" value we pushed to the URL ourselves, so the
+  // render-phase sync below can tell apart a self-inflicted URL change
+  // (which should not stomp on newly typed characters) from an external
+  // one (e.g. browser back/forward navigation).
+  const pushedQueryRef = useRef<string | null>(null);
   if (urlQuery !== syncedQuery) {
     setSyncedQuery(urlQuery);
-    setQuery(urlQuery);
+    // pushedQueryRef is only written synchronously right before navigating
+    // (see the debounce effect below), so this read reliably distinguishes
+    // a self-pushed URL change from an external one (e.g. browser
+    // back/forward).
+    // eslint-disable-next-line react-hooks/refs
+    if (urlQuery !== pushedQueryRef.current) setQuery(urlQuery);
   }
 
-  function updateParam(key: string, value: string) {
+  function updateParam(key: string, value: string, method: "push" | "replace" = "push") {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
-    router.push(`/projects?${params.toString()}`);
+    router[method](`/projects?${params.toString()}`);
   }
 
   // Debounce the search query so we don't push a navigation on every keystroke.
   useEffect(() => {
     if (query === urlQuery) return;
-    const timeout = setTimeout(() => updateParam("q", query), 300);
+    const timeout = setTimeout(() => {
+      pushedQueryRef.current = query;
+      updateParam("q", query, "replace");
+    }, 300);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
