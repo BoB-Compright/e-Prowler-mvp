@@ -7,6 +7,23 @@
 
 각 항목 형식: **기능** — 생략 사유 (필요 선행 작업)
 
+## GitHub 이슈 발행 현황 (2026-07-10)
+
+이 백로그에서 기능 후보를 수직 슬라이스로 묶어 GitHub 이슈로 발행했다:
+
+- [#69](https://github.com/BoB-Compright/e-Prowler-mvp/issues/69) 자산 목록에 상태·위험도 컬럼 추가 — `ready-for-agent`
+- [#70](https://github.com/BoB-Compright/e-Prowler-mvp/issues/70) 카탈로그 필터·검색 — `ready-for-agent`
+- [#71](https://github.com/BoB-Compright/e-Prowler-mvp/issues/71) 공유 링크 활성/비활성 토글 및 폐기 — `ready-for-agent`
+- [#72](https://github.com/BoB-Compright/e-Prowler-mvp/issues/72) 공유 뷰 보안 결과 노출 결정·구현 — `needs-triage` (제품 결정 선행)
+- [#73](https://github.com/BoB-Compright/e-Prowler-mvp/issues/73) 진행 중 점검 취소 — `ready-for-agent`
+- [#74](https://github.com/BoB-Compright/e-Prowler-mvp/issues/74) 점검 보고서 내보내기 (CSV 우선) — `ready-for-agent`
+- [#75](https://github.com/BoB-Compright/e-Prowler-mvp/issues/75) 리포트 화면 재스캔 트리거 — `ready-for-agent`
+- [#76](https://github.com/BoB-Compright/e-Prowler-mvp/issues/76) 자산 모델 확장: OS·담당자 — `ready-for-agent`
+- [#77](https://github.com/BoB-Compright/e-Prowler-mvp/issues/77) 자산·프로젝트 목록 검색 — `ready-for-agent`
+- [#78](https://github.com/BoB-Compright/e-Prowler-mvp/issues/78) 인증 통합 (프로필·로그아웃·알림 기반) — `ready-for-human` (ADR 선행)
+
+순수 장식 항목과 UX 전환 판단이 필요한 항목(드로어 레이아웃, 스택 카드 피드 등)은 이슈화하지 않고 이 문서에만 남긴다.
+
 ## 앱 셸 (사이드바·헤더) — Task 3
 
 - **알림(Notification) 아이콘/배지** (유틸 헤더 우측) — 대응하는 알림 기능 자체가 없음 (알림 시스템/이벤트 소스 설계 필요)
