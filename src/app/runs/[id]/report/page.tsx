@@ -7,7 +7,7 @@ export default async function RunReportPage({
 }) {
   const { id } = await params;
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
       <ReportView runId={id} />
     </main>
   );
