@@ -34,7 +34,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="rounded-[var(--radius-nh)] bg-white/15 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/25"
+      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:bg-bg hover:text-text"
     >
       {theme === "dark" ? "라이트" : "다크"}
     </button>

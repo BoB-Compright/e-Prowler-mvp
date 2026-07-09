@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "./_components/ThemeScript";
 import { AppHeader } from "./_components/AppHeader";
+import { AppSidebar } from "./_components/AppSidebar";
 
 // DESIGN.md's documented substitute for the licensed CoinbaseSans/Display typefaces.
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -23,9 +24,12 @@ export default function RootLayout({
       <head>
         <ThemeScript />
       </head>
-      <body className="flex min-h-full flex-col">
-        <AppHeader />
-        {children}
+      <body className="min-h-full">
+        <AppSidebar />
+        <div className="flex min-h-screen flex-col md:pl-64">
+          <AppHeader />
+          {children}
+        </div>
       </body>
     </html>
   );
