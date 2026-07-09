@@ -10,7 +10,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   const result = verifyShareAccess(token, password);
   if (!result.ok) {
-    const status = result.reason === "not_found" ? 404 : result.reason === "locked" ? 423 : 401;
+    const status =
+      result.reason === "not_found"
+        ? 404
+        : result.reason === "disabled" || result.reason === "revoked"
+          ? 403
+          : result.reason === "locked"
+            ? 423
+            : 401;
     return NextResponse.json({ error: result.reason }, { status });
   }
 

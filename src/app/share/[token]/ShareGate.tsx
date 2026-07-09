@@ -39,7 +39,15 @@ function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: stri
   return { status: "neutral", label: run.status };
 }
 
-export function ShareGate({ token }: { token: string }) {
+type ShareLinkStatus = { ok: true } | { ok: false; reason: "not_found" | "disabled" | "revoked" };
+
+const REJECTION_MESSAGES: Record<"not_found" | "disabled" | "revoked", string> = {
+  not_found: "유효하지 않은 공유 링크입니다.",
+  disabled: "이 공유 링크는 현재 비활성화되어 있습니다. 담당자에게 문의하세요.",
+  revoked: "이 공유 링크는 폐기되어 더 이상 사용할 수 없습니다.",
+};
+
+export function ShareGate({ token, initialStatus }: { token: string; initialStatus: ShareLinkStatus }) {
   const [password, setPassword] = useState("");
   const [data, setData] = useState<ShareData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +65,13 @@ export function ShareGate({ token }: { token: string }) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error === "locked" ? "5회 실패로 잠겼습니다. 15분 후 다시 시도하세요" : "비밀번호가 올바르지 않습니다");
+        if (body.error === "locked") {
+          setError("5회 실패로 잠겼습니다. 15분 후 다시 시도하세요");
+        } else if (body.error === "disabled" || body.error === "revoked" || body.error === "not_found") {
+          setError(REJECTION_MESSAGES[body.error as "not_found" | "disabled" | "revoked"]);
+        } else {
+          setError("비밀번호가 올바르지 않습니다");
+        }
         return;
       }
       setData(await res.json());
@@ -203,6 +217,19 @@ export function ShareGate({ token }: { token: string }) {
             )}
           </Card>
         </div>
+      </div>
+    );
+  }
+
+  // Invalid/disabled/revoked tokens never see the password form — the
+  // rejection is unambiguous and there is nothing left to try here.
+  if (!initialStatus.ok) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Card className="w-full max-w-sm" bodyClassName="p-6">
+          <h1 className="mb-1 text-[20px] font-bold tracking-[-0.02em]">접근할 수 없는 링크입니다</h1>
+          <p className="text-[13px] text-muted">{REJECTION_MESSAGES[initialStatus.reason]}</p>
+        </Card>
       </div>
     );
   }

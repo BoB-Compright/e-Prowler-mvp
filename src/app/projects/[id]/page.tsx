@@ -28,7 +28,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="mb-6">
-        <ShareLinkPanel projectId={project.id} shareToken={project.shareToken} />
+        <ShareLinkPanel projectId={project.id} shareToken={project.shareToken} shareStatus={project.shareStatus} />
       </div>
 
       <Card title={`소속 자산 (${assets.length})`} bodyClassName="p-0">

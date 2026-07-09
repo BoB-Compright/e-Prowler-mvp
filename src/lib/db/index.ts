@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS projects (
   share_password_hash TEXT NOT NULL,
   share_failed_attempts INTEGER NOT NULL DEFAULT 0,
   share_locked_until TEXT,
+  share_status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL
 );
 
@@ -152,6 +153,13 @@ function migrate(db: Database.Database): void {
   }
   if (!assetColumns.some((column) => column.name === "owner")) {
     db.exec(`ALTER TABLE assets ADD COLUMN owner TEXT`);
+  }
+
+  const projectColumns = db.prepare(`PRAGMA table_info(projects)`).all() as { name: string }[];
+  if (!projectColumns.some((column) => column.name === "share_status")) {
+    // Links issued before this column existed keep working exactly as before
+    // (DEFAULT 'active' preserves current behavior for every existing project).
+    db.exec(`ALTER TABLE projects ADD COLUMN share_status TEXT NOT NULL DEFAULT 'active'`);
   }
 }
 

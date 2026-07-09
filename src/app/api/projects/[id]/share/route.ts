@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ProjectNotFoundError, regenerateShareLink } from "@/lib/projects/store";
+import {
+  ProjectNotFoundError,
+  ShareLinkRevokedError,
+  regenerateShareLink,
+  revokeShareLink,
+  setShareLinkEnabled,
+} from "@/lib/projects/store";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -11,6 +17,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch (error) {
     if (error instanceof ProjectNotFoundError) {
       return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
+    }
+    throw error;
+  }
+}
+
+// Toggles (active <-> disabled) or permanently revokes a project's share link.
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json().catch(() => null);
+  const action = body?.action;
+
+  try {
+    if (action === "revoke") {
+      return NextResponse.json(revokeShareLink(id));
+    }
+    if (action === "setEnabled" && typeof body?.enabled === "boolean") {
+      return NextResponse.json(setShareLinkEnabled(id, body.enabled));
+    }
+    return NextResponse.json({ error: "잘못된 요청입니다" }, { status: 400 });
+  } catch (error) {
+    if (error instanceof ProjectNotFoundError) {
+      return NextResponse.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
+    }
+    if (error instanceof ShareLinkRevokedError) {
+      return NextResponse.json({ error: "폐기된 링크는 다시 활성화할 수 없습니다" }, { status: 409 });
     }
     throw error;
   }

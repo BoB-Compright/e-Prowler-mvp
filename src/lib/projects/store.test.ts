@@ -4,10 +4,14 @@ import { createInMemoryDb } from "@/lib/db";
 import { createRepoAsset, getAsset } from "@/lib/assets/store";
 import {
   ProjectNotFoundError,
+  ShareLinkRevokedError,
   createProject,
   deleteProject,
   getProject,
+  getShareLinkStatus,
   regenerateShareLink,
+  revokeShareLink,
+  setShareLinkEnabled,
   updateProject,
   verifyShareAccess,
 } from "./store";
@@ -23,6 +27,11 @@ describe("createProject", () => {
     const a = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw1" }, db);
     const b = createProject({ name: "B", pmName: "이PM", pmEmail: "b@nh.com", sharePassword: "pw2" }, db);
     expect(a.shareToken).not.toBe(b.shareToken);
+  });
+
+  it("defaults the share link status to active", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    expect(project.shareStatus).toBe("active");
   });
 });
 
@@ -87,5 +96,78 @@ describe("verifyShareAccess", () => {
     // One wrong attempt right after expiry should NOT immediately re-lock.
     const result = verifyShareAccess(project.shareToken, "still-wrong", db);
     expect(result).toEqual({ ok: false, reason: "wrong_password" });
+  });
+
+  it("rejects a disabled share link even with the correct password", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    setShareLinkEnabled(project.id, false, db);
+    expect(verifyShareAccess(project.shareToken, "pw", db)).toEqual({ ok: false, reason: "disabled" });
+  });
+
+  it("rejects a revoked share link even with the correct password", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    revokeShareLink(project.id, db);
+    expect(verifyShareAccess(project.shareToken, "pw", db)).toEqual({ ok: false, reason: "revoked" });
+  });
+});
+
+describe("setShareLinkEnabled / revokeShareLink (status transitions)", () => {
+  it("toggles active -> disabled -> active", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    expect(setShareLinkEnabled(project.id, false, db)).toEqual({ shareStatus: "disabled" });
+    expect(getProject(project.id, db)?.shareStatus).toBe("disabled");
+    expect(setShareLinkEnabled(project.id, true, db)).toEqual({ shareStatus: "active" });
+    expect(getProject(project.id, db)?.shareStatus).toBe("active");
+  });
+
+  it("revokes an active link permanently", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    expect(revokeShareLink(project.id, db)).toEqual({ shareStatus: "revoked" });
+    expect(getProject(project.id, db)?.shareStatus).toBe("revoked");
+  });
+
+  it("rejects any attempt to re-activate or disable a revoked link", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    revokeShareLink(project.id, db);
+    expect(() => setShareLinkEnabled(project.id, true, db)).toThrow(ShareLinkRevokedError);
+    expect(() => setShareLinkEnabled(project.id, false, db)).toThrow(ShareLinkRevokedError);
+    expect(getProject(project.id, db)?.shareStatus).toBe("revoked");
+  });
+
+  it("throws ProjectNotFoundError for an unknown id", () => {
+    expect(() => setShareLinkEnabled("unknown-id", true, db)).toThrow(ProjectNotFoundError);
+    expect(() => revokeShareLink("unknown-id", db)).toThrow(ProjectNotFoundError);
+  });
+
+  it("re-activates the link when regenerating, even after a revoke", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "old-pw" }, db);
+    revokeShareLink(project.id, db);
+    const { shareToken, shareStatus } = regenerateShareLink(project.id, "new-pw", db);
+    expect(shareStatus).toBe("active");
+    expect(getProject(project.id, db)?.shareStatus).toBe("active");
+    expect(verifyShareAccess(shareToken, "new-pw", db)).toEqual(expect.objectContaining({ ok: true }));
+  });
+});
+
+describe("getShareLinkStatus", () => {
+  it("returns ok for an active token", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    expect(getShareLinkStatus(project.shareToken, db)).toEqual({ ok: true });
+  });
+
+  it("returns not_found for an unknown token", () => {
+    expect(getShareLinkStatus("unknown-token", db)).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("returns disabled for a disabled token", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    setShareLinkEnabled(project.id, false, db);
+    expect(getShareLinkStatus(project.shareToken, db)).toEqual({ ok: false, reason: "disabled" });
+  });
+
+  it("returns revoked for a revoked token", () => {
+    const project = createProject({ name: "A", pmName: "김PM", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    revokeShareLink(project.id, db);
+    expect(getShareLinkStatus(project.shareToken, db)).toEqual({ ok: false, reason: "revoked" });
   });
 });
