@@ -44,6 +44,12 @@ export default async function AssetsPage({
         </div>
         <div className="flex gap-2">
           <Link
+            href="/assets/import"
+            className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
+          >
+            레포 가져오기
+          </Link>
+          <Link
             href="/assets/upload"
             className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
           >
