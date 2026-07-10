@@ -3,13 +3,14 @@ import { randomBytes } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createProject } from "@/lib/projects/store";
-import { createServerAsset } from "@/lib/assets/store";
+import { createServerAsset, createRepoAsset } from "@/lib/assets/store";
 import { cancelRun, getRun } from "@/lib/pipeline/runs";
 import { createScanBatch } from "./scanBatches";
 import { listCheckResults } from "@/lib/checks/store";
 import { evaluateAllChecks } from "@/lib/checks/ruleEvaluation";
 import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
+import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { retryOnConnectionFailure, AuthFailureError, ConnectionFailureError } from "@/lib/checks/retry";
 import {
   createServerRun,
@@ -34,6 +35,7 @@ function baseDeps(overrides: Partial<ServerScanDeps> = {}): ServerScanDeps {
     evaluateAllChecks,
     saveCheckResults,
     analyzeAndSaveChecks,
+    runPipeline,
     ...overrides,
   };
 }
@@ -364,5 +366,28 @@ describe("startProjectFleetScan", () => {
     const result = startProjectFleetScan(project.id, deps, db);
 
     expect(result.runIds).toHaveLength(0);
+  });
+
+  it("프로젝트의 repo 자산에 대해 dockerfilePath를 실은 git run을 만든다", async () => {
+    const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
+    createRepoAsset(
+      { displayName: "backend", repoUrl: "https://github.com/o/r", projectId: project.id, dockerfilePath: "backend/Dockerfile" },
+      db,
+    );
+    const runPipelineSpy = vi.fn().mockResolvedValue(undefined);
+    const deps = { ...baseDeps(), runPipeline: runPipelineSpy };
+
+    const { runIds } = startProjectFleetScan(project.id, deps, db);
+
+    await vi.waitFor(() => {
+      expect(runPipelineSpy).toHaveBeenCalled();
+    });
+    expect(runIds).toHaveLength(1);
+    expect(runPipelineSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: "git", repoUrl: expect.stringContaining("github.com/o/r"), dockerfilePath: "backend/Dockerfile" }),
+      undefined, // orchestrator의 기본 PipelineDeps를 쓰도록 명시적으로 undefined를 넘김
+      db,
+    );
   });
 });

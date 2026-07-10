@@ -10,6 +10,7 @@ import type { CheckResult } from "@/lib/checks/types";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { createRun, isCancelled, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
+import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { createScanBatch } from "./scanBatches";
 
 const FLEET_SCAN_CONCURRENCY = 5;
@@ -20,6 +21,7 @@ export interface ServerScanDeps {
   evaluateAllChecks: typeof evaluateAllChecks;
   saveCheckResults: typeof saveCheckResults;
   analyzeAndSaveChecks: typeof analyzeAndSaveChecks;
+  runPipeline: typeof runPipeline;
 }
 
 const defaultDeps: ServerScanDeps = {
@@ -28,6 +30,7 @@ const defaultDeps: ServerScanDeps = {
   evaluateAllChecks,
   saveCheckResults,
   analyzeAndSaveChecks,
+  runPipeline,
 };
 
 function errorMessage(err: unknown): string {
@@ -138,6 +141,18 @@ export async function scanServerAsset(
   return run.id;
 }
 
+// Creates the run row for a repo asset (one per Dockerfile) and, for a fleet
+// scan, attaches it to the batch — mirroring createServerRun's synchronous
+// row-creation split, so the run shows up in the batch view right away even
+// before deps.runPipeline (the container orchestrator) starts working on it.
+function createRepoRun(asset: Asset, batchId: string | null, db: Database): Run {
+  const run = createRun(asset.repoUrl!, "git", asset.id, db);
+  if (batchId) {
+    db.prepare(`UPDATE runs SET batch_id = @batchId WHERE id = @id`).run({ batchId, id: run.id });
+  }
+  return run;
+}
+
 // Runs `tasks` with at most `limit` in flight at once. A failing task is
 // caught and dropped rather than rejecting the whole batch, since a fleet
 // scan must not let one unreachable server abort the rest.
@@ -172,12 +187,27 @@ export async function scanProjectFleet(
 ): Promise<{ batchId: string; runIds: string[] }> {
   const batch = createScanBatch(projectId, db);
   const servers = listAssets({ projectId, type: "server" }, db);
+  const repos = listAssets({ projectId, type: "repo" }, db);
   const runIds: string[] = [];
-  const tasks = servers.map((asset) => async () => {
+  const serverTasks = servers.map((asset) => async () => {
     const runId = await scanServerAsset(asset.id, batch.id, deps, db);
     runIds.push(runId);
   });
-  await runWithConcurrency(tasks, FLEET_SCAN_CONCURRENCY);
+  const repoTasks = repos.map((asset) => async () => {
+    const run = createRepoRun(asset, batch.id, db);
+    runIds.push(run.id);
+    await deps.runPipeline(
+      run.id,
+      {
+        type: "git",
+        repoUrl: asset.repoUrl!,
+        ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
+      },
+      undefined, // orchestrator의 기본 PipelineDeps 사용
+      db,
+    );
+  });
+  await runWithConcurrency([...serverTasks, ...repoTasks], FLEET_SCAN_CONCURRENCY);
   return { batchId: batch.id, runIds };
 }
 
@@ -197,10 +227,28 @@ export function startProjectFleetScan(
   const servers = listAssets({ projectId, type: "server" }, db);
   const created = servers.map((asset) => createServerRun(asset.id, batch.id, db));
 
-  const tasks = created.map(({ run, asset }) => async () => {
+  const repos = listAssets({ projectId, type: "repo" }, db);
+  const repoCreated = repos.map((asset) => ({ run: createRepoRun(asset, batch.id, db), asset }));
+
+  const serverTasks = created.map(({ run, asset }) => async () => {
     await runServerScanPipeline(run, asset, deps, db);
   });
-  void runWithConcurrency(tasks, FLEET_SCAN_CONCURRENCY);
+  const repoTasks = repoCreated.map(({ run, asset }) => async () => {
+    await deps.runPipeline(
+      run.id,
+      {
+        type: "git",
+        repoUrl: asset.repoUrl!,
+        ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
+      },
+      undefined, // orchestrator의 기본 PipelineDeps 사용
+      db,
+    );
+  });
+  void runWithConcurrency([...serverTasks, ...repoTasks], FLEET_SCAN_CONCURRENCY);
 
-  return { batchId: batch.id, runIds: created.map(({ run }) => run.id) };
+  return {
+    batchId: batch.id,
+    runIds: [...created.map(({ run }) => run.id), ...repoCreated.map(({ run }) => run.id)],
+  };
 }
