@@ -52,9 +52,9 @@ interface Candidate {
   exact: boolean; // 파일명이 정확히 "Dockerfile"(대소문자 무시)인가
 }
 
-// 레포 트리를 재귀 탐색해 Dockerfile류 후보를 전부 수집하고, 결정적 순위로 하나를 고른다.
+// 레포 트리를 재귀 탐색해 Dockerfile류 후보를 전부 수집하고, 결정적 순위로 정렬해 반환한다.
 // 순위: 얕은 깊이 → 정확한 이름 우선 → 경로 사전순.
-export function detectDockerfile(repoDir: string): string | undefined {
+export function listDockerfiles(repoDir: string): string[] {
   const candidates: Candidate[] = [];
   let visited = 0;
 
@@ -99,12 +99,16 @@ export function detectDockerfile(repoDir: string): string | undefined {
   }
 
   walk(repoDir, 0);
-  if (candidates.length === 0) return undefined;
 
   candidates.sort((a, b) => {
     if (a.depth !== b.depth) return a.depth - b.depth;
     if (a.exact !== b.exact) return a.exact ? -1 : 1;
     return a.absPath < b.absPath ? -1 : a.absPath > b.absPath ? 1 : 0;
   });
-  return candidates[0].absPath;
+  return candidates.map((c) => c.absPath);
+}
+
+// repoDir에서 선택순위가 가장 높은 Dockerfile류 후보 하나를 고른다.
+export function detectDockerfile(repoDir: string): string | undefined {
+  return listDockerfiles(repoDir)[0];
 }

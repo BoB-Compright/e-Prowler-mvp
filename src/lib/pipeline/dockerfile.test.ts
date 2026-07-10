@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { detectDockerfile } from "./dockerfile";
+import { detectDockerfile, listDockerfiles } from "./dockerfile";
 
 const dirs: string[] = [];
 
@@ -110,5 +110,35 @@ describe("detectDockerfile", () => {
     fs.writeFileSync(path.join(dir, "a", "Dockerfile"), "FROM scratch\n");
     fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
     expect(detectDockerfile(dir)).toBe(path.join(dir, "Dockerfile"));
+  });
+});
+
+describe("listDockerfiles", () => {
+  it("모든 후보를 선택순위로 정렬해 반환한다", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "b")); fs.mkdirSync(path.join(dir, "a"));
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "a", "Dockerfile"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "b", "Dockerfile"), "FROM scratch\n");
+    expect(listDockerfiles(dir)).toEqual([
+      path.join(dir, "Dockerfile"),
+      path.join(dir, "a", "Dockerfile"),
+      path.join(dir, "b", "Dockerfile"),
+    ]);
+  });
+  it("제외 디렉터리·데니리스트 확장자는 목록에서 빠진다", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "node_modules", "p"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "node_modules", "p", "Dockerfile"), "x");
+    fs.writeFileSync(path.join(dir, "Dockerfile.md"), "x");
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    expect(listDockerfiles(dir)).toEqual([path.join(dir, "Dockerfile")]);
+  });
+  it("detectDockerfile은 listDockerfiles의 첫 요소와 같다", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "sub"));
+    fs.writeFileSync(path.join(dir, "sub", "Dockerfile"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(listDockerfiles(dir)[0]);
   });
 });
