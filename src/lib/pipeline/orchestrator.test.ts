@@ -248,6 +248,25 @@ describe("runPipeline", () => {
     expect(deps.build).not.toHaveBeenCalled();
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it("source.dockerfilePath가 repoDir를 벗어나면(경로 탈출) build 실패이며 build를 호출하지 않는다", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orch-"));
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir });
+    await runPipeline(
+      run.id,
+      { type: "git", repoUrl: run.repoUrl, dockerfilePath: "../evil/Dockerfile" },
+      deps,
+      db,
+    );
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("build");
+    expect(updated.status).toBe("failed");
+    expect(updated.errorMessage).toMatch(/유효하지 않습니다/);
+    expect(deps.build).not.toHaveBeenCalled();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 // (#73) The orchestrator has no way to forcibly abort an in-flight `await` in

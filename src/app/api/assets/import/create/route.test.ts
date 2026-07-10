@@ -161,4 +161,68 @@ describe("POST /api/assets/import/create", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("경로 탈출(../..)을 시도하는 dockerfilePaths는 400이며 프로젝트도 생성하지 않는다", async () => {
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+    const res = await POST(
+      jsonRequest(
+        {
+          repoUrl: "https://github.com/nh/test.git",
+          projectName: "p",
+          dockerfilePaths: ["../../../Dockerfile"],
+        },
+        cookie,
+      ),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("유효한 Dockerfile 경로가 없습니다");
+
+    const { listProjects } = await import("@/lib/projects/store");
+    expect(listProjects()).toHaveLength(0);
+  });
+
+  it("절대 경로 dockerfilePath는 거부된다", async () => {
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+    const res = await POST(
+      jsonRequest(
+        {
+          repoUrl: "https://github.com/nh/test.git",
+          projectName: "p",
+          dockerfilePaths: ["/etc/passwd"],
+        },
+        cookie,
+      ),
+    );
+    expect(res.status).toBe(400);
+    const { listProjects } = await import("@/lib/projects/store");
+    expect(listProjects()).toHaveLength(0);
+  });
+
+  it("앞뒤 공백이 있는 dockerfilePath는 trim되어 저장된다", async () => {
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+    const res = await POST(
+      jsonRequest(
+        {
+          repoUrl: "https://github.com/nh/test.git",
+          projectName: "p",
+          dockerfilePaths: ["  backend/Dockerfile  "],
+        },
+        cookie,
+      ),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.created).toBe(1);
+
+    const { getDb } = await import("@/lib/db");
+    const assets = getDb()
+      .prepare("SELECT dockerfile_path FROM assets WHERE type = 'repo'")
+      .all() as { dockerfile_path: string }[];
+    expect(assets).toHaveLength(1);
+    expect(assets[0].dockerfile_path).toBe("backend/Dockerfile");
+  });
 });

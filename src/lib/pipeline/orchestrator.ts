@@ -101,6 +101,18 @@ export async function runPipeline(
 
     if (source.dockerfilePath) {
       const specified = path.join(repoDir, source.dockerfilePath);
+      const resolved = path.resolve(repoDir, source.dockerfilePath);
+      const repoRoot = path.resolve(repoDir);
+      if (resolved !== repoRoot && !resolved.startsWith(repoRoot + path.sep)) {
+        updateRunStage(
+          runId,
+          "build",
+          "failed",
+          { errorMessage: `지정된 Dockerfile 경로가 유효하지 않습니다: ${source.dockerfilePath}` },
+          db,
+        );
+        return;
+      }
       if (!fs.existsSync(specified)) {
         updateRunStage(
           runId,

@@ -357,7 +357,7 @@ describe("startProjectFleetScan", () => {
     });
   });
 
-  it("does not scan repo assets or assets from other projects", () => {
+  it("does not scan assets from other projects", () => {
     const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" }, db);
     const otherProject = createProject({ name: "Q", pmName: "이", pmEmail: "b@nh.com", sharePassword: "pw" }, db);
     createServerAsset(serverAssetInput({ projectId: otherProject.id }), db);
