@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 import { getDb } from "@/lib/db";
 import { cloneRepo } from "./clone";
@@ -44,7 +45,7 @@ function errorMessage(err: unknown): string {
 // image is scanned directly, so a demo can continue when GitHub or the
 // Docker build is unavailable.
 export type RunSource =
-  | { type: "git"; repoUrl: string }
+  | { type: "git"; repoUrl: string; dockerfilePath?: string }
   | { type: "local_image"; imageTag: string };
 
 // Drives a run through clone -> build -> sandbox -> ansible -> rule_eval -> claude -> done.
@@ -98,16 +99,31 @@ export async function runPipeline(
     if (isCancelled(runId, db)) return;
     updateRunStage(runId, "clone", "succeeded", {}, db);
 
-    dockerfilePath = deps.detectDockerfile(repoDir);
-    if (!dockerfilePath) {
-      updateRunStage(
-        runId,
-        "build",
-        "failed",
-        { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 전체 탐색)" },
-        db,
-      );
-      return;
+    if (source.dockerfilePath) {
+      const specified = path.join(repoDir, source.dockerfilePath);
+      if (!fs.existsSync(specified)) {
+        updateRunStage(
+          runId,
+          "build",
+          "failed",
+          { errorMessage: `지정된 Dockerfile을 찾을 수 없습니다: ${source.dockerfilePath}` },
+          db,
+        );
+        return;
+      }
+      dockerfilePath = specified;
+    } else {
+      dockerfilePath = deps.detectDockerfile(repoDir);
+      if (!dockerfilePath) {
+        updateRunStage(
+          runId,
+          "build",
+          "failed",
+          { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 전체 탐색)" },
+          db,
+        );
+        return;
+      }
     }
 
     updateRunStage(runId, "build", "running", {}, db);

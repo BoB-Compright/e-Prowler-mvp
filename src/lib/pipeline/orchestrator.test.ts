@@ -1,4 +1,7 @@
 import type { Database } from "better-sqlite3";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { cancelRun, createRun, getRun, listRunEvents } from "./runs";
@@ -216,6 +219,34 @@ describe("runPipeline", () => {
     const buildSucceededEvent = events.find((e) => e.stage === "build" && e.status === "succeeded");
     expect(buildSucceededEvent).toBeDefined();
     expect(buildSucceededEvent?.message).toBe("Dockerfile: docker/Dockerfile");
+  });
+
+  it("source.dockerfilePath가 지정되면 자동탐색 대신 그 경로로 빌드한다", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orch-"));
+    fs.mkdirSync(path.join(dir, "backend"));
+    fs.writeFileSync(path.join(dir, "backend", "Dockerfile"), "FROM scratch\n");
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir });
+    deps.detectDockerfile = vi.fn();
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl, dockerfilePath: "backend/Dockerfile" }, deps, db);
+    expect(deps.detectDockerfile).not.toHaveBeenCalled();
+    expect(deps.build).toHaveBeenCalledWith(path.join(dir, "backend", "Dockerfile"), `scan-${run.id}`);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("지정된 dockerfilePath가 clone 결과에 없으면 build 실패", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orch-"));
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir });
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl, dockerfilePath: "nope/Dockerfile" }, deps, db);
+    const updated = getRun(run.id, db)!;
+    expect(updated.stage).toBe("build");
+    expect(updated.status).toBe("failed");
+    expect(updated.errorMessage).toMatch(/지정된 Dockerfile을 찾을 수 없습니다/);
+    expect(deps.build).not.toHaveBeenCalled();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
 

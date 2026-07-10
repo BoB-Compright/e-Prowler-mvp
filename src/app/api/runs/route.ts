@@ -71,7 +71,11 @@ export async function POST(req: NextRequest) {
   // Fire-and-forget: the pipeline runs in the background on this same
   // long-lived Node process (local single-user MVP), the client polls
   // GET /api/runs/[id] for progress instead of blocking this request.
-  void runPipeline(run.id, { type: "git", repoUrl: asset.repoUrl! });
+  void runPipeline(run.id, {
+    type: "git",
+    repoUrl: asset.repoUrl!,
+    ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
+  });
 
   return NextResponse.json({ run }, { status: 202 });
 }
