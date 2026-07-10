@@ -63,6 +63,28 @@ describe("triggerRunForAsset", () => {
     expect(run.triggerType).toBe("scheduled");
   });
 
+  // multi-image assets pin a specific Dockerfile; the scheduler must build the
+  // same image as a manual scan (POST /api/runs), not silently auto-detect.
+  it("passes the asset's dockerfilePath through to runPipeline for a repo asset", async () => {
+    const asset = createRepoAsset(
+      { displayName: "a", repoUrl: "https://github.com/x/a", dockerfilePath: "backend/Dockerfile" },
+      db,
+    );
+    const deps: TriggerDeps = {
+      runPipeline: vi.fn().mockResolvedValue(undefined),
+      runServerScanPipeline: vi.fn(),
+    };
+
+    const runId = await triggerRunForAsset(asset, "scheduled", deps, db);
+
+    expect(deps.runPipeline).toHaveBeenCalledWith(
+      runId,
+      { type: "git", repoUrl: asset.repoUrl, dockerfilePath: "backend/Dockerfile" },
+      undefined,
+      db,
+    );
+  });
+
   it("creates a server run immediately without waiting for the scan to finish", async () => {
     const asset = createServerAsset(
       { displayName: "srv", hostIp: "10.0.0.1", hostname: "h", sshPort: 22, authType: "password", username: "root", secret: "pw" },

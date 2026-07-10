@@ -35,7 +35,16 @@ export async function triggerRunForAsset(
     return run.id;
   }
   const run = createRun(asset.repoUrl!, "git", asset.id, db);
-  void deps.runPipeline(run.id, { type: "git", repoUrl: asset.repoUrl! }, undefined, db);
+  void deps.runPipeline(
+    run.id,
+    {
+      type: "git",
+      repoUrl: asset.repoUrl!,
+      ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
+    },
+    undefined,
+    db,
+  );
   markRunTriggerType(run.id, triggerType, db);
   return run.id;
 }
