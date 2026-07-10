@@ -15,5 +15,6 @@ export interface Asset {
   encryptedSecret: string | null;
   os: string | null;
   owner: string | null;
+  dockerfilePath: string | null;
   createdAt: string;
 }

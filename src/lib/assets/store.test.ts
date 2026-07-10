@@ -44,6 +44,27 @@ describe("createRepoAsset", () => {
       createRepoAsset({ displayName: "b", repoUrl: "https://github.com/nh/pay/" }, db),
     ).toThrow(DuplicateAssetError);
   });
+
+  it("같은 repoUrl이라도 dockerfilePath가 다르면 각각 생성된다", () => {
+    const a = createRepoAsset({ displayName: "a", repoUrl: "https://github.com/o/r", dockerfilePath: "backend/Dockerfile" }, db);
+    const b = createRepoAsset({ displayName: "b", repoUrl: "https://github.com/o/r", dockerfilePath: "frontend/Dockerfile" }, db);
+    expect(a.dockerfilePath).toBe("backend/Dockerfile");
+    expect(b.dockerfilePath).toBe("frontend/Dockerfile");
+  });
+
+  it("같은 (repoUrl, dockerfilePath)는 중복으로 거부한다", () => {
+    createRepoAsset({ displayName: "a", repoUrl: "https://github.com/o/r", dockerfilePath: "backend/Dockerfile" }, db);
+    expect(() =>
+      createRepoAsset({ displayName: "a2", repoUrl: "https://github.com/o/r", dockerfilePath: "backend/Dockerfile" }, db),
+    ).toThrow(DuplicateAssetError);
+  });
+
+  it("dockerfilePath 없는(null) 레포끼리도 중복으로 거부한다", () => {
+    createRepoAsset({ displayName: "a", repoUrl: "https://github.com/o/r" }, db);
+    expect(() =>
+      createRepoAsset({ displayName: "a2", repoUrl: "https://github.com/o/r" }, db),
+    ).toThrow(DuplicateAssetError);
+  });
 });
 
 describe("createServerAsset", () => {

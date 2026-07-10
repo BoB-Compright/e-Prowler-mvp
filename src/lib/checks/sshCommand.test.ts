@@ -17,6 +17,7 @@ function serverAsset(overrides: Partial<Asset> = {}): Asset {
     encryptedSecret: "enc",
     os: null,
     owner: null,
+    dockerfilePath: null,
     createdAt: "now",
     ...overrides,
   };

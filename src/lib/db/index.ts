@@ -169,6 +169,9 @@ function migrate(db: Database.Database): void {
   if (!assetColumns.some((column) => column.name === "owner")) {
     db.exec(`ALTER TABLE assets ADD COLUMN owner TEXT`);
   }
+  if (!assetColumns.some((column) => column.name === "dockerfile_path")) {
+    db.exec(`ALTER TABLE assets ADD COLUMN dockerfile_path TEXT`);
+  }
 
   const projectColumns = db.prepare(`PRAGMA table_info(projects)`).all() as { name: string }[];
   if (!projectColumns.some((column) => column.name === "share_status")) {

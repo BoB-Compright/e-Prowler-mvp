@@ -19,6 +19,7 @@ function makeRepoAsset(overrides: Partial<Asset> = {}): Asset {
     encryptedSecret: null,
     os: null,
     owner: null,
+    dockerfilePath: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -39,6 +40,7 @@ function makeServerAsset(overrides: Partial<Asset> = {}): Asset {
     encryptedSecret: null,
     os: null,
     owner: null,
+    dockerfilePath: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

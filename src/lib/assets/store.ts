@@ -22,6 +22,7 @@ interface AssetRow {
   encrypted_secret: string | null;
   os: string | null;
   owner: string | null;
+  dockerfile_path: string | null;
   created_at: string;
 }
 
@@ -40,26 +41,28 @@ function toAsset(row: AssetRow): Asset {
     encryptedSecret: row.encrypted_secret,
     os: row.os,
     owner: row.owner,
+    dockerfilePath: row.dockerfile_path,
     createdAt: row.created_at,
   };
 }
 
-const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, created_at)
-     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @created_at)`;
+const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, dockerfile_path, created_at)
+     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @dockerfile_path, @created_at)`;
 
 export function createRepoAsset(
   input: {
     displayName: string; repoUrl: string; projectId?: string | null;
-    os?: string | null; owner?: string | null;
+    os?: string | null; owner?: string | null; dockerfilePath?: string | null;
   },
   db: Database = getDb(),
 ): Asset {
   const normalized = normalizeRepoUrl(input.repoUrl);
+  const dfPath = input.dockerfilePath ?? null;
   const existing = db
-    .prepare(`SELECT * FROM assets WHERE type = 'repo' AND repo_url = ?`)
-    .get(normalized) as AssetRow | undefined;
+    .prepare(`SELECT * FROM assets WHERE type = 'repo' AND repo_url = ? AND dockerfile_path IS ?`)
+    .get(normalized, dfPath) as AssetRow | undefined;
   if (existing) {
-    throw new DuplicateAssetError(`이미 등록된 레포입니다: ${normalized}`);
+    throw new DuplicateAssetError(`이미 등록된 레포입니다: ${normalized}${dfPath ? ` (${dfPath})` : ""}`);
   }
 
   const row: AssetRow = {
@@ -71,6 +74,7 @@ export function createRepoAsset(
     host_ip: null, hostname: null, ssh_port: null, auth_type: null, username: null, encrypted_secret: null,
     os: input.os ?? null,
     owner: input.owner ?? null,
+    dockerfile_path: dfPath,
     created_at: new Date().toISOString(),
   };
   db.prepare(INSERT_SQL).run(row);
@@ -106,6 +110,7 @@ export function createServerAsset(
     encrypted_secret: encryptSecret(input.secret),
     os: input.os ?? null,
     owner: input.owner ?? null,
+    dockerfile_path: null,
     created_at: new Date().toISOString(),
   };
   db.prepare(INSERT_SQL).run(row);
