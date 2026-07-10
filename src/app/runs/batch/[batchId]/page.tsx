@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { listRunsByBatch } from "@/lib/pipeline/scanBatches";
+import { listAssets } from "@/lib/assets/store";
+import { runDisplayIdentity } from "@/lib/pipeline/runIdentity";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
@@ -23,15 +25,16 @@ export default async function BatchPage({
   if (runs.length === 0) notFound();
 
   const runningCount = runs.filter((run) => run.status === "running").length;
+  const assetsById = new Map(listAssets().map((a) => [a.id, a]));
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[26px] font-bold tracking-[-0.02em]">서버 일괄 점검 결과</h1>
+          <h1 className="text-[26px] font-bold tracking-[-0.02em]">일괄 점검 결과</h1>
           <p className="text-[13px] text-muted">
-            서버 {runs.length}대
-            {runningCount > 0 ? ` · ${runningCount}대 진행 중` : ""}
+            자산 {runs.length}개
+            {runningCount > 0 ? ` · ${runningCount}개 진행 중` : ""}
           </p>
         </div>
       </div>
@@ -42,7 +45,7 @@ export default async function BatchPage({
             <thead>
               <tr className="border-b border-border">
                 <th className="px-5 py-3">
-                  <SectionLabel>서버</SectionLabel>
+                  <SectionLabel>점검 대상</SectionLabel>
                 </th>
                 <th className="px-5 py-3">
                   <SectionLabel>마지막 갱신</SectionLabel>
@@ -56,6 +59,7 @@ export default async function BatchPage({
               {runs.map((run) => {
                 const summary = getRunRiskSummary(run.id);
                 const outcome: RunOutcome = overallRunOutcome(summary);
+                const id = runDisplayIdentity(run, assetsById);
                 const badge: { status: BadgeStatus; label: string } =
                   run.status === "running"
                     ? { status: "progress", label: "진행 중" }
@@ -71,7 +75,7 @@ export default async function BatchPage({
                         href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
                         className="font-mono font-bold hover:underline"
                       >
-                        {run.repoUrl}
+                        {id.label}
                       </Link>
                     </td>
                     <td className="px-5 py-3 font-mono text-[13px] text-muted">

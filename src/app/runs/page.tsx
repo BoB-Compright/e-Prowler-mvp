@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listRuns } from "@/lib/pipeline/runs";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
+import { listAssets } from "@/lib/assets/store";
+import { runDisplayIdentity } from "@/lib/pipeline/runIdentity";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
@@ -16,11 +18,16 @@ function formatTimestamp(iso: string): string {
 export default async function RunsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ repo?: string }>;
+  searchParams: Promise<{ repo?: string; asset?: string }>;
 }) {
-  const { repo } = await searchParams;
+  const { repo, asset } = await searchParams;
   const allRuns = listRuns();
-  const runs = repo ? allRuns.filter((run) => run.repoUrl === repo) : allRuns;
+  const runs = asset
+    ? allRuns.filter((run) => run.assetId === asset)
+    : repo
+      ? allRuns.filter((run) => run.repoUrl === repo)
+      : allRuns;
+  const assetsById = new Map(listAssets().map((a) => [a.id, a]));
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
@@ -31,11 +38,13 @@ export default async function RunsPage({
         </div>
       </div>
 
-      {repo && (
+      {(asset || repo) && (
         <div className="mb-4 flex items-center gap-2 text-[13px] text-muted">
           <span>
-            <span className="font-mono font-bold text-text">{getRepoDisplayName(repo)}</span> 이력만
-            표시 중 · {runs.length}건
+            <span className="font-mono font-bold text-text">
+              {asset ? (assetsById.get(asset)?.displayName ?? asset) : getRepoDisplayName(repo!)}
+            </span>{" "}
+            이력만 표시 중 · {runs.length}건
           </span>
           <Link href="/runs" className="font-semibold text-primary hover:underline">
             전체 보기
@@ -89,6 +98,7 @@ export default async function RunsPage({
                 {runs.map((run) => {
                   const summary = getRunRiskSummary(run.id);
                   const outcome: RunOutcome = overallRunOutcome(summary);
+                  const id = runDisplayIdentity(run, assetsById);
                   const badge: { status: BadgeStatus; label: string } =
                     run.status === "running"
                       ? { status: "progress", label: "진행 중" }
@@ -104,15 +114,25 @@ export default async function RunsPage({
                           href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
                           className="font-mono font-bold hover:underline"
                         >
-                          {getRepoDisplayName(run.repoUrl)}
+                          {id.label}
                         </Link>
-                        <Link
-                          href={`/runs?repo=${encodeURIComponent(run.repoUrl)}`}
-                          className="block font-mono text-[13px] text-muted hover:text-primary hover:underline"
-                          title="이 자산의 이력만 보기"
-                        >
-                          {run.repoUrl}
-                        </Link>
+                        {id.filterAssetId ? (
+                          <Link
+                            href={`/runs?asset=${id.filterAssetId}`}
+                            className="block font-mono text-[13px] text-muted hover:text-primary hover:underline"
+                            title="이 자산 이력만 보기"
+                          >
+                            {id.secondary}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/runs?repo=${encodeURIComponent(run.repoUrl)}`}
+                            className="block font-mono text-[13px] text-muted hover:text-primary hover:underline"
+                            title="이 자산의 이력만 보기"
+                          >
+                            {run.repoUrl}
+                          </Link>
+                        )}
                       </td>
                       <td className="px-5 py-3 font-mono text-[13px] text-muted">
                         {formatTimestamp(run.updatedAt)}
