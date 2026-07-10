@@ -15,6 +15,18 @@ import { createScanBatch } from "./scanBatches";
 
 const FLEET_SCAN_CONCURRENCY = 5;
 
+// Repo assets do a local `docker build` (heavy: CPU/memory/disk), unlike
+// server assets which just hold open an SSH connection — so repo tasks get
+// their own, lower concurrency limit instead of sharing FLEET_SCAN_CONCURRENCY
+// with server tasks (5 concurrent docker builds was exhausting memory).
+// Configurable via REPO_SCAN_CONCURRENCY for environments with more/less
+// headroom; defaults to 2 when unset or not a valid positive integer.
+export function repoScanConcurrency(env: Record<string, string | undefined> = process.env): number {
+  const raw = env.REPO_SCAN_CONCURRENCY;
+  const n = raw ? parseInt(raw, 10) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : 2;
+}
+
 export interface ServerScanDeps {
   runAnsibleForServer: typeof runAnsibleForServer;
   retryOnConnectionFailure: typeof retryOnConnectionFailure;
@@ -207,7 +219,10 @@ export async function scanProjectFleet(
       db,
     );
   });
-  await runWithConcurrency([...serverTasks, ...repoTasks], FLEET_SCAN_CONCURRENCY);
+  await Promise.all([
+    runWithConcurrency(serverTasks, FLEET_SCAN_CONCURRENCY),
+    runWithConcurrency(repoTasks, repoScanConcurrency()),
+  ]);
   return { batchId: batch.id, runIds };
 }
 
@@ -245,7 +260,10 @@ export function startProjectFleetScan(
       db,
     );
   });
-  void runWithConcurrency([...serverTasks, ...repoTasks], FLEET_SCAN_CONCURRENCY);
+  void Promise.all([
+    runWithConcurrency(serverTasks, FLEET_SCAN_CONCURRENCY),
+    runWithConcurrency(repoTasks, repoScanConcurrency()),
+  ]);
 
   return {
     batchId: batch.id,

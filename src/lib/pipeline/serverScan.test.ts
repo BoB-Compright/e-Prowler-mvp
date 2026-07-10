@@ -14,6 +14,7 @@ import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { retryOnConnectionFailure, AuthFailureError, ConnectionFailureError } from "@/lib/checks/retry";
 import {
   createServerRun,
+  repoScanConcurrency,
   runServerScanPipeline,
   runWithConcurrency,
   scanProjectFleet,
@@ -280,6 +281,15 @@ describe("runWithConcurrency", () => {
     ];
     await runWithConcurrency(tasks, 2);
     expect(done.sort()).toEqual([0, 2]);
+  });
+});
+
+describe("repoScanConcurrency", () => {
+  it("REPO_SCAN_CONCURRENCY 파싱: 유효/무효/미설정", () => {
+    expect(repoScanConcurrency({})).toBe(2);
+    expect(repoScanConcurrency({ REPO_SCAN_CONCURRENCY: "3" })).toBe(3);
+    expect(repoScanConcurrency({ REPO_SCAN_CONCURRENCY: "abc" })).toBe(2);
+    expect(repoScanConcurrency({ REPO_SCAN_CONCURRENCY: "0" })).toBe(2);
   });
 });
 
