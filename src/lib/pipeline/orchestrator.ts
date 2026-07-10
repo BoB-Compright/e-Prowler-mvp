@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import path from "path";
 import { getDb } from "@/lib/db";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
@@ -103,7 +104,7 @@ export async function runPipeline(
         runId,
         "build",
         "failed",
-        { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 루트 기준)" },
+        { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 전체 탐색)" },
         db,
       );
       return;
@@ -112,14 +113,20 @@ export async function runPipeline(
     updateRunStage(runId, "build", "running", {}, db);
     imageTag = `scan-${runId}`;
     try {
-      await deps.build(repoDir, imageTag);
+      await deps.build(repoDir, dockerfilePath, imageTag);
     } catch (err) {
       if (isCancelled(runId, db)) return;
       updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
     if (isCancelled(runId, db)) return;
-    updateRunStage(runId, "build", "succeeded", { imageTag }, db);
+    updateRunStage(
+      runId,
+      "build",
+      "succeeded",
+      { imageTag, message: `Dockerfile: ${path.relative(repoDir, dockerfilePath)}` },
+      db,
+    );
   }
 
   // A git-sourced run builds a one-off `scan-<runId>` image that's never

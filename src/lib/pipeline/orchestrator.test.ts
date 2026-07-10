@@ -43,6 +43,11 @@ describe("runPipeline", () => {
     expect(updated.status).toBe("succeeded");
     expect(updated.containerName).toBe(`scan-${run.id}`);
 
+    expect(deps.build).toHaveBeenCalledWith(
+      "/tmp/fake-repo",
+      "/tmp/fake-repo/Dockerfile",
+      `scan-${run.id}`,
+    );
     expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
     // A git-sourced run's one-off scan-<runId> image is cleaned up once the
@@ -188,6 +193,29 @@ describe("runPipeline", () => {
     expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`);
     // A local_image run reuses an image the user owns and must never delete it.
     expect(deps.removeImage).not.toHaveBeenCalled();
+  });
+
+  it("builds using a Dockerfile found in a subdirectory and records its relative path", async () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir: "/tmp/fake-repo" });
+    deps.detectDockerfile = vi.fn().mockReturnValue("/tmp/fake-repo/docker/Dockerfile");
+
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+
+    const updated = getRun(run.id, db)!;
+    expect(updated.status).toBe("succeeded");
+    // build 는 (repoDir, dockerfilePath, imageTag) 로 호출된다.
+    expect(deps.build).toHaveBeenCalledWith(
+      "/tmp/fake-repo",
+      "/tmp/fake-repo/docker/Dockerfile",
+      `scan-${run.id}`,
+    );
+    // runChecks 는 선택된 Dockerfile 경로를 받는다.
+    expect(deps.runChecks).toHaveBeenCalledWith(
+      "/tmp/fake-repo/docker/Dockerfile",
+      `scan-${run.id}`,
+    );
   });
 });
 
