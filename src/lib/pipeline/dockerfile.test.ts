@@ -29,4 +29,50 @@ describe("detectDockerfile", () => {
     const dir = makeTmpDir();
     expect(detectDockerfile(dir)).toBeUndefined();
   });
+
+  it("finds a Dockerfile in a subdirectory", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "docker"));
+    fs.writeFileSync(path.join(dir, "docker", "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(path.join(dir, "docker", "Dockerfile"));
+  });
+
+  it("finds a variant name like Dockerfile.prod", () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, "Dockerfile.prod"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(path.join(dir, "Dockerfile.prod"));
+  });
+
+  it("prefers the root Dockerfile over a deeper one", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "sub"));
+    fs.writeFileSync(path.join(dir, "sub", "Dockerfile"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(path.join(dir, "Dockerfile"));
+  });
+
+  it("prefers the exact name Dockerfile over a variant at the same depth", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "a"));
+    fs.mkdirSync(path.join(dir, "b"));
+    fs.writeFileSync(path.join(dir, "b", "Dockerfile.dev"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "a", "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(path.join(dir, "a", "Dockerfile"));
+  });
+
+  it("breaks remaining ties by lexicographic path", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "z"));
+    fs.mkdirSync(path.join(dir, "a"));
+    fs.writeFileSync(path.join(dir, "z", "Dockerfile"), "FROM scratch\n");
+    fs.writeFileSync(path.join(dir, "a", "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBe(path.join(dir, "a", "Dockerfile"));
+  });
+
+  it("ignores Dockerfiles inside excluded directories", () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, "node_modules", "pkg"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "node_modules", "pkg", "Dockerfile"), "FROM scratch\n");
+    expect(detectDockerfile(dir)).toBeUndefined();
+  });
 });
