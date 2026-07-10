@@ -13,7 +13,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   if (!project) notFound();
 
   const assets = listAssets({ projectId: id });
-  const serverCount = assets.filter((asset) => asset.type === "server").length;
+  // Fleet 점검은 server(SSH)·repo(이미지 빌드) 자산을 모두 스캔한다(startProjectFleetScan).
+  const scannableCount = assets.length;
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
@@ -24,7 +25,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             {project.pmName} · {project.pmEmail}
           </p>
         </div>
-        <FleetScanButton projectId={project.id} serverCount={serverCount} />
+        <FleetScanButton projectId={project.id} assetCount={scannableCount} />
       </div>
 
       <div className="mb-6">
