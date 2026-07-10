@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
-import { cancelRun, createRun, getRun } from "./runs";
+import { cancelRun, createRun, getRun, listRunEvents } from "./runs";
 import { listCheckResults } from "@/lib/checks/store";
 import { runPipeline, type PipelineDeps } from "./orchestrator";
 
@@ -216,6 +216,11 @@ describe("runPipeline", () => {
       "/tmp/fake-repo/docker/Dockerfile",
       `scan-${run.id}`,
     );
+    // build-stage succeeded event의 message에 상대경로가 기록된다.
+    const events = listRunEvents(run.id, db);
+    const buildSucceededEvent = events.find((e) => e.stage === "build" && e.status === "succeeded");
+    expect(buildSucceededEvent).toBeDefined();
+    expect(buildSucceededEvent?.message).toBe("Dockerfile: docker/Dockerfile");
   });
 });
 
