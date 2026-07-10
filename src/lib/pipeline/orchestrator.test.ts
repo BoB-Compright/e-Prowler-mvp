@@ -43,11 +43,7 @@ describe("runPipeline", () => {
     expect(updated.status).toBe("succeeded");
     expect(updated.containerName).toBe(`scan-${run.id}`);
 
-    expect(deps.build).toHaveBeenCalledWith(
-      "/tmp/fake-repo",
-      "/tmp/fake-repo/Dockerfile",
-      `scan-${run.id}`,
-    );
+    expect(deps.build).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
     expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
     // A git-sourced run's one-off scan-<runId> image is cleaned up once the
@@ -205,9 +201,8 @@ describe("runPipeline", () => {
 
     const updated = getRun(run.id, db)!;
     expect(updated.status).toBe("succeeded");
-    // build 는 (repoDir, dockerfilePath, imageTag) 로 호출된다.
+    // build 는 (dockerfilePath, imageTag) 로 호출된다.
     expect(deps.build).toHaveBeenCalledWith(
-      "/tmp/fake-repo",
       "/tmp/fake-repo/docker/Dockerfile",
       `scan-${run.id}`,
     );

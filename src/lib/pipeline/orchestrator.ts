@@ -113,7 +113,7 @@ export async function runPipeline(
     updateRunStage(runId, "build", "running", {}, db);
     imageTag = `scan-${runId}`;
     try {
-      await deps.build(repoDir, dockerfilePath, imageTag);
+      await deps.build(dockerfilePath, imageTag);
     } catch (err) {
       if (isCancelled(runId, db)) return;
       updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);

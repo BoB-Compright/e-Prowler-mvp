@@ -14,13 +14,30 @@ describe("buildImage", () => {
     execFileMock.mockClear();
   });
 
-  it("runs docker build with -f pointing at the given Dockerfile and repoDir as context", async () => {
+  it("runs docker build with -f pointing at the given Dockerfile and its directory as context", async () => {
     const { buildImage } = await import("./build");
-    await buildImage("/repo", "/repo/docker/Dockerfile", "scan-123");
+    await buildImage("/repo/docker/Dockerfile", "scan-123");
 
     expect(execFileMock).toHaveBeenCalledTimes(1);
     const [cmd, args] = execFileMock.mock.calls[0];
     expect(cmd).toBe("docker");
-    expect(args).toEqual(["build", "-t", "scan-123", "-f", "/repo/docker/Dockerfile", "/repo"]);
+    expect(args).toEqual([
+      "build",
+      "-t",
+      "scan-123",
+      "-f",
+      "/repo/docker/Dockerfile",
+      "/repo/docker",
+    ]);
+  });
+
+  it("uses the repo root as context for a root Dockerfile", async () => {
+    const { buildImage } = await import("./build");
+    await buildImage("/repo/Dockerfile", "scan-9");
+
+    expect(execFileMock).toHaveBeenCalledTimes(1);
+    const [cmd, args] = execFileMock.mock.calls[0];
+    expect(cmd).toBe("docker");
+    expect(args).toEqual(["build", "-t", "scan-9", "-f", "/repo/Dockerfile", "/repo"]);
   });
 });

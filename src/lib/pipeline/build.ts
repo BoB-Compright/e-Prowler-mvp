@@ -1,15 +1,14 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
+import path from "path";
 
 const execFileAsync = promisify(execFile);
 
-export async function buildImage(
-  repoDir: string,
-  dockerfilePath: string,
-  imageTag: string,
-): Promise<void> {
-  // 컨텍스트는 레포 루트(repoDir) 유지, Dockerfile 위치만 -f 로 지정.
-  await execFileAsync("docker", ["build", "-t", imageTag, "-f", dockerfilePath, repoDir], {
+export async function buildImage(dockerfilePath: string, imageTag: string): Promise<void> {
+  // 컨텍스트 = Dockerfile이 있는 디렉터리 (자기완결형 하위 서비스 Dockerfile 지원).
+  // 루트 Dockerfile이면 dirname == repoDir 이라 기존 동작과 동일.
+  const contextDir = path.dirname(dockerfilePath);
+  await execFileAsync("docker", ["build", "-t", imageTag, "-f", dockerfilePath, contextDir], {
     timeout: 300_000,
     maxBuffer: 1024 * 1024 * 10,
   });
