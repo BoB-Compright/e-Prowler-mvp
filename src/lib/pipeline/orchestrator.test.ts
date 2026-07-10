@@ -267,6 +267,29 @@ describe("runPipeline", () => {
     expect(deps.build).not.toHaveBeenCalled();
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it("git run 성공 후 클론 디렉터리를 삭제한다", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clone-"));
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    const run = createRun("https://github.com/o/r.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir });
+    deps.detectDockerfile = vi.fn().mockReturnValue(path.join(dir, "Dockerfile"));
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+
+  it("git run이 build 단계에서 실패해도 클론을 삭제한다", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clone-"));
+    fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
+    const run = createRun("https://github.com/o/r.git", "git", null, db);
+    const deps = baseDeps();
+    deps.clone = vi.fn().mockResolvedValue({ dir });
+    deps.detectDockerfile = vi.fn().mockReturnValue(path.join(dir, "Dockerfile"));
+    deps.build = vi.fn().mockRejectedValue(new Error("docker build exited 1"));
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
+    expect(fs.existsSync(dir)).toBe(false);
+  });
 });
 
 // (#73) The orchestrator has no way to forcibly abort an in-flight `await` in

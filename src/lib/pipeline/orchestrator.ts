@@ -75,6 +75,20 @@ export async function runPipeline(
 ): Promise<void> {
   let imageTag: string;
   let dockerfilePath: string | undefined;
+  // Hoisted so it's reachable from the shared finally below and from every
+  // early return in the git branch: whichever exit path runs, the clone
+  // directory (data/repos/<runId>) gets removed at most once. A local_image
+  // run never assigns this, so cleanupClone() is a no-op for it.
+  let repoDir: string | undefined;
+  const cleanupClone = () => {
+    if (!repoDir) return;
+    try {
+      fs.rmSync(repoDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+    repoDir = undefined;
+  };
 
   if (source.type === "local_image") {
     imageTag = source.imageTag;
@@ -87,7 +101,6 @@ export async function runPipeline(
       db,
     );
   } else {
-    let repoDir: string;
     try {
       const result = await deps.clone(source.repoUrl, runId);
       repoDir = result.dir;
@@ -96,7 +109,10 @@ export async function runPipeline(
       updateRunStage(runId, "clone", "failed", { errorMessage: errorMessage(err) }, db);
       return;
     }
-    if (isCancelled(runId, db)) return;
+    if (isCancelled(runId, db)) {
+      cleanupClone();
+      return;
+    }
     updateRunStage(runId, "clone", "succeeded", {}, db);
 
     if (source.dockerfilePath) {
@@ -111,6 +127,7 @@ export async function runPipeline(
           { errorMessage: `지정된 Dockerfile 경로가 유효하지 않습니다: ${source.dockerfilePath}` },
           db,
         );
+        cleanupClone();
         return;
       }
       if (!fs.existsSync(specified)) {
@@ -121,6 +138,7 @@ export async function runPipeline(
           { errorMessage: `지정된 Dockerfile을 찾을 수 없습니다: ${source.dockerfilePath}` },
           db,
         );
+        cleanupClone();
         return;
       }
       dockerfilePath = specified;
@@ -134,6 +152,7 @@ export async function runPipeline(
           { errorMessage: "Dockerfile을 찾을 수 없습니다 (레포 전체 탐색)" },
           db,
         );
+        cleanupClone();
         return;
       }
     }
@@ -143,11 +162,18 @@ export async function runPipeline(
     try {
       await deps.build(dockerfilePath, imageTag);
     } catch (err) {
-      if (isCancelled(runId, db)) return;
+      if (isCancelled(runId, db)) {
+        cleanupClone();
+        return;
+      }
       updateRunStage(runId, "build", "failed", { errorMessage: errorMessage(err) }, db);
+      cleanupClone();
       return;
     }
-    if (isCancelled(runId, db)) return;
+    if (isCancelled(runId, db)) {
+      cleanupClone();
+      return;
+    }
     updateRunStage(
       runId,
       "build",
@@ -222,5 +248,6 @@ export async function runPipeline(
     if (source.type === "git") {
       await deps.removeImage(imageTag);
     }
+    cleanupClone();
   }
 }
