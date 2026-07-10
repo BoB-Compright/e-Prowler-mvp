@@ -2,23 +2,13 @@ import Link from "next/link";
 import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
-import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
+import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { matchesAssetQuery } from "@/lib/search/match";
 import { AssetFilters } from "./AssetFilters";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
-import type { BadgeStatus } from "../_components/statusBadgeStyles";
-
-const STATUS_BADGE: Record<AssetStatusKind, { status: BadgeStatus; label: string }> = {
-  pass: { status: "pass", label: "양호" },
-  fail: { status: "fail", label: "취약" },
-  review: { status: "review", label: "검토" },
-  error: { status: "fail", label: "실패" },
-  running: { status: "progress", label: "진행 중" },
-  cancelled: { status: "neutral", label: "취소됨" },
-  none: { status: "neutral", label: "미점검" },
-};
+import { ASSET_STATUS_BADGE } from "../_components/assetStatusBadge";
 
 export default async function AssetsPage({
   searchParams,
@@ -105,7 +95,7 @@ export default async function AssetsPage({
                       : schedule.frequency === "weekly"
                         ? "매주"
                         : "매월";
-                const badge = STATUS_BADGE[statusMap.get(asset.id)?.kind ?? "none"];
+                const badge = ASSET_STATUS_BADGE[statusMap.get(asset.id)?.kind ?? "none"];
                 return (
                   <tr key={asset.id} className="hover:bg-bg">
                     <td className="px-5 py-3">
