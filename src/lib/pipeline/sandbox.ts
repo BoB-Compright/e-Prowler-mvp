@@ -30,10 +30,12 @@ export async function startSandbox(
     [
       "run",
       "-d",
-      // Allocate a pseudo-TTY so images whose default CMD is an interactive
-      // shell (e.g. plain `bash`, common on base OS images like debian) don't
-      // read EOF on unattached stdin and exit immediately.
-      "-t",
+      // The image's default CMD may be an app server (e.g. uvicorn) that
+      // crashes without its deps/DB/network; all checks are read-only
+      // `docker exec` commands that don't need it running, so override
+      // entrypoint+cmd with a keep-alive loop to keep the container up.
+      "--entrypoint",
+      "sh",
       "--name",
       containerName,
       "--network",
@@ -61,6 +63,8 @@ export async function startSandbox(
       "--pids-limit",
       String(limits.pidsLimit),
       imageTag,
+      "-c",
+      "while true; do sleep 3600; done",
     ],
     { timeout: 30_000 },
   );
