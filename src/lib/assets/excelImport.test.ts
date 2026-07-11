@@ -71,6 +71,24 @@ describe("importAssetsFromWorkbook", () => {
     expect(listAssets({ type: "server" }, db)).toHaveLength(1);
   });
 
+  it("서버 행의 종류(category)·제조사(vendor)를 저장하고, 잘못된 종류는 무시한다", () => {
+    const buffer = buildWorkbook({
+      server: [
+        { display_name: "was-01", host_ip: "10.0.0.6", hostname: "was-01", ssh_port: 22, auth_type: "password", username: "admin", secret: "pw", category: "WAS", vendor: "Tomcat" },
+        { display_name: "bad-01", host_ip: "10.0.0.7", hostname: "bad-01", ssh_port: 22, auth_type: "password", username: "admin", secret: "pw", category: "HACK", vendor: "x" },
+      ],
+    });
+    const result = importAssetsFromWorkbook(buffer, null, db);
+    expect(result.server.every((r) => r.ok)).toBe(true);
+    const rows = listAssets({ type: "server" }, db);
+    const was = rows.find((a) => a.displayName === "was-01");
+    const bad = rows.find((a) => a.displayName === "bad-01");
+    expect(was?.category).toBe("WAS");
+    expect(was?.vendor).toBe("Tomcat");
+    expect(bad?.category).toBeNull(); // 유효하지 않은 종류는 null
+    expect(bad?.vendor).toBe("x");
+  });
+
   it("returns empty arrays for sheets that are absent", () => {
     const buffer = buildWorkbook({ repo: [{ display_name: "a", repo_url: "https://github.com/x/a" }] });
     expect(importAssetsFromWorkbook(buffer, null, db).server).toEqual([]);

@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import * as XLSX from "xlsx";
 import { getDb } from "@/lib/db";
 import { DuplicateAssetError, createRepoAsset, createServerAsset } from "./store";
+import { isValidCategory } from "./categories";
 import type { ServerAuthType } from "./types";
 
 export type ImportRowResult =
@@ -12,6 +13,7 @@ interface RepoRow { display_name?: unknown; repo_url?: unknown; os?: unknown; ow
 interface ServerRow {
   display_name?: unknown; host_ip?: unknown; hostname?: unknown; ssh_port?: unknown;
   auth_type?: unknown; username?: unknown; secret?: unknown; os?: unknown; owner?: unknown;
+  category?: unknown; vendor?: unknown;
 }
 
 function optionalTrimmedString(value: unknown): string | null {
@@ -77,8 +79,11 @@ function importServerSheet(rows: ServerRow[], projectId: string | null, db: Data
 
     const os = optionalTrimmedString(raw.os);
     const owner = optionalTrimmedString(raw.owner);
+    const categoryRaw = optionalTrimmedString(raw.category);
+    const category = categoryRaw && isValidCategory(categoryRaw) ? categoryRaw : null;
+    const vendor = optionalTrimmedString(raw.vendor);
     try {
-      const asset = createServerAsset({ displayName, hostIp, hostname, sshPort, authType, username, secret, projectId, os, owner }, db);
+      const asset = createServerAsset({ displayName, hostIp, hostname, sshPort, authType, username, secret, projectId, os, owner, category, vendor }, db);
       return { row: rowNumber, ok: true, assetId: asset.id };
     } catch (error) {
       if (error instanceof DuplicateAssetError) return { row: rowNumber, ok: false, reason: error.message };

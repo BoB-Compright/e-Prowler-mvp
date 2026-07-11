@@ -6,8 +6,8 @@ const REPO_ROWS = [
 ];
 
 const SERVER_ROWS = [
-  ["display_name", "host_ip", "hostname", "ssh_port", "auth_type", "username", "secret", "os", "owner"],
-  ["web-01", "10.0.0.5", "web-01.internal", 22, "password", "admin", "changeme", "Ubuntu 22.04", "홍길동"],
+  ["display_name", "host_ip", "hostname", "ssh_port", "auth_type", "username", "secret", "os", "owner", "category", "vendor"],
+  ["web-01", "10.0.0.5", "web-01.internal", 22, "password", "admin", "changeme", "Ubuntu 22.04", "홍길동", "WEB", "Nginx"],
 ];
 
 export function buildAssetImportTemplate(): Buffer {

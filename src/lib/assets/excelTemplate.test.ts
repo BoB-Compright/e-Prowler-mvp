@@ -25,6 +25,8 @@ describe("buildAssetImportTemplate", () => {
       "secret",
       "os",
       "owner",
+      "category",
+      "vendor",
     ]);
   });
 
