@@ -4,6 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, isActiveNav } from "./navItems";
 
+// 온보딩 투어 앵커: 내비 href → data-tour 값. 투어 스텝(steps.ts)의 anchor와 일치해야 한다.
+const NAV_TOUR_ANCHORS: Record<string, string | undefined> = {
+  "/": "nav-dashboard",
+  "/projects": "nav-projects",
+  "/runs": "nav-runs",
+};
+
 export function AppSidebar() {
   const pathname = usePathname();
 
@@ -18,7 +25,7 @@ export function AppSidebar() {
           <Link
             key={item.href}
             href={item.href}
-            data-tour={item.href === "/assets" ? "nav-assets" : item.href === "/runs" ? "nav-runs" : undefined}
+            data-tour={NAV_TOUR_ANCHORS[item.href]}
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] ${
               isActiveNav(pathname, item)
                 ? "bg-primary font-semibold text-white"

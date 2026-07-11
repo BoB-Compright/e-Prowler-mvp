@@ -32,7 +32,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     key: "group-scan",
-    anchor: "nav-assets",
+    anchor: "nav-projects",
     placement: "auto",
     title: "② 프로젝트로 묶고 점검",
     body: "자산을 프로젝트로 묶고, 체크박스로 선택해 일괄 점검하거나 프로젝트에서 전체(Fleet) 점검을 실행하세요.",
@@ -46,7 +46,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     key: "results",
-    anchor: "dashboard-score",
+    anchor: "nav-dashboard",
     placement: "auto",
     title: "④ 분석 결과",
     body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다.",

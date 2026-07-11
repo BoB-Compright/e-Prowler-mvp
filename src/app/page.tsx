@@ -179,11 +179,9 @@ export default function DashboardPage() {
 
             {/* 2. 종합 점수 게이지 + 상태 분포 도넛 */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div data-tour="dashboard-score">
-                <Card title="종합 보안 점수">
-                  <SecurityScoreGauge score={score} grade={grade} />
-                </Card>
-              </div>
+              <Card title="종합 보안 점수">
+                <SecurityScoreGauge score={score} grade={grade} />
+              </Card>
               <Card title="자산 상태 분포">
                 <AssetStatusDonut buckets={distribution} total={assets.length} />
               </Card>

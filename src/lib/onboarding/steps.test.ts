@@ -42,7 +42,7 @@ describe("ONBOARDING_STEPS", () => {
   });
   it("auto 스텝의 anchor는 실제로 부여할 data-tour 키와 일치한다", () => {
     const anchors = ONBOARDING_STEPS.filter((s) => s.anchor).map((s) => s.anchor);
-    expect(anchors).toEqual(["asset-register", "nav-assets", "nav-runs", "dashboard-score"]);
+    expect(anchors).toEqual(["asset-register", "nav-projects", "nav-runs", "nav-dashboard"]);
   });
   it("localStorage/sessionStorage 키 상수", () => {
     expect(ONBOARDING_DONE_KEY).toBe("nhg_onboarding_done");
