@@ -157,7 +157,7 @@ export async function scanServerAsset(
 // scan, attaches it to the batch — mirroring createServerRun's synchronous
 // row-creation split, so the run shows up in the batch view right away even
 // before deps.runPipeline (the container orchestrator) starts working on it.
-function createRepoRun(asset: Asset, batchId: string | null, db: Database): Run {
+export function createRepoRun(asset: Asset, batchId: string | null, db: Database): Run {
   const run = createRun(asset.repoUrl!, "git", asset.id, db);
   if (batchId) {
     db.prepare(`UPDATE runs SET batch_id = @batchId WHERE id = @id`).run({ batchId, id: run.id });

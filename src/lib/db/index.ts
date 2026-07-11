@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS assets (
 
 CREATE TABLE IF NOT EXISTS scan_batches (
   id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL REFERENCES projects(id),
+  project_id TEXT REFERENCES projects(id),
   created_at TEXT NOT NULL
 );
 
@@ -178,6 +178,25 @@ function migrate(db: Database.Database): void {
     // Links issued before this column existed keep working exactly as before
     // (DEFAULT 'active' preserves current behavior for every existing project).
     db.exec(`ALTER TABLE projects ADD COLUMN share_status TEXT NOT NULL DEFAULT 'active'`);
+  }
+
+  // scan_batches.project_id를 nullable로 재구축 — 프로젝트와 무관한
+  // 자산 선택 일괄 점검(bulk scan)의 배치를 담기 위함. SQLite는 NOT NULL
+  // 해제를 지원하지 않아 테이블 재생성으로 마이그레이션한다.
+  const scanBatchProjectCol = (
+    db.prepare(`PRAGMA table_info(scan_batches)`).all() as { name: string; notnull: number }[]
+  ).find((col) => col.name === "project_id");
+  if (scanBatchProjectCol && scanBatchProjectCol.notnull === 1) {
+    db.exec(`
+      CREATE TABLE scan_batches_new (
+        id TEXT PRIMARY KEY,
+        project_id TEXT REFERENCES projects(id),
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO scan_batches_new SELECT id, project_id, created_at FROM scan_batches;
+      DROP TABLE scan_batches;
+      ALTER TABLE scan_batches_new RENAME TO scan_batches;
+    `);
   }
 }
 

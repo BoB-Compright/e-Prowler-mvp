@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { listRuns } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
 
-export function createScanBatch(projectId: string, db: Database = getDb()): { id: string } {
+export function createScanBatch(projectId: string | null, db: Database = getDb()): { id: string } {
   const id = randomUUID();
   db.prepare(`INSERT INTO scan_batches (id, project_id, created_at) VALUES (?, ?, ?)`).run(
     id,
