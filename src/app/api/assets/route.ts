@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         projectId: body.projectId || null,
         os: optionalString(body.os),
         owner: optionalString(body.owner),
+        dockerfilePath: optionalString(body.dockerfilePath),
       });
       return NextResponse.json({ asset }, { status: 201 });
     }
