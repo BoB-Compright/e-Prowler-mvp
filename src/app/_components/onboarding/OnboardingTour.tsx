@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ONBOARDING_STEPS,
@@ -31,6 +31,7 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
   const [active, setActive] = useState(false);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   // 마운트 후에만 localStorage/sessionStorage·DOM 접근 (SSR 안전)
   useEffect(() => {
@@ -62,6 +63,11 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
       window.removeEventListener("scroll", update, true);
     };
   }, [step]);
+
+  // aria-modal 다이얼로그이므로 초기 포커스를 배경이 아닌 말풍선으로 이동시킨다.
+  useEffect(() => {
+    if (active) tooltipRef.current?.focus();
+  }, [active, index]);
 
   const finish = useCallback(() => {
     localStorage.setItem(ONBOARDING_DONE_KEY, "1");
@@ -136,6 +142,8 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
       )}
       {/* 말풍선 */}
       <div
+        ref={tooltipRef}
+        tabIndex={-1}
         style={tooltipStyle}
         className="rounded-2xl border border-border bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}

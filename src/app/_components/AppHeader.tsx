@@ -43,6 +43,7 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
               {user.username.slice(0, 1).toUpperCase()}
             </span>
             <span className="hidden text-[13px] font-medium md:inline">{user.username}</span>
+            <HelpButton />
             <button
               type="button"
               onClick={handleLogout}
@@ -53,7 +54,6 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
             </button>
           </div>
         )}
-        <HelpButton />
         <ThemeToggle />
       </div>
       <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:hidden">
