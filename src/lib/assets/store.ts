@@ -153,6 +153,19 @@ export function getAsset(id: string, db: Database = getDb()): Asset | undefined 
   return row ? toAsset(row) : undefined;
 }
 
+export function setAssetsProject(
+  assetIds: string[],
+  projectId: string | null,
+  db: Database = getDb(),
+): number {
+  if (assetIds.length === 0) return 0;
+  const placeholders = assetIds.map(() => "?").join(",");
+  const result = db
+    .prepare(`UPDATE assets SET project_id = ? WHERE id IN (${placeholders})`)
+    .run(projectId, ...assetIds);
+  return result.changes;
+}
+
 export function deleteAsset(id: string, db: Database = getDb()): void {
   const runningRun = db
     .prepare(`SELECT id FROM runs WHERE asset_id = ? AND status = 'running'`)
