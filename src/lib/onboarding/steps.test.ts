@@ -35,6 +35,11 @@ describe("ONBOARDING_STEPS", () => {
       else expect(typeof s.anchor).toBe("string");
     }
   });
+  it("PM 공유 스텝은 공유 예시 미리보기를 가진다", () => {
+    const share = ONBOARDING_STEPS.find((s) => s.key === "share");
+    expect(share?.preview).toBe("share");
+  });
+
   it("마지막 스텝(done)은 자산 등록 CTA를 가진다", () => {
     const last = ONBOARDING_STEPS[ONBOARDING_STEPS.length - 1];
     expect(last.key).toBe("done");

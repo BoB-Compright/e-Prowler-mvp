@@ -5,6 +5,8 @@ export interface OnboardingStep {
   body: string;
   placement: "center" | "auto";
   cta?: { label: string; href: string };
+  // 설정 시 말풍선 안에 해당 예시 화면 미리보기를 함께 렌더한다(중앙·확장 배치).
+  preview?: "share";
 }
 
 export const ONBOARDING_DONE_KEY = "nhg_onboarding_done";
@@ -56,7 +58,8 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     anchor: "nav-projects",
     placement: "auto",
     title: "⑤ PM에게 공유",
-    body: "프로젝트를 열면 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요.",
+    body: "프로젝트 상세의 '공유 설정'에서 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요. 아래는 예시 화면입니다.",
+    preview: "share",
   },
   {
     key: "done",

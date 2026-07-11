@@ -9,6 +9,7 @@ import {
   shouldAutoStart,
   type OnboardingStep,
 } from "@/lib/onboarding/steps";
+import { SharePreview } from "./SharePreview";
 
 interface Rect {
   top: number;
@@ -101,20 +102,29 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
 
   const isLast = index === ONBOARDING_STEPS.length - 1;
   const pad = 6;
-  // 말풍선 위치: 앵커가 있으면 그 아래(공간 없으면 위), 없으면 화면 중앙
-  const tooltipStyle: React.CSSProperties =
-    rect && step.placement === "auto"
-      ? (() => {
-          const below = rect.top + rect.height + 12;
-          const placeBelow = below + 180 < window.innerHeight;
-          return {
-            position: "fixed",
-            top: placeBelow ? below : Math.max(12, rect.top - 12 - 180),
-            left: Math.min(Math.max(12, rect.left), window.innerWidth - 332),
-            width: 320,
-          };
-        })()
-      : { position: "fixed", top: "50%", left: "50%", width: 320, transform: "translate(-50%, -50%)" };
+  // 예시 미리보기가 있는 스텝은 스포트라이트 대신 중앙에 확장 배치한다(내용이 큼).
+  const hasPreview = !!step.preview;
+  const spotlight = !!rect && step.placement === "auto" && !hasPreview;
+  // 말풍선 위치: 스포트라이트 스텝은 앵커 아래(공간 없으면 위), 그 외엔 화면 중앙
+  const tooltipStyle: React.CSSProperties = spotlight
+    ? (() => {
+        const below = rect!.top + rect!.height + 12;
+        const placeBelow = below + 180 < window.innerHeight;
+        return {
+          position: "fixed",
+          top: placeBelow ? below : Math.max(12, rect!.top - 12 - 180),
+          left: Math.min(Math.max(12, rect!.left), window.innerWidth - 332),
+          width: 320,
+        };
+      })()
+    : {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        width: hasPreview ? 400 : 320,
+        maxWidth: "calc(100vw - 24px)",
+        transform: "translate(-50%, -50%)",
+      };
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
@@ -122,11 +132,11 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
           전체 딤을 투명하게 둬서 이중 딤을 방지한다. 앵커 없는 center 스텝에서는 전체 딤을 표시한다. */}
       <div
         className="absolute inset-0"
-        style={{ background: rect && step.placement === "auto" ? "transparent" : "rgba(0,0,0,0.5)" }}
+        style={{ background: spotlight ? "transparent" : "rgba(0,0,0,0.5)" }}
         onClick={finish}
       />
-      {/* 스포트라이트 하이라이트 링 (앵커가 있을 때만) */}
-      {rect && step.placement === "auto" && (
+      {/* 스포트라이트 하이라이트 링 (앵커가 있고 미리보기 스텝이 아닐 때만) */}
+      {spotlight && (
         <div
           className="pointer-events-none absolute rounded-lg ring-2 ring-primary ring-offset-2"
           style={{
@@ -155,6 +165,8 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
           {step.title}
         </h3>
         <p className="mt-2 text-[13px] leading-relaxed text-muted">{step.body}</p>
+
+        {step.preview === "share" && <SharePreview />}
 
         {step.cta && (
           <Link
