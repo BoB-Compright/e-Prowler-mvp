@@ -90,6 +90,10 @@ export function AssetTable({
         setMessage(String(data.error ?? "일괄 점검 시작 실패"));
         return;
       }
+      const skipped = Array.isArray(data.skipped) ? data.skipped.length : 0;
+      if (skipped > 0) {
+        window.alert(`${data.started}개 점검을 시작했습니다. ${skipped}개는 이미 점검 중이어서 건너뛰었습니다.`);
+      }
       router.push(`/runs/batch/${data.batchId}`);
     });
 
