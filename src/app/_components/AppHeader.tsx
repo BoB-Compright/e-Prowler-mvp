@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { HelpButton } from "./onboarding/HelpButton";
 import { ThemeToggle } from "./ThemeToggle";
 import { NAV_ITEMS, isActiveNav } from "./navItems";
 
@@ -52,6 +53,7 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
             </button>
           </div>
         )}
+        <HelpButton />
         <ThemeToggle />
       </div>
       <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:hidden">
