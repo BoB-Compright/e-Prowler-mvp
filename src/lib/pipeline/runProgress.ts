@@ -10,17 +10,19 @@ const CONTAINER_STAGES = ["clone", "build", "sandbox", "ansible", "rule_eval", "
 const LOCAL_IMAGE_STAGES = ["sandbox", "ansible", "rule_eval", "claude"] as const;
 const SERVER_STAGES = ["connect", "ansible_scan", "rule_evaluation", "claude_analysis"] as const;
 
+// 사용자에게 보이는 단계 라벨은 도구/기술 용어(Clone·Sandbox·Ansible·Claude·룰)
+// 대신 일반적인 표현을 쓴다.
 const STAGE_LABEL: Record<string, string> = {
-  clone: "클론",
-  build: "빌드",
-  sandbox: "샌드박스 준비",
-  ansible: "Ansible 점검",
-  rule_eval: "규칙 평가",
-  claude: "AI 분석",
-  connect: "SSH 연결",
-  ansible_scan: "Ansible 점검",
-  rule_evaluation: "규칙 평가",
-  claude_analysis: "AI 분석",
+  clone: "소스 가져오기",
+  build: "이미지 빌드",
+  sandbox: "분석 환경 준비",
+  ansible: "보안 점검 실행",
+  rule_eval: "취약점 판정",
+  claude: "AI 심층 분석",
+  connect: "서버 연결",
+  ansible_scan: "보안 점검 실행",
+  rule_evaluation: "취약점 판정",
+  claude_analysis: "AI 심층 분석",
   done: "완료",
 };
 

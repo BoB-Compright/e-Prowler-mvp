@@ -46,8 +46,8 @@ function ScanPreview() {
 function ProgressPreview() {
   const runs = [
     { name: "web-01", pct: 100, label: "완료 · 취약 3", done: true },
-    { name: "api-gateway", pct: 60, label: "Ansible 점검", done: false },
-    { name: "db-01", pct: 25, label: "SSH 연결", done: false },
+    { name: "api-gateway", pct: 60, label: "보안 점검 실행", done: false },
+    { name: "db-01", pct: 25, label: "서버 연결", done: false },
   ];
   return (
     <div className={`mt-3 ${box}`}>

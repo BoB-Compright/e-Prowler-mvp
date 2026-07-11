@@ -56,30 +56,30 @@ const CONTAINER_STAGES: Stage[] = ["clone", "build", "sandbox", "ansible", "rule
 const SERVER_STAGES: Stage[] = ["connect", "ansible_scan", "rule_evaluation", "claude_analysis", "done"];
 
 const STAGE_LABELS: Record<Stage, string> = {
-  clone: "레포 Clone",
-  build: "Docker 빌드",
-  sandbox: "Sandbox 실행",
-  ansible: "Ansible 점검",
-  rule_eval: "가이드 기반 룰 평가",
-  claude: "Claude 분석",
-  connect: "SSH 연결",
-  ansible_scan: "Ansible 점검(서버)",
-  rule_evaluation: "가이드 기반 룰 평가",
-  claude_analysis: "Claude 분석",
+  clone: "소스 가져오기",
+  build: "이미지 빌드",
+  sandbox: "분석 환경 준비",
+  ansible: "보안 점검 실행",
+  rule_eval: "취약점 판정",
+  claude: "AI 심층 분석",
+  connect: "서버 연결",
+  ansible_scan: "보안 점검 실행",
+  rule_evaluation: "취약점 판정",
+  claude_analysis: "AI 심층 분석",
   done: "완료",
 };
 
 const STAGE_SHORT_LABELS: Record<Stage, string> = {
-  clone: "Clone",
-  build: "Build",
-  sandbox: "Sandbox",
-  ansible: "Ansible",
-  rule_eval: "룰 평가",
-  claude: "Claude",
+  clone: "가져오기",
+  build: "빌드",
+  sandbox: "환경 준비",
+  ansible: "점검",
+  rule_eval: "판정",
+  claude: "AI 분석",
   connect: "연결",
-  ansible_scan: "Ansible",
-  rule_evaluation: "룰 평가",
-  claude_analysis: "Claude",
+  ansible_scan: "점검",
+  rule_evaluation: "판정",
+  claude_analysis: "AI 분석",
   done: "완료",
 };
 
@@ -227,7 +227,7 @@ export function RunStatus({ runId }: { runId: string }) {
       <div className="flex flex-wrap items-center gap-2.5">
         <h1 className="text-[22px] font-bold tracking-tight">점검 실행 상태</h1>
         <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-violet-700">
-          ✦ 룰 + Claude AI 하이브리드 분석
+          ✦ 자동 점검 + AI 하이브리드 분석
         </span>
         {run.sourceType === "local_image" && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-700">
@@ -263,7 +263,7 @@ export function RunStatus({ runId }: { runId: string }) {
         )}
         {run.containerName && (
           <div>
-            Sandbox 컨테이너: <span className="font-mono">{run.containerName}</span>
+            분석 컨테이너: <span className="font-mono">{run.containerName}</span>
           </div>
         )}
       </div>
@@ -475,7 +475,7 @@ export function RunStatus({ runId }: { runId: string }) {
                   개선안 생성됨 <ClaudeSparkleIcon />
                 </span>
               ) : (
-                "룰 기반 판정 완료"
+                "자동 점검 판정 완료"
               )}
             </div>
           </div>
