@@ -64,4 +64,18 @@ describe("buildActivityFeed", () => {
     expect(events[2]).toMatchObject({ href: "/runs/r3/report", detail: "점검 취소됨", tone: "neutral" });
     expect(events[3]).toMatchObject({ href: "/assets/a1", detail: "자산 등록", tone: "neutral" });
   });
+
+  it("진행 중 run에 stageLabel이 있으면 detail에 단계를 표시한다", () => {
+    const [ev] = buildActivityFeed(
+      [
+        {
+          runId: "r1", assetName: "s", status: "running",
+          failCount: null, reviewCount: null, stageLabel: "빌드",
+          at: "2026-07-11T10:00:00.000Z",
+        },
+      ],
+      [],
+    );
+    expect(ev.detail).toBe("점검 진행 중 — 빌드");
+  });
 });

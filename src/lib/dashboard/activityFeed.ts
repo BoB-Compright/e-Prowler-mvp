@@ -4,6 +4,7 @@ export interface RunFeedInput {
   status: "running" | "succeeded" | "failed" | "cancelled";
   failCount: number | null; // succeeded run의 취약(fail) 점검 항목 수
   reviewCount: number | null;
+  stageLabel?: string | null; // running run의 현재 단계 라벨 (runProgress().label)
   at: string; // ISO (run.updatedAt)
 }
 
@@ -26,7 +27,8 @@ export interface ActivityEvent {
 function runEvent(run: RunFeedInput): ActivityEvent {
   const base = { key: `run-${run.runId}`, title: run.assetName, at: run.at };
   if (run.status === "running") {
-    return { ...base, href: `/runs/${run.runId}`, detail: "점검 진행 중", tone: "progress" };
+    const detail = run.stageLabel ? `점검 진행 중 — ${run.stageLabel}` : "점검 진행 중";
+    return { ...base, href: `/runs/${run.runId}`, detail, tone: "progress" };
   }
   if (run.status === "failed") {
     return { ...base, href: `/runs/${run.runId}/report`, detail: "점검 실패", tone: "fail" };

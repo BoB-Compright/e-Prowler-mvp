@@ -6,6 +6,7 @@ import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
+import { runProgress } from "@/lib/pipeline/runProgress";
 import { computeSecurityScore } from "@/lib/dashboard/securityScore";
 import { computeStatusDistribution } from "@/lib/dashboard/statusDistribution";
 import { rankRiskyAssets } from "@/lib/dashboard/riskyAssets";
@@ -91,6 +92,7 @@ export default function DashboardPage() {
         status: run.status,
         failCount: summary ? summary.statusCounts.fail : null,
         reviewCount: summary ? summary.statusCounts.review : null,
+        stageLabel: run.status === "running" ? runProgress(run).label : null,
         at: run.updatedAt,
       };
     }),
