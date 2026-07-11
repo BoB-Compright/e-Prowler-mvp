@@ -18,6 +18,7 @@ export function AppSidebar() {
           <Link
             key={item.href}
             href={item.href}
+            data-tour={item.href === "/assets" ? "nav-assets" : item.href === "/runs" ? "nav-runs" : undefined}
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13.5px] ${
               isActiveNav(pathname, item)
                 ? "bg-primary font-semibold text-white"

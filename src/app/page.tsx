@@ -21,6 +21,7 @@ import { ASSET_STATUS_BADGE } from "./_components/assetStatusBadge";
 import { SecurityScoreGauge } from "./_components/dashboard/SecurityScoreGauge";
 import { AssetStatusDonut } from "./_components/dashboard/AssetStatusDonut";
 import { ActivityFeedCard } from "./_components/dashboard/ActivityFeedCard";
+import { OnboardingTour } from "./_components/onboarding/OnboardingTour";
 
 export default function DashboardPage() {
   const assets = listAssets();
@@ -105,6 +106,7 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
       <AutoRefresh active={anyRunning} />
+      <OnboardingTour assetCount={assets.length} />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-bold tracking-[-0.02em]">보안 현황 개요</h1>
@@ -112,6 +114,7 @@ export default function DashboardPage() {
         </div>
         <Link
           href="/assets/new"
+          data-tour="asset-register"
           className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
         >
           자산 등록
@@ -176,9 +179,11 @@ export default function DashboardPage() {
 
             {/* 2. 종합 점수 게이지 + 상태 분포 도넛 */}
             <div className="grid gap-4 md:grid-cols-2">
-              <Card title="종합 보안 점수">
-                <SecurityScoreGauge score={score} grade={grade} />
-              </Card>
+              <div data-tour="dashboard-score">
+                <Card title="종합 보안 점수">
+                  <SecurityScoreGauge score={score} grade={grade} />
+                </Card>
+              </div>
               <Card title="자산 상태 분포">
                 <AssetStatusDonut buckets={distribution} total={assets.length} />
               </Card>
