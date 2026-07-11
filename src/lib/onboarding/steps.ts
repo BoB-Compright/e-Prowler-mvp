@@ -40,7 +40,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     stepNumber: 2,
     placement: "auto",
     title: "프로젝트로 묶고 점검",
-    body: "자산을 프로젝트로 묶고, 체크박스로 선택해 일괄 점검하거나 프로젝트에서 전체(Fleet) 점검을 실행하세요. 아래는 예시 화면입니다.",
+    body: "자산을 프로젝트로 묶고, 체크박스로 선택해 일괄 점검하거나 프로젝트에서 전체(Fleet) 점검을 실행하세요.",
     preview: "scan",
   },
   {
@@ -49,7 +49,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     stepNumber: 3,
     placement: "auto",
     title: "점검 진행",
-    body: "점검이 시작되면 단계·진행률이 실시간으로 표시됩니다. 아래는 예시 화면입니다.",
+    body: "점검이 시작되면 단계·진행률이 실시간으로 표시됩니다.",
     preview: "progress",
   },
   {
@@ -58,7 +58,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     stepNumber: 4,
     placement: "auto",
     title: "분석 결과",
-    body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다. 아래는 예시 화면입니다.",
+    body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다.",
     preview: "results",
   },
   {
@@ -67,7 +67,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     stepNumber: 5,
     placement: "auto",
     title: "PM에게 공유",
-    body: "프로젝트 상세의 '공유 설정'에서 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요. 아래는 예시 화면입니다.",
+    body: "프로젝트 상세의 '공유 설정'에서 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요.",
     preview: "share",
   },
   {

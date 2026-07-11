@@ -102,26 +102,33 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
 
   const isLast = index === ONBOARDING_STEPS.length - 1;
   const pad = 6;
-  // 예시 미리보기가 있는 스텝은 스포트라이트 대신 중앙에 확장 배치한다(내용이 큼).
+  // 앵커가 있으면(placement auto + 요소 발견) 예시 미리보기 유무와 무관하게
+  // 스포트라이트로 강조한다. 앵커가 없으면(center 스텝, 또는 모바일에서 사이드바
+  // 숨김) 화면 중앙에 배치한다.
   const hasPreview = !!step.preview;
-  const spotlight = !!rect && step.placement === "auto" && !hasPreview;
-  // 말풍선 위치: 스포트라이트 스텝은 앵커 아래(공간 없으면 위), 그 외엔 화면 중앙
+  const spotlight = !!rect && step.placement === "auto";
+  const boxW = hasPreview ? 360 : 320;
+  const boxH = hasPreview ? 380 : 180; // 배치 계산용 대략 높이
+  // 말풍선 위치: 스포트라이트 스텝은 앵커 아래(공간 없으면 위)에 두되 화면 안에
+  // 완전히 들어오도록 클램프. 그 외엔 화면 중앙.
   const tooltipStyle: React.CSSProperties = spotlight
     ? (() => {
         const below = rect!.top + rect!.height + 12;
-        const placeBelow = below + 180 < window.innerHeight;
+        const placeBelow = below + boxH < window.innerHeight;
+        const top = placeBelow ? below : rect!.top - 12 - boxH;
         return {
           position: "fixed",
-          top: placeBelow ? below : Math.max(12, rect!.top - 12 - 180),
-          left: Math.min(Math.max(12, rect!.left), window.innerWidth - 332),
-          width: 320,
+          top: Math.min(Math.max(12, top), Math.max(12, window.innerHeight - boxH - 12)),
+          left: Math.min(Math.max(12, rect!.left), Math.max(12, window.innerWidth - boxW - 12)),
+          width: boxW,
+          maxWidth: "calc(100vw - 24px)",
         };
       })()
     : {
         position: "fixed",
         top: "50%",
         left: "50%",
-        width: hasPreview ? 400 : 320,
+        width: boxW,
         maxWidth: "calc(100vw - 24px)",
         transform: "translate(-50%, -50%)",
       };
