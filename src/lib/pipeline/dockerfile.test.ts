@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { detectDockerfile, dockerfileBuildBlockers, listDockerfiles } from "./dockerfile";
+import { detectDockerfile, dockerfileBuildBlockers, dockerfileMissingSources, listDockerfiles } from "./dockerfile";
 
 const dirs: string[] = [];
 
@@ -168,5 +168,38 @@ describe("dockerfileBuildBlockers", () => {
   it("멀티스테이지의 스테이지 이름 참조(FROM builder)는 차단이 아니다", () => {
     const df = "FROM ubuntu:24.04 AS builder\nRUN echo build\nFROM builder\nRUN echo run\n";
     expect(dockerfileBuildBlockers(df)).toEqual([]);
+  });
+});
+
+describe("dockerfileMissingSources", () => {
+  it("COPY 소스가 컨텍스트에 없으면 그 경로를 반환한다", () => {
+    const dir = makeTmpDir();
+    const df = "FROM debian\nCOPY VADA_Agent_LINUX.tar /tmp/\n";
+    expect(dockerfileMissingSources(df, dir)).toEqual(["VADA_Agent_LINUX.tar"]);
+  });
+
+  it("COPY 소스가 컨텍스트에 있으면 문제 없음", () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, "app.jar"), "x");
+    expect(dockerfileMissingSources("FROM debian\nCOPY app.jar /app/\n", dir)).toEqual([]);
+  });
+
+  it("--from=stage 복사는 컨텍스트 검사 대상이 아니다", () => {
+    const df = "FROM x AS build\nFROM debian\nCOPY --from=build /out/app /app\n";
+    expect(dockerfileMissingSources(df, makeTmpDir())).toEqual([]);
+  });
+
+  it("원격 ADD·변수·와일드카드 소스는 오탐하지 않는다", () => {
+    const dir = makeTmpDir();
+    const df =
+      "FROM debian\nADD https://example.com/x.tar /tmp/\nCOPY ${ART} /a/\nCOPY *.jar /libs/\n";
+    expect(dockerfileMissingSources(df, dir)).toEqual([]);
+  });
+
+  it("JSON 배열 형식 COPY도 소스 존재를 검사한다", () => {
+    const dir = makeTmpDir();
+    expect(dockerfileMissingSources('FROM debian\nCOPY ["missing.bin", "/tmp/"]\n', dir)).toEqual([
+      "missing.bin",
+    ]);
   });
 });

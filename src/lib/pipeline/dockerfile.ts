@@ -145,3 +145,51 @@ export function dockerfileBuildBlockers(content: string): string[] {
   }
   return [...blockers];
 }
+
+// COPY/ADD가 참조하는 로컬 소스 파일이 빌드 컨텍스트(=Dockerfile이 있는 디렉터리,
+// buildImage 참고)에 없으면 그 소스 경로들을 반환한다(빈 배열 = 문제 없음).
+// 이런 Dockerfile은 레포에 커밋되지 않은 빌드 산출물(예: COPY VADA_Agent_LINUX.tar)을
+// 기대하므로, 깨끗한 클론에서 `docker build` 시 "not found"로 실패한다.
+//
+// 오탐을 피하려고, 원격 소스(ADD http://…), 변수 포함($…), 와일드카드(*?[]) 소스와
+// `COPY --from=<stage/image>`는 검사 대상에서 제외한다(존재 확신이 어려운 경우 통과).
+export function dockerfileMissingSources(content: string, contextDir: string): string[] {
+  const missing: string[] = [];
+  const seen = new Set<string>();
+  const contextRoot = path.resolve(contextDir);
+
+  for (const raw of content.split(/\r?\n/)) {
+    const m = /^\s*(COPY|ADD)\s+(.+)$/i.exec(raw);
+    if (!m) continue;
+
+    const argStr = m[2].trim();
+    let tokens: string[];
+    if (argStr.startsWith("[")) {
+      try {
+        tokens = JSON.parse(argStr) as string[];
+      } catch {
+        continue;
+      }
+    } else {
+      tokens = argStr.split(/\s+/);
+    }
+
+    // --from=... 는 빌드 스테이지/이미지에서 복사 → 컨텍스트 파일이 아님, 스킵.
+    if (tokens.some((t) => /^--from=/i.test(t))) continue;
+    const flagless = tokens.filter((t) => !t.startsWith("--"));
+    if (flagless.length < 2) continue; // 최소 소스 1 + 목적지 1
+
+    for (const src of flagless.slice(0, -1)) {
+      if (src.includes("://")) continue; // 원격 ADD
+      if (src.includes("$")) continue; // 변수 — 확인 불가
+      if (/[*?[\]]/.test(src)) continue; // 와일드카드 — 오탐 방지 위해 스킵
+      const abs = path.resolve(contextRoot, src);
+      if (!abs.startsWith(contextRoot)) continue; // 컨텍스트 밖(정상 빌드에선 불가) — 스킵
+      if (!fs.existsSync(abs) && !seen.has(src)) {
+        seen.add(src);
+        missing.push(src);
+      }
+    }
+  }
+  return missing;
+}

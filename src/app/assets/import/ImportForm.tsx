@@ -37,7 +37,7 @@ export function ImportForm() {
   const [discovering, setDiscovering] = useState(false);
   const [dockerfiles, setDockerfiles] = useState<string[] | null>(null);
   const [registered, setRegistered] = useState<Record<string, RegisteredInfo>>({});
-  const [buildBlocked, setBuildBlocked] = useState<Record<string, string[]>>({});
+  const [buildBlocked, setBuildBlocked] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -63,7 +63,7 @@ export function ImportForm() {
       const list: string[] = Array.isArray(data.dockerfiles) ? data.dockerfiles : [];
       const reg: Record<string, RegisteredInfo> =
         data.registered && typeof data.registered === "object" ? data.registered : {};
-      const blocked: Record<string, string[]> =
+      const blocked: Record<string, string> =
         data.buildBlocked && typeof data.buildBlocked === "object" ? data.buildBlocked : {};
       setDockerfiles(list);
       setRegistered(reg);
@@ -194,7 +194,7 @@ export function ImportForm() {
                         </span>
                         {blocked ? (
                           <span className="text-[12px] text-fail">
-                            빌드 불가 (인자 필요: {blocked.join(", ")})
+                            빌드 불가 ({blocked})
                           </span>
                         ) : reg ? (
                           <span className="text-[12px] text-muted">
