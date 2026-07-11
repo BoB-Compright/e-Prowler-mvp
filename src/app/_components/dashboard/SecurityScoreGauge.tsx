@@ -2,7 +2,7 @@ import { gaugeArcPath } from "@/lib/dashboard/donutGeometry";
 import type { ScoreGrade } from "@/lib/dashboard/securityScore";
 
 const TAU = Math.PI * 2;
-const START = -TAU / 3; // -120° (7시 방향)
+const START = -TAU / 3; // -120° (8시 방향)
 const SWEEP = (TAU * 2) / 3; // 240° 스윕
 
 // 점수 텍스트는 text 토큰, 상태색은 아크와 칩에만 (dataviz: 텍스트에 시리즈색 금지)

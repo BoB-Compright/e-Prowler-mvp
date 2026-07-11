@@ -43,4 +43,16 @@ describe("computeDonutArcs", () => {
     expect(after).toBeDefined();
     expect(Number(mx)).not.toBeNaN();
   });
+
+  it("padAngle보다 작은 비중의 슬라이스도 항상 렌더된다 (소수 취약 자산 소실 방지)", () => {
+    const arcs = computeDonutArcs(
+      [{ key: "pass", value: 495 }, { key: "review", value: 3 }, { key: "fail", value: 2 }],
+      opts,
+    );
+    expect(arcs.map((a) => a.key)).toEqual(["pass", "review", "fail"]);
+    for (const arc of arcs) {
+      expect(arc.d).toContain("A ");
+      expect(arc.d.endsWith("Z")).toBe(true);
+    }
+  });
 });
