@@ -34,7 +34,8 @@ export function startAssetsBulkScan(
   deps?: ServerScanDeps,
   db: Database = getDb(),
 ): BulkScanResult {
-  const assets = assetIds
+  const uniqueIds = [...new Set(assetIds)];
+  const assets = uniqueIds
     .map((id) => getAsset(id, db))
     .filter((a): a is Asset => a !== undefined);
 

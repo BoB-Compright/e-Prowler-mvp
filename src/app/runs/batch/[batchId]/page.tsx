@@ -53,7 +53,14 @@ export default async function BatchPage({
             <span className="font-semibold">전체 진행률</span>
             <span className="font-mono text-muted">{overallPercent}%</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-border">
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-border"
+            role="progressbar"
+            aria-valuenow={overallPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="전체 진행률"
+          >
             <div
               className="h-full rounded-full bg-primary transition-[width] duration-500"
               style={{ width: `${overallPercent}%` }}
@@ -108,7 +115,14 @@ export default async function BatchPage({
                     <td className="px-5 py-3">
                       {run.status === "running" ? (
                         <span className="flex items-center gap-2">
-                          <span className="h-1 w-24 overflow-hidden rounded-full bg-border">
+                          <span
+                            className="h-1 w-24 overflow-hidden rounded-full bg-border"
+                            role="progressbar"
+                            aria-valuenow={Math.round(progress.fraction * 100)}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={progress.label}
+                          >
                             <span
                               className="block h-full rounded-full bg-primary"
                               style={{ width: `${Math.round(progress.fraction * 100)}%` }}

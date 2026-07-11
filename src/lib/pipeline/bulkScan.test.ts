@@ -86,4 +86,18 @@ describe("startAssetsBulkScan", () => {
     expect(result.startedRunIds).toHaveLength(1);
     expect(result.skipped).toEqual([]);
   });
+
+  it("중복 assetId는 한 번만 스캔한다 (같은 자산 run 중복 생성 방지)", async () => {
+    const { createRepoAsset } = await import("@/lib/assets/store");
+    const { startAssetsBulkScan } = await import("./bulkScan");
+    const { getDb } = await import("@/lib/db");
+
+    const repo = createRepoAsset({ displayName: "dup", repoUrl: "https://github.com/x/dup" });
+
+    const result = startAssetsBulkScan([repo.id, repo.id], stubDeps());
+    expect(result.startedRunIds).toHaveLength(1);
+
+    const rows = getDb().prepare(`SELECT id FROM runs WHERE asset_id = ?`).all(repo.id);
+    expect(rows).toHaveLength(1);
+  });
 });
