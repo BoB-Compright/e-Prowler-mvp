@@ -9,7 +9,7 @@ import {
   shouldAutoStart,
   type OnboardingStep,
 } from "@/lib/onboarding/steps";
-import { SharePreview } from "./SharePreview";
+import { StepPreview } from "./StepPreview";
 
 interface Rect {
   top: number;
@@ -161,12 +161,17 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
         <div className="mb-1 text-[12px] font-mono text-muted">
           {index + 1} / {ONBOARDING_STEPS.length}
         </div>
-        <h3 id="onboarding-title" className="text-[16px] font-bold">
+        <h3 id="onboarding-title" className="flex items-center gap-2 text-[16px] font-bold">
+          {step.stepNumber && (
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-[12px] font-bold text-white">
+              {step.stepNumber}
+            </span>
+          )}
           {step.title}
         </h3>
         <p className="mt-2 text-[13px] leading-relaxed text-muted">{step.body}</p>
 
-        {step.preview === "share" && <SharePreview />}
+        {step.preview && <StepPreview kind={step.preview} />}
 
         {step.cta && (
           <Link

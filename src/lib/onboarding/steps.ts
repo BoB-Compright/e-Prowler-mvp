@@ -1,12 +1,13 @@
 export interface OnboardingStep {
   key: string;
   anchor: string | null; // data-tour 값. center 스텝이면 null
+  stepNumber?: number; // 순번 배지에 표시할 숫자(환영·완료 스텝은 없음)
   title: string;
   body: string;
   placement: "center" | "auto";
   cta?: { label: string; href: string };
   // 설정 시 말풍선 안에 해당 예시 화면 미리보기를 함께 렌더한다(중앙·확장 배치).
-  preview?: "share";
+  preview?: "scan" | "progress" | "results" | "share";
 }
 
 export const ONBOARDING_DONE_KEY = "nhg_onboarding_done";
@@ -28,36 +29,44 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     key: "register",
     anchor: "asset-register",
+    stepNumber: 1,
     placement: "auto",
-    title: "① 자산 등록",
+    title: "자산 등록",
     body: "점검할 서버·레포를 등록하세요. 엑셀 업로드로 여러 개를 한 번에 올릴 수 있어요.",
   },
   {
     key: "group-scan",
     anchor: "nav-projects",
+    stepNumber: 2,
     placement: "auto",
-    title: "② 프로젝트로 묶고 점검",
-    body: "자산을 프로젝트로 묶고, 체크박스로 선택해 일괄 점검하거나 프로젝트에서 전체(Fleet) 점검을 실행하세요.",
+    title: "프로젝트로 묶고 점검",
+    body: "자산을 프로젝트로 묶고, 체크박스로 선택해 일괄 점검하거나 프로젝트에서 전체(Fleet) 점검을 실행하세요. 아래는 예시 화면입니다.",
+    preview: "scan",
   },
   {
     key: "progress",
     anchor: "nav-runs",
+    stepNumber: 3,
     placement: "auto",
-    title: "③ 점검 진행",
-    body: "점검이 시작되면 단계·진행률이 실시간으로 표시됩니다.",
+    title: "점검 진행",
+    body: "점검이 시작되면 단계·진행률이 실시간으로 표시됩니다. 아래는 예시 화면입니다.",
+    preview: "progress",
   },
   {
     key: "results",
     anchor: "nav-dashboard",
+    stepNumber: 4,
     placement: "auto",
-    title: "④ 분석 결과",
-    body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다.",
+    title: "분석 결과",
+    body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다. 아래는 예시 화면입니다.",
+    preview: "results",
   },
   {
     key: "share",
     anchor: "nav-projects",
+    stepNumber: 5,
     placement: "auto",
-    title: "⑤ PM에게 공유",
+    title: "PM에게 공유",
     body: "프로젝트 상세의 '공유 설정'에서 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요. 아래는 예시 화면입니다.",
     preview: "share",
   },

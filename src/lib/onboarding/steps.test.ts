@@ -35,9 +35,17 @@ describe("ONBOARDING_STEPS", () => {
       else expect(typeof s.anchor).toBe("string");
     }
   });
-  it("PM 공유 스텝은 공유 예시 미리보기를 가진다", () => {
-    const share = ONBOARDING_STEPS.find((s) => s.key === "share");
-    expect(share?.preview).toBe("share");
+  it("점검·진행·결과·공유 스텝은 각자의 예시 미리보기를 가진다", () => {
+    const preview = (key: string) => ONBOARDING_STEPS.find((s) => s.key === key)?.preview;
+    expect(preview("group-scan")).toBe("scan");
+    expect(preview("progress")).toBe("progress");
+    expect(preview("results")).toBe("results");
+    expect(preview("share")).toBe("share");
+  });
+
+  it("번호 스텝은 stepNumber 1~5를 순서대로 가진다", () => {
+    const numbered = ONBOARDING_STEPS.filter((s) => s.stepNumber !== undefined).map((s) => s.stepNumber);
+    expect(numbered).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("마지막 스텝(done)은 자산 등록 CTA를 가진다", () => {
