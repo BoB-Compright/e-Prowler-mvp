@@ -187,28 +187,46 @@ export function migrate(db: Database.Database): void {
     db.prepare(`PRAGMA table_info(scan_batches)`).all() as { name: string; notnull: number }[]
   ).find((col) => col.name === "project_id");
   if (scanBatchProjectCol && scanBatchProjectCol.notnull === 1) {
-    // better-sqlite3는 foreign_keys를 기본 ON으로 켜므로, runs.batch_id가
-    // scan_batches를 참조하는 기존 DB에서는 DROP TABLE scan_batches가 FK
-    // 제약으로 실패한다(빈 DB에서는 참조 run이 없어 드러나지 않던 버그).
-    // SQLite 공식 테이블 재구축 절차대로 FK 강제를 잠시 끄고(트랜잭션 밖에서만
-    // 토글 가능) 원자적으로 재구축한 뒤 다시 켠다. runs.batch_id의 FK는
-    // 이름으로 해석되므로 rename 후에도 새 scan_batches를 그대로 가리킨다.
+    // scan_batches.project_id의 NOT NULL을 해제한다. 핵심 제약들:
+    //  - better-sqlite3는 foreign_keys를 기본 ON으로 켜므로, runs.batch_id가
+    //    scan_batches를 참조하는 기존 DB에서는 재구축 중 DROP이 FK로 실패한다
+    //    → 재구축 동안 foreign_keys를 끈다(트랜잭션 밖에서만 토글 가능).
+    //  - 새 테이블을 원본 이름으로 RENAME하는 순서(new→scan_batches)는 이 환경의
+    //    SQLite에서 scan_batches_new 잔여 테이블을 남기므로, 원본을 옆으로
+    //    rename하는 순서(scan_batches→_old)를 쓴다.
+    //  - RENAME이 runs.batch_id의 FK 참조 텍스트를 _old로 재작성하면 FK가
+    //    깨지므로 legacy_alter_table=ON으로 참조를 이름("scan_batches") 그대로
+    //    남긴다 → 새로 만든 scan_batches를 다시 가리켜 FK 무결성 보존.
+    // 오래된 버그 버전이 남긴 임시 테이블(scan_batches_new/_old)은 pragma 토글·
+    // 재구축 배치와 섞으면 이 환경에서 DROP이 반영되지 않으므로, 그 전에 독립
+    // 문으로 정리한다.
+    db.exec(`DROP TABLE IF EXISTS scan_batches_new`);
+    db.exec(`DROP TABLE IF EXISTS scan_batches_old`);
     const foreignKeysOn = db.pragma("foreign_keys", { simple: true }) === 1;
     if (foreignKeysOn) db.pragma("foreign_keys = OFF");
+    db.pragma("legacy_alter_table = ON");
     try {
-      db.transaction(() => {
-        db.exec(`
-          CREATE TABLE scan_batches_new (
-            id TEXT PRIMARY KEY,
-            project_id TEXT REFERENCES projects(id),
-            created_at TEXT NOT NULL
-          );
-          INSERT INTO scan_batches_new SELECT id, project_id, created_at FROM scan_batches;
-          DROP TABLE scan_batches;
-          ALTER TABLE scan_batches_new RENAME TO scan_batches;
-        `);
-      })();
+      db.exec(`
+        BEGIN;
+        ALTER TABLE scan_batches RENAME TO scan_batches_old;
+        CREATE TABLE scan_batches (
+          id TEXT PRIMARY KEY,
+          project_id TEXT REFERENCES projects(id),
+          created_at TEXT NOT NULL
+        );
+        INSERT INTO scan_batches SELECT id, project_id, created_at FROM scan_batches_old;
+        DROP TABLE scan_batches_old;
+        COMMIT;
+      `);
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // 진행 중 트랜잭션이 없으면 ROLLBACK은 무시 가능
+      }
+      throw err;
     } finally {
+      db.pragma("legacy_alter_table = OFF");
       if (foreignKeysOn) db.pragma("foreign_keys = ON");
     }
   }

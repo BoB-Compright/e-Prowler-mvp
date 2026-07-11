@@ -86,7 +86,12 @@ describe("scan_batches nullable migration on existing data", () => {
     return db;
   }
 
-  it("scan_batches를 참조하는 run이 있어도 마이그레이션이 성공하고 데이터를 보존한다", () => {
+  function projectIdNotNull(db: Database.Database): number {
+    return (db.prepare(`PRAGMA table_info(scan_batches)`).all() as { name: string; notnull: number }[])
+      .find((c) => c.name === "project_id")!.notnull;
+  }
+
+  it("scan_batches를 참조하는 run이 있어도 마이그레이션이 성공하고 데이터·FK 무결성을 보존한다", () => {
     const db = oldSchemaDb();
     db.prepare(`INSERT INTO projects (id, name, pm_name, pm_email, share_token, share_password_hash, created_at) VALUES (?,?,?,?,?,?,?)`)
       .run("p1", "proj", "pm", "pm@x.com", "tok", "hash", "2026-07-11T00:00:00.000Z");
@@ -97,12 +102,32 @@ describe("scan_batches nullable migration on existing data", () => {
 
     expect(() => migrate(db)).not.toThrow();
 
-    const projectCol = (db.prepare(`PRAGMA table_info(scan_batches)`).all() as { name: string; notnull: number }[])
-      .find((c) => c.name === "project_id");
-    expect(projectCol?.notnull).toBe(0); // nullable로 전환됨
+    expect(projectIdNotNull(db)).toBe(0); // nullable로 전환됨
     expect(db.prepare(`SELECT project_id FROM scan_batches WHERE id = ?`).get("b1")).toEqual({ project_id: "p1" });
-    expect(db.prepare(`SELECT batch_id FROM runs WHERE id = ?`).get("r1")).toEqual({ batch_id: "b1" });
+    // runs.batch_id가 여전히 scan_batches를 정확히 참조하고 FK 위반이 없어야 한다
+    const runFkTables = (db.pragma("foreign_key_list(runs)") as { table: string }[]).map((f) => f.table);
+    expect(runFkTables).toContain("scan_batches");
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+    // project_id NULL 배치(자산 선택 일괄 점검)를 이제 넣을 수 있다
+    expect(() =>
+      db.prepare(`INSERT INTO scan_batches (id, project_id, created_at) VALUES ('b2', NULL, 't')`).run(),
+    ).not.toThrow();
     // 재구축 후 FK 강제가 다시 켜져 있어야 한다
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
+  });
+
+  it("예전 버그로 남은 scan_batches_new 잔여 테이블이 있어도 성공한다 (재발 크래시 방지)", () => {
+    const db = oldSchemaDb();
+    db.prepare(`INSERT INTO projects (id, name, pm_name, pm_email, share_token, share_password_hash, created_at) VALUES (?,?,?,?,?,?,?)`)
+      .run("p1", "proj", "pm", "pm@x.com", "tok", "hash", "2026-07-11T00:00:00.000Z");
+    db.prepare(`INSERT INTO scan_batches (id, project_id, created_at) VALUES (?,?,?)`)
+      .run("b1", "p1", "2026-07-11T00:00:00.000Z");
+    // 이전 실패 마이그레이션이 남긴 잔여 테이블을 시뮬레이션
+    db.exec(`CREATE TABLE scan_batches_new (id TEXT PRIMARY KEY, project_id TEXT, created_at TEXT NOT NULL)`);
+
+    // "table scan_batches_new already exists"로 크래시하지 않고 마이그레이션이 완료돼야 한다
+    expect(() => migrate(db)).not.toThrow();
+    expect(projectIdNotNull(db)).toBe(0);
+    expect(db.prepare(`SELECT project_id FROM scan_batches WHERE id = ?`).get("b1")).toEqual({ project_id: "p1" });
   });
 });
