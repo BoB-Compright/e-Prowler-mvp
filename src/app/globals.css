@@ -11,6 +11,7 @@
   --color-fail: #ba1a1a; /* error */
   --color-review: #f4b000; /* Warning Amber — Kinetic에 amber 토큰이 없어 유지 */
   --color-neutral: #9ba6b5; /* tertiary/disabled text */
+  --color-warn: #e8590c; /* 경고(주황) — 종합 보안 점수 40~69 구간 */
 
   --color-bg: #f8f9ff; /* surface (쿨톤 캔버스) */
   --color-surface: #ffffff; /* surface-container-lowest (카드) */
@@ -26,6 +27,7 @@
   --color-border: rgba(233, 241, 255, 0.14); /* inverse-on-surface 14% */
   --color-text: #e9f1ff; /* inverse-on-surface */
   --color-muted: #8fa3c0; /* inverse-on-surface 감쇠 */
+  --color-warn: #ff8a3d; /* 어두운 서페이스용 밝은 주황 */
 }
 
 @theme inline {
@@ -35,6 +37,7 @@
   --color-fail: var(--color-fail);
   --color-review: var(--color-review);
   --color-neutral: var(--color-neutral);
+  --color-warn: var(--color-warn);
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
   --color-border: var(--color-border);
