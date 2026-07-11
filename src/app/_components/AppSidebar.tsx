@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, isActiveNav } from "./navItems";
+import { BrandLogo } from "./BrandLogo";
 
 // 온보딩 투어 앵커: 내비 href → data-tour 값. 투어 스텝(steps.ts)의 anchor와 일치해야 한다.
 const NAV_TOUR_ANCHORS: Record<string, string | undefined> = {
@@ -17,8 +18,7 @@ export function AppSidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-border bg-surface px-3 py-6 md:flex">
       <div className="mb-8 px-3">
-        <div className="text-[17px] font-bold tracking-tight text-primary">NH-Guardian</div>
-        <div className="font-mono text-[11px] text-muted">자산 보안 점검</div>
+        <BrandLogo subtext />
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => (

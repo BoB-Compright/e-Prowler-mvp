@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { HelpButton } from "./onboarding/HelpButton";
 import { ThemeToggle } from "./ThemeToggle";
+import { BrandLogo } from "./BrandLogo";
 import { NAV_ITEMS, isActiveNav } from "./navItems";
 
 interface HeaderUser {
@@ -31,7 +32,7 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
     <header className="sticky top-0 z-30 border-b border-border bg-surface">
       <div className="flex h-16 items-center gap-3 px-4 md:px-8">
         <div className="min-w-0 md:hidden">
-          <div className="truncate text-[15px] font-bold tracking-tight text-primary">NH-Guardian</div>
+          <BrandLogo />
         </div>
         <div className="hidden text-[13px] text-muted md:block">
           {current ? current.label : "NH-Guardian"}
