@@ -87,7 +87,13 @@ export function UploadForm({ projects }: { projects: Project[] }) {
           </label>
           <label className="flex flex-col gap-1">
             <span className={labelClass}>엑셀 파일</span>
-            <input type="file" name="file" accept=".xlsx" required className="text-sm" />
+            <input
+              type="file"
+              name="file"
+              accept=".xlsx"
+              required
+              className="text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-primary file:bg-transparent file:px-4 file:py-2 file:text-[13px] file:font-semibold file:text-primary hover:file:bg-primary/5"
+            />
           </label>
 
           {error && <p className="text-[13px] text-fail">{error}</p>}
