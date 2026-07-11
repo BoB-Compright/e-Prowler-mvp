@@ -97,7 +97,8 @@ export default function DashboardPage() {
     assets.map((a) => ({ assetId: a.id, assetName: a.displayName, at: a.createdAt })),
   );
   const now = new Date();
-  const anyRunning = rows.some((row) => row.status.kind === "running");
+  // 자산 없는 run(local_image 스캔)도 피드에 표시되므로 run 기준으로 갱신 여부를 판단한다
+  const anyRunning = allRuns.some((run) => run.status === "running");
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
