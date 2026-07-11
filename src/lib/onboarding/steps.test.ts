@@ -20,9 +20,9 @@ describe("shouldAutoStart", () => {
 });
 
 describe("ONBOARDING_STEPS", () => {
-  it("6개 스텝이 고정 순서로 있다", () => {
+  it("7개 스텝이 고정 순서로 있다", () => {
     expect(ONBOARDING_STEPS.map((s) => s.key)).toEqual([
-      "welcome", "register", "group-scan", "progress", "results", "done",
+      "welcome", "register", "group-scan", "progress", "results", "share", "done",
     ]);
   });
   it("key가 유일하다", () => {
@@ -42,7 +42,9 @@ describe("ONBOARDING_STEPS", () => {
   });
   it("auto 스텝의 anchor는 실제로 부여할 data-tour 키와 일치한다", () => {
     const anchors = ONBOARDING_STEPS.filter((s) => s.anchor).map((s) => s.anchor);
-    expect(anchors).toEqual(["asset-register", "nav-projects", "nav-runs", "nav-dashboard"]);
+    expect(anchors).toEqual([
+      "asset-register", "nav-projects", "nav-runs", "nav-dashboard", "nav-projects",
+    ]);
   });
   it("localStorage/sessionStorage 키 상수", () => {
     expect(ONBOARDING_DONE_KEY).toBe("nhg_onboarding_done");

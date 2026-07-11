@@ -21,7 +21,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     anchor: null,
     placement: "center",
     title: "환영합니다",
-    body: "NH-Guardian에 오신 걸 환영합니다. 3단계로 첫 점검을 안내할게요.",
+    body: "NH-Guardian에 오신 걸 환영합니다. 자산 등록부터 점검·리포트 공유까지 차근차근 안내할게요.",
   },
   {
     key: "register",
@@ -50,6 +50,13 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     placement: "auto",
     title: "④ 분석 결과",
     body: "완료되면 대시보드 점수·활동 피드에 반영되고, 각 점검 리포트에서 취약 항목·CVE·AI 분석 상세를 봅니다.",
+  },
+  {
+    key: "share",
+    anchor: "nav-projects",
+    placement: "auto",
+    title: "⑤ PM에게 공유",
+    body: "프로젝트를 열면 담당 PM에게 점검 리포트를 공유 링크로 전달할 수 있어요.",
   },
   {
     key: "done",
