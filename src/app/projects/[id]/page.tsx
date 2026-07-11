@@ -5,7 +5,7 @@ import { listAssets } from "@/lib/assets/store";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { FleetScanButton } from "./FleetScanButton";
-import { AutoRefresh } from "./AutoRefresh";
+import { AutoRefresh } from "../../_components/AutoRefresh";
 import { Card } from "../../_components/Card";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";

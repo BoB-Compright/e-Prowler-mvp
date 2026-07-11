@@ -4,22 +4,22 @@ import { listRuns } from "@/lib/pipeline/runs";
 import { listCveMatches } from "@/lib/cve/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
-import { type RunOutcome } from "@/lib/checks/riskSummary";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
+import { computeSecurityScore } from "@/lib/dashboard/securityScore";
+import { computeStatusDistribution } from "@/lib/dashboard/statusDistribution";
+import { rankRiskyAssets } from "@/lib/dashboard/riskyAssets";
+import { buildActivityFeed } from "@/lib/dashboard/activityFeed";
 import type { Run } from "@/lib/pipeline/types";
 import { LocalImageFallbackForm } from "./LocalImageFallbackForm";
+import { AutoRefresh } from "./_components/AutoRefresh";
 import { Card } from "./_components/Card";
 import { SectionLabel } from "./_components/SectionLabel";
 import { StatusBadge } from "./_components/StatusBadge";
-
-const OUTCOME_LABEL: Record<RunOutcome, string> = { fail: "취약", review: "검토", pass: "양호" };
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
-}
-
-const SCHEDULE_LABEL: Record<string, string> = { daily: "매일", weekly: "매주", monthly: "매월" };
+import { ASSET_STATUS_BADGE } from "./_components/assetStatusBadge";
+import { SecurityScoreGauge } from "./_components/dashboard/SecurityScoreGauge";
+import { AssetStatusDonut } from "./_components/dashboard/AssetStatusDonut";
+import { ActivityFeedCard } from "./_components/dashboard/ActivityFeedCard";
 
 export default function DashboardPage() {
   const assets = listAssets();
@@ -31,23 +31,19 @@ export default function DashboardPage() {
     const status = statusMap.get(asset.id) ?? { kind: "none" as const };
     const lastRun = status.runId ? runById.get(status.runId) : undefined;
     const summary = lastRun && lastRun.status !== "running" ? getRunRiskSummary(lastRun.id) : null;
-    const outcome =
-      status.kind === "pass" || status.kind === "fail" || status.kind === "review"
-        ? status.kind
-        : null;
     const schedule = getScheduleByAsset(asset.id);
     const openCveCount =
       asset.type === "server"
         ? listCveMatches(asset.id).filter((m) => !m.dismissed).length
-        : null;
-    return { asset, lastRun, status, summary, outcome, schedule, openCveCount };
+        : 0;
+    return { asset, status, summary, schedule, openCveCount };
   });
 
+  // KPI (기존 유지)
   const repoCount = assets.filter((a) => a.type === "repo").length;
   const serverCount = assets.length - repoCount;
   const vulnerableCount = rows.filter((row) => row.status.kind === "fail").length;
   const activeScheduleCount = rows.filter((row) => row.schedule?.enabled).length;
-
   const openCves = assets
     .filter((a) => a.type === "server")
     .flatMap((a) =>
@@ -62,11 +58,50 @@ export default function DashboardPage() {
     .sort((x, y) => (y.cvssScore ?? 0) - (x.cvssScore ?? 0))
     .slice(0, 5);
 
-  const recentRuns = allRuns.slice(0, 8);
+  // 종합 점수 · 분포 · TOP 5
+  const criticalHigh = (summary: { severityCounts: Record<string, number> } | null) =>
+    summary ? summary.severityCounts.Critical + summary.severityCounts.High : 0;
+  const { score, grade } = computeSecurityScore({
+    totalAssets: assets.length,
+    vulnerableAssets: vulnerableCount,
+    uncheckedAssets: rows.filter((row) => row.status.kind === "none").length,
+    criticalHighCheckFindings: rows.reduce((sum, row) => sum + criticalHigh(row.summary), 0),
+    criticalHighOpenCves: criticalHighCves.length,
+  });
+  const distribution = computeStatusDistribution(rows.map((row) => row.status.kind));
+  const riskyRows = rankRiskyAssets(
+    rows.map((row) => ({
+      assetId: row.asset.id,
+      displayName: row.asset.displayName,
+      assetType: row.asset.type,
+      statusKind: row.status.kind,
+      criticalHigh: criticalHigh(row.summary),
+      openCveCount: row.openCveCount,
+    })),
+  );
+
+  // 활동 피드: 최근 run 20건 + 자산 등록 이벤트를 병합해 10건
   const assetNameById = new Map(assets.map((a) => [a.id, a.displayName]));
+  const feedEvents = buildActivityFeed(
+    allRuns.slice(0, 20).map((run) => {
+      const summary = run.status === "succeeded" ? getRunRiskSummary(run.id) : null;
+      return {
+        runId: run.id,
+        assetName: (run.assetId && assetNameById.get(run.assetId)) ?? getRepoDisplayName(run.repoUrl),
+        status: run.status,
+        failCount: summary ? summary.statusCounts.fail : null,
+        reviewCount: summary ? summary.statusCounts.review : null,
+        at: run.updatedAt,
+      };
+    }),
+    assets.map((a) => ({ assetId: a.id, assetName: a.displayName, at: a.createdAt })),
+  );
+  const now = new Date();
+  const anyRunning = rows.some((row) => row.status.kind === "running");
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
+      <AutoRefresh active={anyRunning} />
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-bold tracking-[-0.02em]">보안 현황 개요</h1>
@@ -93,128 +128,116 @@ export default function DashboardPage() {
           </div>
         </Card>
       ) : (
-        <>
-          {/* 1. KPI 스탯 타일 */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <SectionLabel>총 자산</SectionLabel>
-              <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                {assets.length}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* 메인 컬럼 (2/3) */}
+          <div className="flex flex-col gap-4 lg:col-span-2">
+            {/* 1. KPI 스탯 타일 */}
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+              <div className="rounded-2xl border border-border bg-surface p-5">
+                <SectionLabel>총 자산</SectionLabel>
+                <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
+                  {assets.length}
+                </div>
+                <div className="mt-1 text-[13px] text-muted">
+                  레포 {repoCount} · 서버 {serverCount}
+                </div>
               </div>
-              <div className="mt-1 text-[13px] text-muted">
-                레포 {repoCount} · 서버 {serverCount}
+              <div className="rounded-2xl border border-border bg-surface p-5">
+                <SectionLabel>취약 자산</SectionLabel>
+                <div
+                  className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${vulnerableCount > 0 ? "text-fail" : ""}`}
+                >
+                  {vulnerableCount}
+                </div>
+                <div className="mt-1 text-[13px] text-muted">마지막 점검 결과 취약</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-5">
+                <SectionLabel>미해결 CVE</SectionLabel>
+                <div
+                  className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${criticalHighCves.length > 0 ? "text-fail" : ""}`}
+                >
+                  {openCves.length}
+                </div>
+                <div className="mt-1 text-[13px] text-muted">
+                  Critical·High {criticalHighCves.length}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-5">
+                <SectionLabel>활성 스케줄</SectionLabel>
+                <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
+                  {activeScheduleCount}
+                </div>
+                <div className="mt-1 text-[13px] text-muted">정기 점검 자산</div>
               </div>
             </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <SectionLabel>취약 자산</SectionLabel>
-              <div
-                className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${vulnerableCount > 0 ? "text-fail" : ""}`}
-              >
-                {vulnerableCount}
-              </div>
-              <div className="mt-1 text-[13px] text-muted">마지막 점검 결과 취약</div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <SectionLabel>미해결 CVE</SectionLabel>
-              <div
-                className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${criticalHighCves.length > 0 ? "text-fail" : ""}`}
-              >
-                {openCves.length}
-              </div>
-              <div className="mt-1 text-[13px] text-muted">
-                Critical·High {criticalHighCves.length}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <SectionLabel>활성 스케줄</SectionLabel>
-              <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                {activeScheduleCount}
-              </div>
-              <div className="mt-1 text-[13px] text-muted">정기 점검 자산</div>
-            </div>
-          </div>
 
-          {/* 2. 자산 보안 상태 / 고위험 CVE TOP 5 */}
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Card title="자산 보안 상태" bodyClassName="p-0">
+            {/* 2. 종합 점수 게이지 + 상태 분포 도넛 */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card title="종합 보안 점수">
+                <SecurityScoreGauge score={score} grade={grade} />
+              </Card>
+              <Card title="자산 상태 분포">
+                <AssetStatusDonut buckets={distribution} total={assets.length} />
+              </Card>
+            </div>
+
+            {/* 3. 위험 자산 TOP 5 */}
+            <Card
+              title="위험 자산 TOP 5"
+              bodyClassName="p-0"
+              action={
+                <Link href="/assets" className="text-[13px] font-semibold text-primary hover:underline">
+                  전체 자산 보기 →
+                </Link>
+              }
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-5 py-3">
-                        <SectionLabel>자산</SectionLabel>
-                      </th>
-                      <th className="px-5 py-3">
-                        <SectionLabel>타입</SectionLabel>
-                      </th>
-                      <th className="px-5 py-3">
-                        <SectionLabel>마지막 점검</SectionLabel>
-                      </th>
-                      <th className="px-3 py-3 text-center">
-                        <SectionLabel>C/H</SectionLabel>
-                      </th>
-                      <th className="px-3 py-3 text-center">
-                        <SectionLabel>정기 점검</SectionLabel>
-                      </th>
-                      <th className="px-3 py-3 text-center">
-                        <SectionLabel>CVE</SectionLabel>
-                      </th>
+                      <th className="px-5 py-3"><SectionLabel>자산</SectionLabel></th>
+                      <th className="px-5 py-3"><SectionLabel>타입</SectionLabel></th>
+                      <th className="px-5 py-3"><SectionLabel>상태</SectionLabel></th>
+                      <th className="px-3 py-3 text-center"><SectionLabel>C/H</SectionLabel></th>
+                      <th className="px-3 py-3 text-center"><SectionLabel>CVE</SectionLabel></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {rows.map(({ asset, lastRun, status, summary, outcome, schedule, openCveCount }) => (
-                      <tr key={asset.id} className="hover:bg-bg">
-                        <td className="px-5 py-3">
-                          <Link
-                            href={`/assets/${asset.id}`}
-                            className="font-semibold text-primary hover:underline"
+                    {riskyRows.map((row) => {
+                      const badge = ASSET_STATUS_BADGE[row.statusKind];
+                      return (
+                        <tr key={row.assetId} className="hover:bg-bg">
+                          <td className="px-5 py-3">
+                            <Link
+                              href={`/assets/${row.assetId}`}
+                              className="font-semibold text-primary hover:underline"
+                            >
+                              {row.displayName}
+                            </Link>
+                          </td>
+                          <td className="px-5 py-3 text-muted">
+                            {row.assetType === "repo" ? "레포" : "서버"}
+                          </td>
+                          <td className="px-5 py-3">
+                            <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-[13px]">
+                            {row.criticalHigh > 0 ? row.criticalHigh : "—"}
+                          </td>
+                          <td
+                            className={`px-3 py-3 text-center font-mono text-[13px] ${row.openCveCount > 0 ? "text-fail" : ""}`}
                           >
-                            {asset.displayName}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-3 text-muted">
-                          {asset.type === "repo" ? "레포" : "서버"}
-                        </td>
-                        <td className="px-5 py-3">
-                          {!lastRun ? (
-                            <span className="text-[13px] text-muted italic">점검 이력 없음</span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <span className="font-mono text-[13px] text-muted">
-                                {formatTimestamp(lastRun.updatedAt)}
-                              </span>
-                              {status.kind === "running" ? (
-                                <StatusBadge status="progress">진행 중</StatusBadge>
-                              ) : status.kind === "error" ? (
-                                <StatusBadge status="fail">실패</StatusBadge>
-                              ) : status.kind === "cancelled" ? (
-                                <StatusBadge status="neutral">취소됨</StatusBadge>
-                              ) : outcome ? (
-                                <StatusBadge status={outcome}>{OUTCOME_LABEL[outcome]}</StatusBadge>
-                              ) : null}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 text-center font-mono text-[13px]">
-                          {summary
-                            ? `${summary.severityCounts.Critical}/${summary.severityCounts.High}`
-                            : "—"}
-                        </td>
-                        <td className="px-3 py-3 text-center text-[13px] text-muted">
-                          {schedule?.enabled ? SCHEDULE_LABEL[schedule.frequency] : "—"}
-                        </td>
-                        <td
-                          className={`px-3 py-3 text-center font-mono text-[13px] ${openCveCount ? "text-fail" : ""}`}
-                        >
-                          {openCveCount == null ? "—" : openCveCount}
-                        </td>
-                      </tr>
-                    ))}
+                            {row.assetType === "server" ? row.openCveCount : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </Card>
 
+            {/* 4. 고위험 CVE TOP 5 (기존 유지) */}
             <Card title="고위험 CVE TOP 5" bodyClassName={topCves.length === 0 ? "p-5" : "p-0"}>
               {topCves.length === 0 ? (
                 <p className="text-[13px] text-muted italic">위험 CVE 없음</p>
@@ -242,45 +265,11 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* 3. 최근 점검 활동 */}
-          <Card title="최근 활동 피드" className="mt-6" bodyClassName="p-0">
-            {recentRuns.length === 0 ? (
-              <p className="p-5 text-[13px] text-muted italic">아직 실행된 점검이 없습니다.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {recentRuns.map((run) => {
-                  const badge =
-                    run.status === "failed"
-                      ? { status: "fail" as const, label: "실패" }
-                      : run.status === "cancelled"
-                        ? { status: "neutral" as const, label: "취소됨" }
-                        : run.status === "running"
-                          ? { status: "progress" as const, label: "진행 중" }
-                          : { status: "pass" as const, label: "완료" };
-                  return (
-                    <li key={run.id}>
-                      <Link
-                        href={run.status === "running" ? `/runs/${run.id}` : `/runs/${run.id}/report`}
-                        className="flex items-center gap-3 px-5 py-3 text-sm hover:bg-bg"
-                      >
-                        <span className="font-semibold">
-                          {(run.assetId && assetNameById.get(run.assetId)) ?? getRepoDisplayName(run.repoUrl)}
-                        </span>
-                        <span className="text-[13px] text-muted">
-                          {run.triggerType === "scheduled" ? "예약" : "수동"}
-                        </span>
-                        <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
-                        <span className="ml-auto font-mono text-[13px] text-muted">
-                          {formatTimestamp(run.updatedAt)}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Card>
-        </>
+          {/* 사이드 컬럼 (1/3): 최근 활동 피드 */}
+          <div>
+            <ActivityFeedCard events={feedEvents} now={now} />
+          </div>
+        </div>
       )}
 
       <div className="mt-6">
