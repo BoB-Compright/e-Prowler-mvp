@@ -83,7 +83,8 @@ describe("POST /api/assets/import/create", () => {
       project_id: body.projectId,
     });
 
-    // 같은 레포/경로로 다시 create 요청하면 두 경로 모두 중복으로 skip 처리된다.
+    // 같은 레포/경로로 다시 create 요청하면 전부 중복 — 409를 반환하고
+    // 빈 프로젝트를 만들지 않으며 기존 프로젝트 정보를 알려준다.
     const res2 = await POST(
       jsonRequest(
         {
@@ -94,10 +95,13 @@ describe("POST /api/assets/import/create", () => {
         cookie,
       ),
     );
-    expect(res2.status).toBe(201);
+    expect(res2.status).toBe(409);
     const body2 = await res2.json();
-    expect(body2.created).toBe(0);
     expect(body2.skipped).toEqual(["backend/Dockerfile", "frontend/Dockerfile"]);
+    expect(body2.existingProjects).toEqual([{ id: body.projectId, name: "nh-import" }]);
+
+    // 두 번째 요청으로 프로젝트가 추가 생성되지 않았다.
+    expect(listProjects()).toHaveLength(1);
   });
 
   it("일부만 중복이면 중복분만 skip으로 보고한다", async () => {
@@ -130,6 +134,10 @@ describe("POST /api/assets/import/create", () => {
     const body = await res.json();
     expect(body.created).toBe(1);
     expect(body.skipped).toEqual(["backend/Dockerfile"]);
+
+    // 새로 만들 자산이 있으므로 프로젝트는 정상 생성된다(총 2개).
+    const { listProjects } = await import("@/lib/projects/store");
+    expect(listProjects()).toHaveLength(2);
   });
 
   it("빈 선택은 400", async () => {

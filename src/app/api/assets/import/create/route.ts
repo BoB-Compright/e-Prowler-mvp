@@ -2,8 +2,8 @@ import { randomBytes } from "crypto";
 import path from "path";
 import { NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth/requireSession";
-import { createProject } from "@/lib/projects/store";
-import { createRepoAsset, DuplicateAssetError } from "@/lib/assets/store";
+import { createProject, getProject } from "@/lib/projects/store";
+import { createRepoAsset, listRepoAssetsByRepoUrl, DuplicateAssetError } from "@/lib/assets/store";
 import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 
 function repoName(repoUrl: string): string {
@@ -53,6 +53,28 @@ export async function POST(req: Request) {
   }
   if (dockerfilePaths.length === 0) {
     return NextResponse.json({ error: "유효한 Dockerfile 경로가 없습니다" }, { status: 400 });
+  }
+
+  // 선택한 경로가 전부 이미 등록돼 있으면 프로젝트를 만들지 않는다 — 빈
+  // 프로젝트만 남고 자산은 기존 프로젝트에 있는 혼란을 막고, 대신 어느
+  // 프로젝트에 있는지 알려준다. (개별 중복은 아래 루프에서 skip으로 처리)
+  const existingAssets = listRepoAssetsByRepoUrl(repoUrl).filter(
+    (a) => a.dockerfilePath !== null && dockerfilePaths.includes(a.dockerfilePath),
+  );
+  if (existingAssets.length === dockerfilePaths.length) {
+    const projectIds = [...new Set(existingAssets.map((a) => a.projectId).filter((p): p is string => p !== null))];
+    const existingProjects = projectIds
+      .map((pid) => getProject(pid))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined)
+      .map((p) => ({ id: p.id, name: p.name }));
+    return NextResponse.json(
+      {
+        error: "선택한 이미지가 모두 이미 등록되어 있습니다",
+        skipped: dockerfilePaths,
+        existingProjects,
+      },
+      { status: 409 },
+    );
   }
 
   const project = createProject({

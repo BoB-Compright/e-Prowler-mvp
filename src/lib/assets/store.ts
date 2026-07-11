@@ -140,6 +140,14 @@ export function listAssets(
   return rows.map(toAsset);
 }
 
+export function listRepoAssetsByRepoUrl(repoUrl: string, db: Database = getDb()): Asset[] {
+  const normalized = normalizeRepoUrl(repoUrl);
+  const rows = db
+    .prepare(`SELECT * FROM assets WHERE type = 'repo' AND repo_url = ?`)
+    .all(normalized) as AssetRow[];
+  return rows.map(toAsset);
+}
+
 export function getAsset(id: string, db: Database = getDb()): Asset | undefined {
   const row = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(id) as AssetRow | undefined;
   return row ? toAsset(row) : undefined;

@@ -80,9 +80,40 @@ describe("POST /api/assets/import/discover", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ dockerfiles: ["backend/Dockerfile", "a/Dockerfile"] });
+    expect(body).toEqual({ dockerfiles: ["backend/Dockerfile", "a/Dockerfile"], registered: {} });
 
     expect(rmSyncMock).toHaveBeenCalledWith("/tmp/x", { recursive: true, force: true });
+  });
+
+  it("이미 등록된 Dockerfile은 소속 프로젝트 정보와 함께 registered로 표시한다", async () => {
+    cloneRepoMock.mockResolvedValue({ dir: "/tmp/x" });
+    listDockerfilesMock.mockReturnValue(["/tmp/x/backend/Dockerfile", "/tmp/x/frontend/Dockerfile"]);
+
+    const { createProject } = await import("@/lib/projects/store");
+    const { createRepoAsset } = await import("@/lib/assets/store");
+    const project = createProject({
+      name: "기존프로젝트",
+      pmName: "pm",
+      pmEmail: "pm@test.com",
+      sharePassword: "pw123456",
+    });
+    createRepoAsset({
+      displayName: "test / backend/Dockerfile",
+      repoUrl: "https://github.com/x/test",
+      projectId: project.id,
+      dockerfilePath: "backend/Dockerfile",
+    });
+
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+    const res = await POST(jsonRequest({ repoUrl: "https://github.com/x/test" }, cookie));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.dockerfiles).toEqual(["backend/Dockerfile", "frontend/Dockerfile"]);
+    expect(body.registered).toEqual({
+      "backend/Dockerfile": { projectId: project.id, projectName: "기존프로젝트" },
+    });
   });
 
   it("유효하지 않은 레포 URL이면 400을 반환하고 clone을 시도하지 않는다", async () => {
