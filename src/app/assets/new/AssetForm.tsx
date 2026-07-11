@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Project } from "@/lib/projects/types";
+import { ASSET_CATEGORIES, CATEGORY_VENDORS, type AssetCategory } from "@/lib/assets/categories";
 import { Card } from "../../_components/Card";
 
 const inputClass =
@@ -14,6 +15,12 @@ export function AssetForm({ projects }: { projects: Project[] }) {
   const router = useRouter();
   const [type, setType] = useState<"repo" | "server">("repo");
   const [error, setError] = useState<string | null>(null);
+
+  // 서버 자산 종류(OS/WEB/WAS/DB)·제조사. 제조사는 종류의 기본 목록 중 선택하거나
+  // "기타"를 골라 직접 입력한다.
+  const [category, setCategory] = useState<AssetCategory | "">("");
+  const [vendor, setVendor] = useState(""); // 기본 목록 값 또는 "__custom__"
+  const [customVendor, setCustomVendor] = useState("");
 
   // 자산 등록 화면에서 바로 프로젝트를 만들 수 있도록 로컬 목록/선택 상태를 관리한다.
   const [projectList, setProjectList] = useState<{ id: string; name: string }[]>(
@@ -59,10 +66,15 @@ export function AssetForm({ projects }: { projects: Project[] }) {
     e.preventDefault();
     setError(null);
     const body = Object.fromEntries(new FormData(e.currentTarget).entries());
+    // 서버 자산일 때만 종류·제조사를 함께 보낸다("기타"면 직접 입력값 사용).
+    const serverMeta =
+      type === "server"
+        ? { category: category || null, vendor: (vendor === "__custom__" ? customVendor.trim() : vendor) || null }
+        : {};
     const res = await fetch("/api/assets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, type }),
+      body: JSON.stringify({ ...body, ...serverMeta, type }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -74,19 +86,27 @@ export function AssetForm({ projects }: { projects: Project[] }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <div className="flex w-fit gap-1 rounded-lg border border-border bg-surface p-1">
-        {(["repo", "server"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setType(t)}
-            className={`rounded-md px-4 py-1.5 text-[13px] font-semibold transition-colors ${
-              type === t ? "bg-primary text-white" : "text-muted hover:bg-bg"
-            }`}
-          >
-            {t === "repo" ? "레포" : "서버"}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex w-fit gap-1 rounded-lg border border-border bg-surface p-1">
+          {(["repo", "server"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              className={`rounded-md px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+                type === t ? "bg-primary text-white" : "text-muted hover:bg-bg"
+              }`}
+            >
+              {t === "repo" ? "레포" : "서버"}
+            </button>
+          ))}
+        </div>
+        <Link
+          href="/assets/upload"
+          className="rounded-lg border border-primary px-4 py-2 text-[13px] font-semibold text-primary hover:bg-primary/5"
+        >
+          엑셀로 여러 개 등록
+        </Link>
       </div>
 
       <Card title="기본 정보">
@@ -197,6 +217,57 @@ export function AssetForm({ projects }: { projects: Project[] }) {
           </div>
         </div>
       </Card>
+
+      {type === "server" && (
+        <Card title="자산 종류">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className={labelClass}>종류 (선택)</span>
+              <select
+                value={category}
+                onChange={(e) => {
+                  setCategory(e.target.value as AssetCategory | "");
+                  setVendor(""); // 종류가 바뀌면 제조사 초기화
+                  setCustomVendor("");
+                }}
+                className={inputClass}
+              >
+                <option value="">선택 안 함</option>
+                {ASSET_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {category && (
+              <label className="flex flex-col gap-1">
+                <span className={labelClass}>제조사 (선택)</span>
+                <select value={vendor} onChange={(e) => setVendor(e.target.value)} className={inputClass}>
+                  <option value="">선택 안 함</option>
+                  {CATEGORY_VENDORS[category].map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                  <option value="__custom__">기타 (직접 입력)</option>
+                </select>
+              </label>
+            )}
+            {category && vendor === "__custom__" && (
+              <label className="flex flex-col gap-1 sm:col-span-2">
+                <span className={labelClass}>제조사 직접 입력</span>
+                <input
+                  value={customVendor}
+                  onChange={(e) => setCustomVendor(e.target.value)}
+                  className={inputClass}
+                  placeholder="제조사명"
+                />
+              </label>
+            )}
+          </div>
+        </Card>
+      )}
 
       {type === "server" && (
         <Card title="SSH 자격 증명">

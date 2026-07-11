@@ -9,7 +9,7 @@ function serverAsset(overrides: Partial<Asset> = {}): Asset {
     id: "a1", type: "server", projectId: null, displayName: "web-01",
     repoUrl: null, hostIp: "10.0.0.5", hostname: "web-01", sshPort: 22,
     authType: "password", username: "admin", encryptedSecret: encryptSecret("pw"),
-    os: null, owner: null, dockerfilePath: null, createdAt: "now",
+    os: null, owner: null, category: null, vendor: null, dockerfilePath: null, createdAt: "now",
     ...overrides,
   };
 }

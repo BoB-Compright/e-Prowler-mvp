@@ -22,6 +22,8 @@ interface AssetRow {
   encrypted_secret: string | null;
   os: string | null;
   owner: string | null;
+  category: string | null;
+  vendor: string | null;
   dockerfile_path: string | null;
   created_at: string;
 }
@@ -41,13 +43,15 @@ function toAsset(row: AssetRow): Asset {
     encryptedSecret: row.encrypted_secret,
     os: row.os,
     owner: row.owner,
+    category: row.category,
+    vendor: row.vendor,
     dockerfilePath: row.dockerfile_path,
     createdAt: row.created_at,
   };
 }
 
-const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, dockerfile_path, created_at)
-     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @dockerfile_path, @created_at)`;
+const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, category, vendor, dockerfile_path, created_at)
+     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @category, @vendor, @dockerfile_path, @created_at)`;
 
 export function createRepoAsset(
   input: {
@@ -74,6 +78,8 @@ export function createRepoAsset(
     host_ip: null, hostname: null, ssh_port: null, auth_type: null, username: null, encrypted_secret: null,
     os: input.os ?? null,
     owner: input.owner ?? null,
+    category: null,
+    vendor: null,
     dockerfile_path: dfPath,
     created_at: new Date().toISOString(),
   };
@@ -85,7 +91,7 @@ export function createServerAsset(
   input: {
     displayName: string; hostIp: string; hostname: string; sshPort: number;
     authType: ServerAuthType; username: string; secret: string; projectId?: string | null;
-    os?: string | null; owner?: string | null;
+    os?: string | null; owner?: string | null; category?: string | null; vendor?: string | null;
   },
   db: Database = getDb(),
 ): Asset {
@@ -110,6 +116,8 @@ export function createServerAsset(
     encrypted_secret: encryptSecret(input.secret),
     os: input.os ?? null,
     owner: input.owner ?? null,
+    category: input.category ?? null,
+    vendor: input.vendor ?? null,
     dockerfile_path: null,
     created_at: new Date().toISOString(),
   };

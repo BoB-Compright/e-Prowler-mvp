@@ -144,6 +144,22 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
               </dt>
               <dd className="mt-1 text-[13px]">{asset.owner || "—"}</dd>
             </div>
+            {asset.type === "server" && (
+              <>
+                <div>
+                  <dt>
+                    <SectionLabel>종류</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-[13px]">{asset.category || "—"}</dd>
+                </div>
+                <div>
+                  <dt>
+                    <SectionLabel>제조사</SectionLabel>
+                  </dt>
+                  <dd className="mt-1 text-[13px]">{asset.vendor || "—"}</dd>
+                </div>
+              </>
+            )}
           </dl>
         </Card>
 

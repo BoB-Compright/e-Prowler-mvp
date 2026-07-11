@@ -15,6 +15,8 @@ export interface Asset {
   encryptedSecret: string | null;
   os: string | null;
   owner: string | null;
+  category: string | null; // 서버 자산 종류 (OS/WEB/WAS/DB)
+  vendor: string | null; // 종류별 제조사
   dockerfilePath: string | null;
   createdAt: string;
 }

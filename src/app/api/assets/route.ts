@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DuplicateAssetError, createRepoAsset, createServerAsset, listAssets } from "@/lib/assets/store";
+import { isValidCategory } from "@/lib/assets/categories";
 import { requireApiSession } from "@/lib/auth/requireSession";
 
 function optionalString(value: unknown): string | null {
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
         projectId: body.projectId || null,
         os: optionalString(body.os),
         owner: optionalString(body.owner),
+        category: isValidCategory(body.category) ? body.category : null,
+        vendor: optionalString(body.vendor),
       });
       return NextResponse.json({ asset }, { status: 201 });
     }
