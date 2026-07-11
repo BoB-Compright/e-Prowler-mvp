@@ -3,7 +3,7 @@
 // separate bundling pipeline where a native addon like better-sqlite3 can't
 // be relied on to bundle correctly (see docs/adr/0001-authentication-local-accounts.md).
 
-export const SESSION_COOKIE_NAME = "eprowler_session";
+export const SESSION_COOKIE_NAME = "nhg_session";
 
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 

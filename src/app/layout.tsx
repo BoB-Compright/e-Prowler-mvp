@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jbMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono" });
 
 export const metadata: Metadata = {
-  title: "e-Prowler — 자산 보안 점검",
+  title: "NH-Guardian — 자산 보안 점검",
   description: "자산(레포·서버) 보안 점검 플랫폼",
 };
 

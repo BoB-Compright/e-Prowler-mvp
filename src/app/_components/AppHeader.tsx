@@ -33,7 +33,7 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
           <div className="truncate text-[15px] font-bold tracking-tight text-primary">NH-Guardian</div>
         </div>
         <div className="hidden text-[13px] text-muted md:block">
-          {current ? current.label : "e-Prowler"}
+          {current ? current.label : "NH-Guardian"}
         </div>
         <div className="flex-1" />
         {user && (

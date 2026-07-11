@@ -84,7 +84,7 @@ Next 16은 `middleware.ts` 컨벤션을 `proxy.ts`로 개명했다(동작은 동
 3. **`requireApiSession(request)` (API 실검증, DB 접근)** — 모든 보호 API 라우트 핸들러의
    첫 문장에서 호출한다(`src/lib/auth/requireSession.ts`). 유효한(DB 대조, 미만료) 세션이
    없으면 401 JSON 응답을 반환하고, 유효하면 null을 반환해 핸들러가 진행한다. 프록시의
-   쿠키 존재 검사는 낙관적 선별일 뿐이라 위조 쿠키(`eprowler_session=garbage`)를 통과시키므로,
+   쿠키 존재 검사는 낙관적 선별일 뿐이라 위조 쿠키(`nhg_session=garbage`)를 통과시키므로,
    실제로 요청을 막는 것은 이 핸들러 레벨 검증이다(종적 방어, defense in depth).
    `/api/share/[token]`(공유 링크)과 `/api/auth/*`(로그인 플로우 자체)에는 넣지 않는다.
 

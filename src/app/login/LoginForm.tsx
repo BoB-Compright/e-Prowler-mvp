@@ -35,7 +35,7 @@ export function LoginForm() {
     <div className="flex min-h-[60vh] items-center justify-center">
       <Card className="w-full max-w-sm" bodyClassName="p-6">
         <h1 className="mb-1 text-[20px] font-bold tracking-[-0.02em]">로그인</h1>
-        <p className="mb-4 text-[13px] text-muted">e-Prowler 계정으로 로그인하세요.</p>
+        <p className="mb-4 text-[13px] text-muted">NH-Guardian 계정으로 로그인하세요.</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div>
             <label htmlFor="login-username" className="mb-1 block text-[13px] font-medium">
