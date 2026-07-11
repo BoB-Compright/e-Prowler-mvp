@@ -176,7 +176,11 @@ export async function runAnsibleForServer(
   };
 
   if (needsKeyFile) {
-    return withTempKeyFile(decryptedSecret, (keyFilePath) => run(keyFilePath));
+    // OpenSSH 개인키는 마지막 줄 뒤 개행이 없으면 ssh가 "invalid format"으로 거부해
+    // 인증이 실패한다. 저장 과정(엑셀 셀·폼 붙여넣기 등)에서 끝 개행이 누락됐을 수
+    // 있으므로 파일에 쓰기 전 개행을 보장한다.
+    const keyContent = decryptedSecret.endsWith("\n") ? decryptedSecret : `${decryptedSecret}\n`;
+    return withTempKeyFile(keyContent, (keyFilePath) => run(keyFilePath));
   }
   return run(null);
 }
