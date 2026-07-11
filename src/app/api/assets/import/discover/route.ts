@@ -4,7 +4,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { requireApiSession } from "@/lib/auth/requireSession";
 import { cloneRepo } from "@/lib/pipeline/clone";
-import { listDockerfiles } from "@/lib/pipeline/dockerfile";
+import { listDockerfiles, dockerfileBuildBlockers } from "@/lib/pipeline/dockerfile";
 import { isValidRepoUrl } from "@/lib/pipeline/repoUrl";
 import { listRepoAssetsByRepoUrl } from "@/lib/assets/store";
 import { getProject } from "@/lib/projects/store";
@@ -34,6 +34,20 @@ export async function POST(req: Request) {
     const abs = listDockerfiles(dir);
     const dockerfiles = abs.map((p) => path.relative(dir!, p));
 
+    // build-arg 없이는 빌드 불가한 Dockerfile(예: FROM ${BASE_IMAGE})을 표시해
+    // 선택에서 제외할 수 있게 한다(path → 필요한 인자명 목록).
+    const buildBlocked: Record<string, string[]> = {};
+    for (let i = 0; i < abs.length; i++) {
+      let content = "";
+      try {
+        content = fs.readFileSync(abs[i], "utf8");
+      } catch {
+        continue;
+      }
+      const blockers = dockerfileBuildBlockers(content);
+      if (blockers.length > 0) buildBlocked[dockerfiles[i]] = blockers;
+    }
+
     const existingByPath = new Map(
       listRepoAssetsByRepoUrl(repoUrl).map((a) => [a.dockerfilePath, a]),
     );
@@ -48,7 +62,7 @@ export async function POST(req: Request) {
       };
     }
 
-    return NextResponse.json({ dockerfiles, registered });
+    return NextResponse.json({ dockerfiles, registered, buildBlocked });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "레포를 가져오지 못했습니다" },

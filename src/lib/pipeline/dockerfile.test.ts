@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { detectDockerfile, listDockerfiles } from "./dockerfile";
+import { detectDockerfile, dockerfileBuildBlockers, listDockerfiles } from "./dockerfile";
 
 const dirs: string[] = [];
 
@@ -140,5 +140,33 @@ describe("listDockerfiles", () => {
     fs.writeFileSync(path.join(dir, "sub", "Dockerfile"), "FROM scratch\n");
     fs.writeFileSync(path.join(dir, "Dockerfile"), "FROM scratch\n");
     expect(detectDockerfile(dir)).toBe(listDockerfiles(dir)[0]);
+  });
+});
+
+describe("dockerfileBuildBlockers", () => {
+  it("구체적인 FROM은 차단 없음", () => {
+    expect(dockerfileBuildBlockers("FROM ubuntu:24.04\nRUN echo hi\n")).toEqual([]);
+  });
+
+  it("기본값 없는 ARG를 쓰는 FROM은 그 인자명을 차단으로 반환한다", () => {
+    const df = "ARG BASE_IMAGE\nFROM ${BASE_IMAGE}\nRUN echo hi\n";
+    expect(dockerfileBuildBlockers(df)).toEqual(["BASE_IMAGE"]);
+  });
+
+  it("선언조차 없는 변수 참조도 차단으로 잡는다", () => {
+    expect(dockerfileBuildBlockers("FROM $REGISTRY/app:latest\n")).toEqual(["REGISTRY"]);
+  });
+
+  it("기본값 있는 ARG는 차단이 아니다", () => {
+    expect(dockerfileBuildBlockers("ARG BASE=ubuntu:24.04\nFROM ${BASE}\n")).toEqual([]);
+  });
+
+  it("인라인 기본값(${VAR:-default})은 차단이 아니다", () => {
+    expect(dockerfileBuildBlockers("FROM ${BASE:-ubuntu:24.04}\n")).toEqual([]);
+  });
+
+  it("멀티스테이지의 스테이지 이름 참조(FROM builder)는 차단이 아니다", () => {
+    const df = "FROM ubuntu:24.04 AS builder\nRUN echo build\nFROM builder\nRUN echo run\n";
+    expect(dockerfileBuildBlockers(df)).toEqual([]);
   });
 });

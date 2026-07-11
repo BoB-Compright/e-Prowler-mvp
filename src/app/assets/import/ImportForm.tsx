@@ -37,6 +37,7 @@ export function ImportForm() {
   const [discovering, setDiscovering] = useState(false);
   const [dockerfiles, setDockerfiles] = useState<string[] | null>(null);
   const [registered, setRegistered] = useState<Record<string, RegisteredInfo>>({});
+  const [buildBlocked, setBuildBlocked] = useState<Record<string, string[]>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -62,18 +63,21 @@ export function ImportForm() {
       const list: string[] = Array.isArray(data.dockerfiles) ? data.dockerfiles : [];
       const reg: Record<string, RegisteredInfo> =
         data.registered && typeof data.registered === "object" ? data.registered : {};
+      const blocked: Record<string, string[]> =
+        data.buildBlocked && typeof data.buildBlocked === "object" ? data.buildBlocked : {};
       setDockerfiles(list);
       setRegistered(reg);
+      setBuildBlocked(blocked);
       setExistingProjects([]);
-      // 이미 등록된 경로는 다시 만들 수 없으므로 선택 대상에서 제외한다.
-      setSelected(new Set(list.filter((p) => !reg[p])));
+      // 이미 등록됐거나 빌드 불가(인자 필요)한 경로는 선택 대상에서 제외한다.
+      setSelected(new Set(list.filter((p) => !reg[p] && !blocked[p])));
       setProjectName(deriveRepoName(repoUrl));
     } finally {
       setDiscovering(false);
     }
   }
 
-  const selectable = (dockerfiles ?? []).filter((p) => !registered[p]);
+  const selectable = (dockerfiles ?? []).filter((p) => !registered[p] && !buildBlocked[p]);
 
   function toggleAll() {
     setSelected(selected.size === selectable.length ? new Set() : new Set(selectable));
@@ -174,19 +178,25 @@ export function ImportForm() {
               <ul className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 {dockerfiles.map((dfPath) => {
                   const reg = registered[dfPath];
+                  const blocked = buildBlocked[dfPath];
+                  const disabled = !!reg || !!blocked;
                   return (
                     <li key={dfPath}>
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={selected.has(dfPath)}
-                          disabled={!!reg}
+                          disabled={disabled}
                           onChange={() => toggleOne(dfPath)}
                         />
-                        <span className={`font-mono text-[13px] ${reg ? "text-muted" : ""}`}>
+                        <span className={`font-mono text-[13px] ${disabled ? "text-muted" : ""}`}>
                           {dfPath}
                         </span>
-                        {reg && (
+                        {blocked ? (
+                          <span className="text-[12px] text-fail">
+                            빌드 불가 (인자 필요: {blocked.join(", ")})
+                          </span>
+                        ) : reg ? (
                           <span className="text-[12px] text-muted">
                             이미 등록됨
                             {reg.projectId && (
@@ -201,7 +211,7 @@ export function ImportForm() {
                               </>
                             )}
                           </span>
-                        )}
+                        ) : null}
                       </label>
                     </li>
                   );

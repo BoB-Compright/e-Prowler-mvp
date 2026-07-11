@@ -112,3 +112,36 @@ export function listDockerfiles(repoDir: string): string[] {
 export function detectDockerfile(repoDir: string): string | undefined {
   return listDockerfiles(repoDir)[0];
 }
+
+// Dockerfile 내용을 보고, `docker build`를 build-arg 없이 실행하면 실패하게 만드는
+// "빌드 차단 인자" 이름들을 반환한다(빈 배열 = 표준 빌드 가능).
+//
+// 대상: FROM 이미지 참조가 `${VAR}`/`$VAR`를 쓰는데 그 VAR가 기본값 있는 ARG로
+// 선언돼 있지 않은 경우 — build-arg를 넘기지 않으면 base name이 빈 값이 되어
+// "base name (${VAR}) should not be blank"로 빌드가 거부된다(예: old/Dockerfile.vada).
+// 기본값이 있는 ARG(FROM ${BASE:-ubuntu} 또는 ARG BASE=ubuntu)는 차단으로 보지 않는다.
+// 멀티스테이지의 `FROM builder`처럼 변수 없는 스테이지 참조는 애초에 매치되지 않는다.
+export function dockerfileBuildBlockers(content: string): string[] {
+  const argsWithDefault = new Set<string>();
+  const lines = content.split(/\r?\n/);
+
+  for (const line of lines) {
+    const m = /^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)(=(.*))?\s*$/i.exec(line);
+    if (m && m[2] !== undefined && (m[3] ?? "").trim() !== "") {
+      argsWithDefault.add(m[1]);
+    }
+  }
+
+  const blockers = new Set<string>();
+  for (const line of lines) {
+    const from = /^\s*FROM\s+(\S+)/i.exec(line);
+    if (!from) continue;
+    // ${VAR}, ${VAR:-default}, $VAR 형태의 참조를 찾는다.
+    for (const vm of from[1].matchAll(/\$\{?([A-Za-z_][A-Za-z0-9_]*)(:-[^}]*)?\}?/g)) {
+      const name = vm[1];
+      const hasInlineDefault = vm[2] !== undefined; // ${VAR:-...}
+      if (!hasInlineDefault && !argsWithDefault.has(name)) blockers.add(name);
+    }
+  }
+  return [...blockers];
+}
