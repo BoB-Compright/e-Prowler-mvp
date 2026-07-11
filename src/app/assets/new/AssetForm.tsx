@@ -15,6 +15,46 @@ export function AssetForm({ projects }: { projects: Project[] }) {
   const [type, setType] = useState<"repo" | "server">("repo");
   const [error, setError] = useState<string | null>(null);
 
+  // 자산 등록 화면에서 바로 프로젝트를 만들 수 있도록 로컬 목록/선택 상태를 관리한다.
+  const [projectList, setProjectList] = useState<{ id: string; name: string }[]>(
+    projects.map((p) => ({ id: p.id, name: p.name })),
+  );
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [np, setNp] = useState({ name: "", pmName: "", pmEmail: "" });
+  const [projBusy, setProjBusy] = useState(false);
+  const [projError, setProjError] = useState<string | null>(null);
+
+  async function handleCreateProject() {
+    setProjError(null);
+    if (!np.name.trim() || !np.pmName.trim() || !np.pmEmail.trim()) {
+      setProjError("프로젝트명·PM 이름·PM 이메일을 입력하세요");
+      return;
+    }
+    setProjBusy(true);
+    try {
+      // 공유 비밀번호는 자동 생성한다(프로젝트 설정의 공유 패널에서 언제든 재발급 가능).
+      const sharePassword = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: np.name.trim(), pmName: np.pmName.trim(), pmEmail: np.pmEmail.trim(), sharePassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setProjError(data.error ?? "프로젝트 생성에 실패했습니다");
+        return;
+      }
+      const created = data.project as { id: string; name: string };
+      setProjectList((prev) => [...prev, { id: created.id, name: created.name }]);
+      setSelectedProjectId(created.id);
+      setShowCreate(false);
+      setNp({ name: "", pmName: "", pmEmail: "" });
+    } finally {
+      setProjBusy(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -74,17 +114,76 @@ export function AssetForm({ projects }: { projects: Project[] }) {
             </div>
           )}
 
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>프로젝트 (선택)</span>
-            <select name="projectId" className={inputClass}>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className={labelClass}>프로젝트 (선택)</span>
+              <button
+                type="button"
+                onClick={() => setShowCreate((v) => !v)}
+                className="text-[12.5px] font-semibold text-primary hover:underline"
+              >
+                {showCreate ? "닫기" : "+ 새 프로젝트"}
+              </button>
+            </div>
+            <select
+              name="projectId"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className={inputClass}
+            >
               <option value="">미분류</option>
-              {projects.map((project) => (
+              {projectList.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
               ))}
             </select>
-          </label>
+
+            {showCreate && (
+              <div className="mt-2 flex flex-col gap-3 rounded-lg border border-border bg-bg p-3">
+                <p className="text-[12.5px] font-semibold">새 프로젝트 만들기</p>
+                {/* name 속성 없이 제어 컴포넌트로 다뤄, 자산 등록 폼 데이터에 섞이지 않게 한다.
+                    Enter는 폼 제출 대신 프로젝트 생성으로 연결한다. */}
+                {(
+                  [
+                    { key: "name", label: "프로젝트명" },
+                    { key: "pmName", label: "PM 이름" },
+                    { key: "pmEmail", label: "PM 이메일" },
+                  ] as const
+                ).map((f) => (
+                  <label key={f.key} className="flex flex-col gap-1">
+                    <span className="text-[12px] text-muted">{f.label}</span>
+                    <input
+                      type={f.key === "pmEmail" ? "email" : "text"}
+                      value={np[f.key]}
+                      onChange={(e) => setNp((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void handleCreateProject();
+                        }
+                      }}
+                      className={inputClass}
+                    />
+                  </label>
+                ))}
+                <p className="text-[12px] text-muted">
+                  공유 비밀번호는 자동 생성되며, 프로젝트 공유 설정에서 재발급할 수 있어요.
+                </p>
+                {projError && <p className="text-[12.5px] text-fail">{projError}</p>}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCreateProject}
+                    disabled={projBusy}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {projBusy ? "만드는 중…" : "프로젝트 만들기"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
