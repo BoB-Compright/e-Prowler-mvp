@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3";
 
-const SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   repo_url TEXT NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS schedules (
 // Existing on-disk databases predate the "source_type" column; ADD COLUMN
 // isn't idempotent in SQLite, so guard it with a table_info check instead of
 // a version table (no other migration has been needed yet).
-function migrate(db: Database.Database): void {
+export function migrate(db: Database.Database): void {
   const runColumns = db.prepare(`PRAGMA table_info(runs)`).all() as { name: string }[];
   if (!runColumns.some((column) => column.name === "source_type")) {
     db.exec(`ALTER TABLE runs ADD COLUMN source_type TEXT NOT NULL DEFAULT 'git'`);
@@ -187,16 +187,30 @@ function migrate(db: Database.Database): void {
     db.prepare(`PRAGMA table_info(scan_batches)`).all() as { name: string; notnull: number }[]
   ).find((col) => col.name === "project_id");
   if (scanBatchProjectCol && scanBatchProjectCol.notnull === 1) {
-    db.exec(`
-      CREATE TABLE scan_batches_new (
-        id TEXT PRIMARY KEY,
-        project_id TEXT REFERENCES projects(id),
-        created_at TEXT NOT NULL
-      );
-      INSERT INTO scan_batches_new SELECT id, project_id, created_at FROM scan_batches;
-      DROP TABLE scan_batches;
-      ALTER TABLE scan_batches_new RENAME TO scan_batches;
-    `);
+    // better-sqlite3는 foreign_keys를 기본 ON으로 켜므로, runs.batch_id가
+    // scan_batches를 참조하는 기존 DB에서는 DROP TABLE scan_batches가 FK
+    // 제약으로 실패한다(빈 DB에서는 참조 run이 없어 드러나지 않던 버그).
+    // SQLite 공식 테이블 재구축 절차대로 FK 강제를 잠시 끄고(트랜잭션 밖에서만
+    // 토글 가능) 원자적으로 재구축한 뒤 다시 켠다. runs.batch_id의 FK는
+    // 이름으로 해석되므로 rename 후에도 새 scan_batches를 그대로 가리킨다.
+    const foreignKeysOn = db.pragma("foreign_keys", { simple: true }) === 1;
+    if (foreignKeysOn) db.pragma("foreign_keys = OFF");
+    try {
+      db.transaction(() => {
+        db.exec(`
+          CREATE TABLE scan_batches_new (
+            id TEXT PRIMARY KEY,
+            project_id TEXT REFERENCES projects(id),
+            created_at TEXT NOT NULL
+          );
+          INSERT INTO scan_batches_new SELECT id, project_id, created_at FROM scan_batches;
+          DROP TABLE scan_batches;
+          ALTER TABLE scan_batches_new RENAME TO scan_batches;
+        `);
+      })();
+    } finally {
+      if (foreignKeysOn) db.pragma("foreign_keys = ON");
+    }
   }
 }
 
