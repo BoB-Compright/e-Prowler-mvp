@@ -23,6 +23,8 @@ const CATEGORY_CHIP_LABELS: Record<Category, string> = {
   container: "컨테이너",
   unix: "Unix",
   web: "웹",
+  was: "WAS",
+  db: "DB",
 };
 
 const CHECK_STATUS_BADGE: Record<CheckStatus, BadgeStatus> = {

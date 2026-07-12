@@ -1,11 +1,11 @@
 [
-  { "id": "C-01", "title": "root(UID 0) 실행", "severity": "High", "automationStatus": "automated" },
-  { "id": "C-02", "title": "하드코딩 시크릿", "severity": "Critical", "automationStatus": "automated" },
-  { "id": "C-03", "title": "불필요한 노출 포트", "severity": "Medium", "automationStatus": "automated" },
-  { "id": "C-04", "title": "base 이미지 태그 미고정", "severity": "Medium", "automationStatus": "automated" },
-  { "id": "C-05", "title": "위험 패키지 잔존", "severity": "Medium", "automationStatus": "automated" },
-  { "id": "C-06", "title": "setuid/setgid 바이너리", "severity": "High", "automationStatus": "automated" },
-  { "id": "C-07", "title": "쓰기 가능 루트 FS", "severity": "Medium", "automationStatus": "automated" },
-  { "id": "C-08", "title": "HEALTHCHECK 부재", "severity": "Low", "automationStatus": "automated" },
-  { "id": "C-09", "title": "ADD 원격 사용", "severity": "Low", "automationStatus": "automated" }
+  { "id": "C-01", "title": "root(UID 0) 실행", "severity": "High", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-01" } },
+  { "id": "C-02", "title": "하드코딩 시크릿", "severity": "Critical", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-02" } },
+  { "id": "C-03", "title": "불필요한 노출 포트", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-03" } },
+  { "id": "C-04", "title": "base 이미지 태그 미고정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-04" } },
+  { "id": "C-05", "title": "위험 패키지 잔존", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-05" } },
+  { "id": "C-06", "title": "setuid/setgid 바이너리", "severity": "High", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-06" } },
+  { "id": "C-07", "title": "쓰기 가능 루트 FS", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-07" } },
+  { "id": "C-08", "title": "HEALTHCHECK 부재", "severity": "Low", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-08" } },
+  { "id": "C-09", "title": "ADD 원격 사용", "severity": "Low", "automationStatus": "automated", "source": { "framework": "KISA", "ref": "컨테이너 하드닝 C-09" } }
 ]

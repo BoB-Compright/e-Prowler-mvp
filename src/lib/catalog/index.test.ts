@@ -41,15 +41,22 @@ describe("catalog", () => {
     }
   });
 
-  it("registers KISA as the only framework, covering all 102 items", () => {
-    const frameworks = getFrameworks();
-    expect(frameworks).toHaveLength(1);
-    expect(frameworks[0]).toMatchObject({
-      id: "kisa",
-      name: "KISA 주요정보통신기반시설 가이드",
-    });
-
+  it("registers KISA covering all 102 current items", () => {
     const summary = getCatalogSummary();
     expect(summary.byFramework.kisa).toBe(102);
+  });
+
+  it("every catalog item carries a source with framework + ref", () => {
+    for (const item of getCatalog()) {
+      expect(item.source, item.id).toBeDefined();
+      expect(item.source.framework.length).toBeGreaterThan(0);
+      expect(item.source.ref.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("registers KISA and CIS frameworks", () => {
+    const ids = getFrameworks().map((f) => f.id);
+    expect(ids).toContain("kisa");
+    expect(ids).toContain("cis");
   });
 });

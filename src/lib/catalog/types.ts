@@ -1,4 +1,4 @@
-export type Category = "container" | "unix" | "web";
+export type Category = "container" | "unix" | "web" | "was" | "db";
 
 export type Severity = "Critical" | "High" | "Medium" | "Low";
 
@@ -30,6 +30,7 @@ export interface CatalogItem {
   automationStatus: AutomationStatus;
   // Undefined/omitted = applies to any asset, no stack-based scoping.
   appliesTo?: Technology[];
+  source: { framework: string; ref: string };
 }
 
 // Internal per-run check outcome (PRD §4). Kept separate from the UI label
@@ -48,4 +49,6 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   container: "컨테이너/이미지 하드닝",
   unix: "Unix 서버 (KISA 가이드 기반)",
   web: "웹서비스 (KISA 가이드 기반)",
+  was: "WAS (CIS 기반)",
+  db: "DB (CIS 기반)",
 };

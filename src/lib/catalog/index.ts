@@ -63,6 +63,8 @@ export function getCatalogSummary(): CatalogSummary {
       container: getCatalogByCategory("container").length,
       unix: getCatalogByCategory("unix").length,
       web: getCatalogByCategory("web").length,
+      was: getCatalogByCategory("was").length,
+      db: getCatalogByCategory("db").length,
     },
     byFramework,
     automated: CATALOG.filter((item) => item.automationStatus === "automated").length,

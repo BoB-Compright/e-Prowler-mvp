@@ -16,6 +16,7 @@ function makeItem(overrides: Partial<CatalogItem> = {}): CatalogItem {
     title: "/etc/passwd 파일 소유자 및 권한 설정",
     severity: "High",
     automationStatus: "automated",
+    source: { framework: "KISA", ref: "Unix 서버 U-16" },
     ...overrides,
   };
 }
