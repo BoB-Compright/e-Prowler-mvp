@@ -83,7 +83,7 @@ describe("evaluators DB-07..12", () => {
     expect(evaluateDB10(D([t("mysql config (internal)", "[mysqld]")])).status).toBe("review");
   });
   it("DB-11 → review (SQL 필요)", () => {
-    expect(evaluateDB11(D([])).status).toBe("review");
+    expect(evaluateDB11().status).toBe("review");
   });
   it("DB-12 → review with version evidence", () => {
     const r = evaluateDB12(D([t("mysql version (internal)", "mysqld  Ver 8.0.36 for Linux")]));

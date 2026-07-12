@@ -159,12 +159,11 @@ export function evaluateDB10(tasks: AnsibleTaskOutput[]): CheckResult {
   return { id: "DB-10", status: "review", evidence: "설정 파일에서 validate_password 구성을 확인할 수 없음 — 플러그인 로드는 라이브 SQL 확인 필요(수동/AI)" };
 }
 
-export function evaluateDB11(_tasks: AnsibleTaskOutput[]): CheckResult {
+export function evaluateDB11(): CheckResult {
   return { id: "DB-11", status: "review", evidence: "익명/테스트 계정 존재 여부는 라이브 SQL(SELECT ... FROM mysql.user) 확인이 필요 — 수동 점검" };
 }
 
 export function evaluateDB12(tasks: AnsibleTaskOutput[]): CheckResult {
-  const raw = getMysqlState(tasks).version;
-  const version = raw && raw !== "__MISSING__" ? raw : "확인 불가";
+  const version = getMysqlState(tasks).version || "확인 불가";
   return { id: "DB-12", status: "review", evidence: `DB 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
