@@ -42,6 +42,14 @@ export function activeLines(xml: string): string[] {
   return noComments.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
+// Tomcat server.xml은 태그 속성이 여러 줄에 걸쳐 있을 수 있다(예: <Host ...\n  autoDeploy="true">).
+// 주석 블록을 제거한 뒤 태그 단위(여러 줄 포함)로 추출하고, 내부 공백/개행을 한 칸으로 정규화한다.
+export function extractTags(config: string, tagName: string): string[] {
+  const noComments = config.replace(/<!--[\s\S]*?-->/g, "");
+  const re = new RegExp(`<${tagName}\\b[^>]*>`, "gi"); // [^>]* spans newlines in JS
+  return (noComments.match(re) ?? []).map((tag) => tag.replace(/\s+/g, " ").trim());
+}
+
 export function noGroupOtherWrite(statLine: string): boolean {
   const mode = statLine.trim().split(/\s+/).pop() ?? "";
   if (!/^[0-7]{3,4}$/.test(mode)) return false;
@@ -79,7 +87,8 @@ export function evaluateWAS01(tasks: AnsibleTaskOutput[]): CheckResult {
 
 export function evaluateWAS02(tasks: AnsibleTaskOutput[]): CheckResult {
   const xml = getTomcatState(tasks).serverXml;
-  const server = activeLines(xml).find((l) => /<Server\b/i.test(l)) ?? "";
+  const servers = extractTags(xml, "Server");
+  const server = servers[0] ?? "";
   const portNeg1 = /<Server\b[^>]*\bport\s*=\s*"-1"/i.test(server);
   const shutdown = server.match(/shutdown\s*=\s*"([^"]*)"/i)?.[1];
   const hardened = portNeg1 || (shutdown !== undefined && shutdown !== "SHUTDOWN");
@@ -112,7 +121,7 @@ export function evaluateWAS05(tasks: AnsibleTaskOutput[]): CheckResult {
 
 export function evaluateWAS06(tasks: AnsibleTaskOutput[]): CheckResult {
   const xml = getTomcatState(tasks).serverXml;
-  const ajpLines = activeLines(xml).filter((l) => /<Connector\b[^>]*protocol\s*=\s*"AJP/i.test(l));
+  const ajpLines = extractTags(xml, "Connector").filter((l) => /protocol\s*=\s*"AJP/i.test(l));
   if (ajpLines.length === 0) return { id: "WAS-06", status: "pass", evidence: "활성 AJP 커넥터가 없음" };
   const secured = ajpLines.every((l) => /secret\s*=|secretRequired\s*=\s*"true"|address\s*=\s*"(127\.0\.0\.1|::1)"/i.test(l));
   return { id: "WAS-06", status: secured ? "pass" : "fail", evidence: secured ? "AJP 커넥터가 보안 설정(secret/로컬 바인딩)됨" : "AJP 커넥터가 활성화되어 있고 보안 설정이 없음(Ghostcat 위험)" };
@@ -124,8 +133,9 @@ export function parseTomcatMajor(version: string): number | null {
 }
 
 export function evaluateWAS07(tasks: AnsibleTaskOutput[]): CheckResult {
-  const lines = activeLines(getTomcatState(tasks).serverXml);
-  const bad = lines.some((l) => /<Host\b/i.test(l) && (/autoDeploy\s*=\s*"true"/i.test(l) || /deployOnStartup\s*=\s*"true"/i.test(l)));
+  const xml = getTomcatState(tasks).serverXml;
+  const hosts = extractTags(xml, "Host");
+  const bad = hosts.some((h) => /autoDeploy\s*=\s*"true"/i.test(h) || /deployOnStartup\s*=\s*"true"/i.test(h));
   return { id: "WAS-07", status: bad ? "fail" : "pass", evidence: bad ? "Host에 autoDeploy/deployOnStartup=true가 설정됨" : "autoDeploy/deployOnStartup이 비활성" };
 }
 
@@ -144,8 +154,8 @@ export function evaluateWAS09(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 export function evaluateWAS10(tasks: AnsibleTaskOutput[]): CheckResult {
-  const lines = activeLines(getTomcatState(tasks).serverXml);
-  const trace = lines.some((l) => /<Connector\b[^>]*allowTrace\s*=\s*"true"/i.test(l));
+  const xml = getTomcatState(tasks).serverXml;
+  const trace = extractTags(xml, "Connector").some((c) => /allowTrace\s*=\s*"true"/i.test(c));
   return { id: "WAS-10", status: trace ? "fail" : "pass", evidence: trace ? "커넥터에 allowTrace=\"true\"(TRACE 허용)가 설정됨" : "TRACE 메서드가 허용되어 있지 않음(allowTrace 미사용)" };
 }
 

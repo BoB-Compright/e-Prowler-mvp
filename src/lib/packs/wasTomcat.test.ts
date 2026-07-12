@@ -94,6 +94,22 @@ it("WAS-12 shows 확인 불가 for __MISSING__ version", () => {
   expect(r.evidence).not.toContain("__MISSING__");
 });
 
+it("WAS-02 multiline <Server> tag: default → fail, hardened → pass", () => {
+  expect(evaluateWAS02(base([t("tomcat server.xml", '<Server\n  port="8005" shutdown="SHUTDOWN">')])).status).toBe("fail");
+  expect(evaluateWAS02(base([t("tomcat server.xml", '<Server\n port="-1">')])).status).toBe("pass");
+});
+it("WAS-06 multiline AJP connector: unsecured → fail, secured → pass", () => {
+  expect(evaluateWAS06(base([t("tomcat server.xml", '<Connector\n  protocol="AJP/1.3" port="8009" />')])).status).toBe("fail");
+  expect(evaluateWAS06(base([t("tomcat server.xml", '<Connector\n  protocol="AJP/1.3" port="8009" secretRequired="true" secret="x" />')])).status).toBe("pass");
+});
+it("WAS-07 multiline <Host> tag with autoDeploy=true across lines → fail", () => {
+  expect(evaluateWAS07(base([t("tomcat server.xml", '<Host name="localhost"  appBase="webapps"\n      unpackWARs="true" autoDeploy="true">')])).status).toBe("fail");
+  expect(evaluateWAS07(base([t("tomcat server.xml", '<Host name="localhost" autoDeploy="false">')])).status).toBe("pass");
+});
+it("WAS-10 multiline <Connector> tag with allowTrace=true across lines → fail", () => {
+  expect(evaluateWAS10(base([t("tomcat server.xml", '<Connector\n  allowTrace="true" />')])).status).toBe("fail");
+});
+
 it("wasTomcatPack shape + evaluate one result per WAS item", () => {
   const wasIds = getCatalogByCategory("was").map((i) => i.id).sort();
   expect(wasTomcatPack.id).toBe("was-tomcat");
