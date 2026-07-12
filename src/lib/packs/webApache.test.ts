@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines } from "./webApache";
+import { APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines, evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03 } from "./webApache";
 
 const present = [
   { taskName: "apache detection (internal)", stdout: "present\n" },
@@ -28,5 +28,28 @@ describe("apache evidence + state", () => {
   });
   it("activeLines strips comments and blanks", () => {
     expect(activeLines("ServerTokens Prod\n# c\n\nServerSignature Off")).toEqual(["ServerTokens Prod", "ServerSignature Off"]);
+  });
+});
+
+describe("account-management evaluators WEB-01/02/03", () => {
+  const withAuth = [
+    { taskName: "apache detection (internal)", stdout: "present" },
+    { taskName: "apache effective config (internal)", stdout: 'AuthType Basic\nAuthName "x"\nAuthUserFile /etc/apache2/.htpasswd' },
+  ];
+  it("WEB-01/02 → review when basic auth is configured", () => {
+    expect(evaluateApacheWEB01(withAuth).status).toBe("review");
+    expect(evaluateApacheWEB02(withAuth).status).toBe("review");
+  });
+  it("WEB-01/02 → skip when no auth configured", () => {
+    const noAuth = [{ taskName: "apache detection (internal)", stdout: "present" }, { taskName: "apache effective config (internal)", stdout: "ServerTokens Prod" }];
+    expect(evaluateApacheWEB01(noAuth).status).toBe("skip");
+  });
+  it("WEB-03 pass/fail on AuthUserFile perms; skip when missing", () => {
+    const ok = [{ taskName: "WEB-03: apache auth password file permissions", stdout: "root:root 600" }];
+    const bad = [{ taskName: "WEB-03: apache auth password file permissions", stdout: "root:root 644" }];
+    const none = [{ taskName: "WEB-03: apache auth password file permissions", stdout: "__MISSING__" }];
+    expect(evaluateApacheWEB03(ok).status).toBe("pass");
+    expect(evaluateApacheWEB03(bad).status).toBe("fail");
+    expect(evaluateApacheWEB03(none).status).toBe("skip");
   });
 });

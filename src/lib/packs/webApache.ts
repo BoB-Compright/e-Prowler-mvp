@@ -1,5 +1,6 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { PlaybookTask } from "./types";
+import type { CheckResult } from "@/lib/checks/types";
 
 const MISSING = "__MISSING__";
 
@@ -61,10 +62,33 @@ export function getApacheDocRootScan(tasks: AnsibleTaskOutput[]): { leftovers: s
   };
 }
 
-// 로그/권한 stat 공용: "%U:%G %a" 문자열에서 group/other 쓰기 비트가 없으면 양호.
+// 로그/권한 stat 공용: "%U:%G %a" 문자열에서 group/other가 접근할 수 없으면 양호.
 export function statNoGroupOtherWrite(statLine: string): boolean {
   const mode = statLine.trim().split(/\s+/).pop() ?? "";
   if (!/^[0-7]{3,4}$/.test(mode)) return false;
   const [g, o] = mode.slice(-2).split("").map(Number);
-  return (g & 2) === 0 && (o & 2) === 0;
+  return g === 0 && o === 0;
+}
+
+function hasBasicAuth(config: string): boolean {
+  return activeLines(config).some((l) => /^AuthType\s+Basic/i.test(l) || /^AuthUserFile\s+/i.test(l));
+}
+
+export function evaluateApacheWEB01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { config } = getApacheState(tasks);
+  if (!hasBasicAuth(config)) return { id: "WEB-01", status: "skip", evidence: "Apache에 기본인증(AuthType Basic) 구간이 설정되어 있지 않음" };
+  return { id: "WEB-01", status: "review", evidence: "기본인증이 설정되어 있으나 계정명은 htpasswd 파일 내부에 있어 기본 계정명 사용 여부를 자동 판정할 수 없음 — 수동 확인 필요" };
+}
+
+export function evaluateApacheWEB02(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { config } = getApacheState(tasks);
+  if (!hasBasicAuth(config)) return { id: "WEB-02", status: "skip", evidence: "Apache에 비밀번호 기반 인증(AuthType Basic)이 설정되어 있지 않음" };
+  return { id: "WEB-02", status: "review", evidence: "기본인증이 설정되어 있으나 비밀번호는 해시로 저장되어 복잡도를 자동 판정할 수 없음 — 수동 확인 필요" };
+}
+
+export function evaluateApacheWEB03(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stat = tasks.find((t) => t.taskName === "WEB-03: apache auth password file permissions")?.stdout.trim() ?? "";
+  if (!stat || stat === "__MISSING__") return { id: "WEB-03", status: "skip", evidence: "AuthUserFile(비밀번호 파일)이 설정/발견되지 않음" };
+  const ok = statNoGroupOtherWrite(stat);
+  return { id: "WEB-03", status: ok ? "pass" : "fail", evidence: `AuthUserFile 권한: ${stat}` };
 }
