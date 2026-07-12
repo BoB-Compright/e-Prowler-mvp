@@ -98,8 +98,10 @@ async function runCycleIfIdle(deps: DeltaWatcherDeps, db: Database): Promise<voi
   cycleInFlight = true;
   try {
     await runDeltaCycle(new Date(), deps, db);
-  } catch {
+  } catch (err) {
     // NVD 장애 등 — 워터마크가 전진하지 않았으므로 다음 틱이 같은 윈도우를 재시도한다.
+    // 지속 장애를 운영자가 알 수 있도록 로그는 남긴다(스펙: "로그만").
+    console.warn("[cve-delta] 사이클 실패 — 다음 틱에 같은 윈도우 재시도:", err instanceof Error ? err.message : err);
   } finally {
     cycleInFlight = false;
   }
