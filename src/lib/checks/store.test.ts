@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRun } from "@/lib/pipeline/runs";
+import { getCatalogItem } from "@/lib/catalog";
 import { listCheckResults, saveCheckResults } from "./store";
 
 let db: Database;
@@ -24,9 +25,9 @@ describe("check result store", () => {
     );
 
     expect(listCheckResults(run.id, db)).toEqual([
-      { id: "C-01", status: "fail", evidence: "uid 0" },
-      { id: "C-02", status: "pass", evidence: "no secrets" },
-      { id: "U-16", status: "skip", evidence: "no /etc/passwd" },
+      { id: "C-01", status: "fail", evidence: "uid 0", frameworkId: "kisa" },
+      { id: "C-02", status: "pass", evidence: "no secrets", frameworkId: "kisa" },
+      { id: "U-16", status: "skip", evidence: "no /etc/passwd", frameworkId: "kisa" },
     ]);
   });
 
@@ -41,5 +42,14 @@ describe("check result store", () => {
     saveCheckResults(runA.id, [{ id: "C-01", status: "pass", evidence: "ok" }], db);
 
     expect(listCheckResults(runB.id, db)).toEqual([]);
+  });
+
+  it("persists frameworkId looked up from the catalog", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    saveCheckResults(run.id, [{ id: "U-16", status: "pass", evidence: "e" }], db);
+    const row = db
+      .prepare(`SELECT framework_id FROM check_results WHERE item_id = 'U-16'`)
+      .get() as { framework_id: string };
+    expect(row.framework_id).toBe(getCatalogItem("U-16")!.frameworkId);
   });
 });

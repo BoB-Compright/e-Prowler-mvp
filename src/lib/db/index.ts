@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS check_results (
   item_id TEXT NOT NULL,
   status TEXT NOT NULL,
   evidence TEXT NOT NULL,
+  framework_id TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -179,6 +180,11 @@ export function migrate(db: Database.Database): void {
   }
   if (!assetColumns.some((column) => column.name === "vendor")) {
     db.exec(`ALTER TABLE assets ADD COLUMN vendor TEXT`);
+  }
+
+  const checkCols = db.prepare(`PRAGMA table_info(check_results)`).all() as { name: string }[];
+  if (!checkCols.some((c) => c.name === "framework_id")) {
+    db.exec(`ALTER TABLE check_results ADD COLUMN framework_id TEXT`);
   }
 
   const projectColumns = db.prepare(`PRAGMA table_info(projects)`).all() as { name: string }[];

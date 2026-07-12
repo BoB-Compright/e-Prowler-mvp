@@ -64,9 +64,9 @@ describe("runPipeline", () => {
 
     const results = listCheckResults(run.id, db);
     expect(results).toEqual([
-      { id: "C-01", status: "fail", evidence: "uid 0" },
-      { id: "C-02", status: "pass", evidence: "no secrets" },
-      { id: "U-16", status: "pass", evidence: "root:root 644" },
+      { id: "C-01", status: "fail", evidence: "uid 0", frameworkId: "kisa" },
+      { id: "C-02", status: "pass", evidence: "no secrets", frameworkId: "kisa" },
+      { id: "U-16", status: "pass", evidence: "root:root 644", frameworkId: "kisa" },
     ]);
   });
 

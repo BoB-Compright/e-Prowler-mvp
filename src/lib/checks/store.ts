@@ -1,7 +1,8 @@
 import type { Database } from "better-sqlite3";
 import { getDb } from "@/lib/db";
+import { getCatalogItem } from "@/lib/catalog";
 import type { CheckStatus } from "@/lib/catalog/types";
-import type { CheckResult } from "./types";
+import type { CheckResult, StoredCheckResult } from "./types";
 
 interface CheckResultRow {
   id: number;
@@ -9,6 +10,7 @@ interface CheckResultRow {
   item_id: string;
   status: CheckStatus;
   evidence: string;
+  framework_id: string | null;
   created_at: string;
 }
 
@@ -18,21 +20,35 @@ export function saveCheckResults(
   db: Database = getDb(),
 ): void {
   const insert = db.prepare(
-    `INSERT INTO check_results (run_id, item_id, status, evidence, created_at)
-     VALUES (@runId, @itemId, @status, @evidence, @createdAt)`,
+    `INSERT INTO check_results (run_id, item_id, status, evidence, framework_id, created_at)
+     VALUES (@runId, @itemId, @status, @evidence, @frameworkId, @createdAt)`,
   );
   const now = new Date().toISOString();
   const insertMany = db.transaction((rows: CheckResult[]) => {
     for (const row of rows) {
-      insert.run({ runId, itemId: row.id, status: row.status, evidence: row.evidence, createdAt: now });
+      insert.run({
+        runId,
+        itemId: row.id,
+        status: row.status,
+        evidence: row.evidence,
+        frameworkId: getCatalogItem(row.id)?.frameworkId ?? null,
+        createdAt: now,
+      });
     }
   });
   insertMany(results);
 }
 
-export function listCheckResults(runId: string, db: Database = getDb()): CheckResult[] {
+export function listCheckResults(runId: string, db: Database = getDb()): StoredCheckResult[] {
   const rows = db
     .prepare(`SELECT * FROM check_results WHERE run_id = ? ORDER BY id ASC`)
     .all(runId) as CheckResultRow[];
-  return rows.map((row) => ({ id: row.item_id, status: row.status, evidence: row.evidence }));
+  return rows.map((row) => ({
+    id: row.item_id,
+    status: row.status,
+    evidence: row.evidence,
+    // Legacy rows saved before framework_id existed have it as null -- fall
+    // back to a live catalog lookup so older runs still surface a framework.
+    frameworkId: row.framework_id ?? getCatalogItem(row.item_id)?.frameworkId,
+  }));
 }
