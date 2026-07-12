@@ -3,6 +3,7 @@ import { getProject, listProjects } from "@/lib/projects/store";
 import { listAssets } from "@/lib/assets/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
+import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { FleetScanButton } from "./FleetScanButton";
 import { AutoRefresh } from "../../_components/AutoRefresh";
@@ -19,6 +20,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   // Fleet 점검은 server(SSH)·repo(이미지 빌드) 자산을 모두 스캔한다(startProjectFleetScan).
   const scannableCount = assets.length;
   const statusMap = getAssetStatusMap();
+  // /assets 목록과 동일한 신규 CVE 경보 배지 표시(같은 AssetTable 사용) — 목록 간 불일치 방지.
+  const cveAlertCounts = countRecentCriticalCveAlertsByAsset();
   const anyRunning = assets.some((a) => statusMap.get(a.id)?.kind === "running");
   const projects = listProjects();
 
@@ -65,6 +68,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               scheduleLabel,
               badgeStatus: badge.status,
               badgeLabel: badge.label,
+              newCveAlertCount: cveAlertCounts.get(asset.id) ?? 0,
             };
           })}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
