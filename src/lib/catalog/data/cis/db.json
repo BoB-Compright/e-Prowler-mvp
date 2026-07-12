@@ -23,4 +23,16 @@
   { "id": "PG-10", "title": "접속 종료 로깅(log_disconnections)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "PostgreSQL Benchmark - log_disconnections (항목 확인 필요)" } },
   { "id": "PG-11", "title": "슈퍼유저/과다 권한 역할 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "PostgreSQL Benchmark - superuser/roles (항목 확인 필요)" } },
   { "id": "PG-12", "title": "주기적 보안 패치 및 버전 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "PostgreSQL Benchmark - patch/version (항목 확인 필요)" } }
+  ,{ "id": "ORA-01", "title": "ORACLE_HOME 접근 권한 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - ORACLE_HOME permissions (항목 확인 필요)" } },
+  { "id": "ORA-02", "title": "전용 비특권 계정으로 구동", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - dedicated OS account (항목 확인 필요)" } },
+  { "id": "ORA-03", "title": "listener.ora 권한 제한", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - listener.ora permissions (항목 확인 필요)" } },
+  { "id": "ORA-04", "title": "리스너 관리 제한(ADMIN_RESTRICTIONS)", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - ADMIN_RESTRICTIONS (항목 확인 필요)" } },
+  { "id": "ORA-05", "title": "외부 프로시저(extproc) 노출 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - extproc (항목 확인 필요)" } },
+  { "id": "ORA-06", "title": "네트워크 인증 서비스 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - SQLNET.AUTHENTICATION_SERVICES (항목 확인 필요)" } },
+  { "id": "ORA-07", "title": "네트워크 암호화 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - SQLNET.ENCRYPTION_SERVER (항목 확인 필요)" } },
+  { "id": "ORA-08", "title": "리스너 로깅 활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - listener logging (항목 확인 필요)" } },
+  { "id": "ORA-09", "title": "감사(audit_trail) 활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - audit_trail (항목 확인 필요)" } },
+  { "id": "ORA-10", "title": "remote_login_passwordfile 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - remote_login_passwordfile (항목 확인 필요)" } },
+  { "id": "ORA-11", "title": "기본 계정/권한 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - default accounts/privileges (항목 확인 필요)" } },
+  { "id": "ORA-12", "title": "주기적 보안 패치 및 버전 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - patch/version (항목 확인 필요)" } }
 ]

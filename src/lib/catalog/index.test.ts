@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 138 items across the five categories", () => {
+  it("loads all 150 items across the five categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(138);
+    expect(summary.total).toBe(150);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(12);
-    expect(summary.byCategory.db).toBe(24);
+    expect(summary.byCategory.db).toBe(36);
   });
 
   it("has no duplicate ids", () => {
@@ -71,21 +71,35 @@ describe("catalog", () => {
     expect(was.map((i) => i.id)).toContain("WAS-12");
   });
 
-  it("has 24 CIS-sourced DB items (MySQL + PostgreSQL)", () => {
+  it("has 36 CIS-sourced DB items (MySQL + PostgreSQL + Oracle)", () => {
     const db = getCatalogByCategory("db");
-    expect(db).toHaveLength(24);
+    expect(db).toHaveLength(36);
     expect(db.every((i) => i.frameworkId === "cis")).toBe(true);
     expect(db.map((i) => i.id)).toContain("DB-01");
     expect(db.map((i) => i.id)).toContain("DB-12");
     expect(db.map((i) => i.id)).toContain("PG-01");
     expect(db.map((i) => i.id)).toContain("PG-12");
+    expect(db.map((i) => i.id)).toContain("ORA-01");
+    expect(db.map((i) => i.id)).toContain("ORA-12");
   });
 
-  it("db category now has 24 items: DB-* (MySQL) + PG-* (PostgreSQL)", () => {
+  it("db category now has 36 items: DB-* (MySQL) + PG-* (PostgreSQL) + ORA-* (Oracle)", () => {
     const ids = getCatalogByCategory("db").map((i) => i.id);
     expect(ids.filter((i) => i.startsWith("DB-"))).toHaveLength(12);
     expect(ids.filter((i) => i.startsWith("PG-"))).toHaveLength(12);
+    expect(ids.filter((i) => i.startsWith("ORA-"))).toHaveLength(12);
+    expect(ids).toContain("DB-01");
+    expect(ids).toContain("DB-12");
     expect(ids).toContain("PG-01");
     expect(ids).toContain("PG-12");
+    expect(ids).toContain("ORA-01");
+    expect(ids).toContain("ORA-12");
+  });
+
+  it("db category has ORA-* (Oracle) 12 items too", () => {
+    const ids = getCatalogByCategory("db").map((i) => i.id);
+    expect(ids.filter((i) => i.startsWith("ORA-"))).toHaveLength(12);
+    expect(ids).toContain("ORA-01");
+    expect(ids).toContain("ORA-12");
   });
 });
