@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MYSQL_EVIDENCE, getMysqlState, cnfValue, cnfHasFlag, evaluateDB01, evaluateDB02, evaluateDB03, evaluateDB04, evaluateDB05, evaluateDB06 } from "./dbMysql";
+import { MYSQL_EVIDENCE, getMysqlState, cnfValue, cnfHasFlag, evaluateDB01, evaluateDB02, evaluateDB03, evaluateDB04, evaluateDB05, evaluateDB06, evaluateDB07, evaluateDB08, evaluateDB09, evaluateDB10, evaluateDB11, evaluateDB12 } from "./dbMysql";
 
 const present = [
   { taskName: "mysql detection (internal)", stdout: "present\n" },
@@ -59,5 +59,35 @@ describe("evaluators DB-01..06", () => {
     expect(evaluateDB06(D([t("mysql config (internal)", "local-infile=0")])).status).toBe("pass");
     expect(evaluateDB06(D([t("mysql config (internal)", "local_infile=ON")])).status).toBe("fail");
     expect(evaluateDB06(D([t("mysql config (internal)", "[mysqld]")])).status).toBe("fail");
+  });
+});
+
+describe("evaluators DB-07..12", () => {
+  it("DB-07 require_secure_transport ON or ssl-cert → pass, none → fail", () => {
+    expect(evaluateDB07(D([t("mysql config (internal)", "require_secure_transport=ON")])).status).toBe("pass");
+    expect(evaluateDB07(D([t("mysql config (internal)", "ssl-cert=/etc/mysql/server-cert.pem")])).status).toBe("pass");
+    expect(evaluateDB07(D([t("mysql config (internal)", "[mysqld]")])).status).toBe("fail");
+  });
+  it("DB-08 bind-address 127.0.0.1 → pass, 0.0.0.0 → fail, skip-networking → pass", () => {
+    expect(evaluateDB08(D([t("mysql config (internal)", "bind-address=127.0.0.1")])).status).toBe("pass");
+    expect(evaluateDB08(D([t("mysql config (internal)", "bind-address=0.0.0.0")])).status).toBe("fail");
+    expect(evaluateDB08(D([t("mysql config (internal)", "skip-networking")])).status).toBe("pass");
+  });
+  it("DB-09 secure_file_priv set → pass, empty → fail, absent → fail", () => {
+    expect(evaluateDB09(D([t("mysql config (internal)", "secure_file_priv=/var/lib/mysql-files")])).status).toBe("pass");
+    expect(evaluateDB09(D([t("mysql config (internal)", "secure_file_priv=\"\"")])).status).toBe("fail");
+    expect(evaluateDB09(D([t("mysql config (internal)", "[mysqld]")])).status).toBe("fail");
+  });
+  it("DB-10 validate_password configured → pass, absent → review", () => {
+    expect(evaluateDB10(D([t("mysql config (internal)", "validate_password.policy=STRONG")])).status).toBe("pass");
+    expect(evaluateDB10(D([t("mysql config (internal)", "[mysqld]")])).status).toBe("review");
+  });
+  it("DB-11 → review (SQL 필요)", () => {
+    expect(evaluateDB11(D([])).status).toBe("review");
+  });
+  it("DB-12 → review with version evidence", () => {
+    const r = evaluateDB12(D([t("mysql version (internal)", "mysqld  Ver 8.0.36 for Linux")]));
+    expect(r.status).toBe("review");
+    expect(r.evidence).toContain("8.0.36");
   });
 });

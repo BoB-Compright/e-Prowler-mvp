@@ -128,3 +128,43 @@ export function evaluateDB06(tasks: AnsibleTaskOutput[]): CheckResult {
   const off = v !== null && /^(0|off|false)$/i.test(v);
   return { id: "DB-06", status: off ? "pass" : "fail", evidence: off ? "local_infile(LOAD DATA LOCAL)이 비활성화됨" : `local_infile이 비활성화되어 있지 않음 (${v ?? "미설정 — 기본 활성"})` };
 }
+
+export function evaluateDB07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const config = getMysqlState(tasks).config;
+  const rst = cnfValue(config, "require_secure_transport");
+  const sslCert = cnfValue(config, "ssl_cert") ?? cnfValue(config, "ssl-cert");
+  const on = (rst !== null && /^(on|1|true)$/i.test(rst)) || (sslCert !== null && sslCert !== "");
+  return { id: "DB-07", status: on ? "pass" : "fail", evidence: on ? "SSL/TLS가 설정됨" : "SSL/TLS 설정(require_secure_transport/ssl-cert)이 확인되지 않음" };
+}
+
+export function evaluateDB08(tasks: AnsibleTaskOutput[]): CheckResult {
+  const config = getMysqlState(tasks).config;
+  if (cnfHasFlag(config, "skip-networking")) return { id: "DB-08", status: "pass", evidence: "네트워킹이 비활성화됨(skip-networking)" };
+  const bind = cnfValue(config, "bind-address");
+  if (bind === null) return { id: "DB-08", status: "fail", evidence: "bind-address가 설정되어 있지 않음(기본 노출 위험)" };
+  const exposed = bind === "0.0.0.0" || bind === "*" || bind === "::";
+  return { id: "DB-08", status: exposed ? "fail" : "pass", evidence: `bind-address: ${bind}` };
+}
+
+export function evaluateDB09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const v = cnfValue(getMysqlState(tasks).config, "secure_file_priv");
+  const ok = v !== null && v !== "";
+  return { id: "DB-09", status: ok ? "pass" : "fail", evidence: ok ? `secure_file_priv: ${v}` : "secure_file_priv가 비어 있거나 미설정(파일 입출력 제한 없음)" };
+}
+
+export function evaluateDB10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const config = getMysqlState(tasks).config;
+  const configured = activeLines(config).some((l) => /^validate[_-]password/i.test(l));
+  if (configured) return { id: "DB-10", status: "pass", evidence: "validate_password(비밀번호 검증)가 설정됨" };
+  return { id: "DB-10", status: "review", evidence: "설정 파일에서 validate_password 구성을 확인할 수 없음 — 플러그인 로드는 라이브 SQL 확인 필요(수동/AI)" };
+}
+
+export function evaluateDB11(_tasks: AnsibleTaskOutput[]): CheckResult {
+  return { id: "DB-11", status: "review", evidence: "익명/테스트 계정 존재 여부는 라이브 SQL(SELECT ... FROM mysql.user) 확인이 필요 — 수동 점검" };
+}
+
+export function evaluateDB12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const raw = getMysqlState(tasks).version;
+  const version = raw && raw !== "__MISSING__" ? raw : "확인 불가";
+  return { id: "DB-12", status: "review", evidence: `DB 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
+}
