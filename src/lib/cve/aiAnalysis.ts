@@ -2,11 +2,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { sanitizeForClaude } from "@/lib/claude/sanitize";
+import { getAiAnalysisEnabled } from "@/lib/settings/store";
 import type { CveMatch } from "./store";
 
 // analyzeAndSaveChecks(src/lib/claude/index.ts)와 동일한 게이트 — 매 개발/스캔마다
-// 실제 API 토큰을 쓰지 않도록 기본은 비활성.
-const CLAUDE_ANALYSIS_ENABLED = process.env.CLAUDE_ANALYSIS_ENABLED === "true";
+// 실제 API 토큰을 쓰지 않도록 기본은 비활성. 환경변수(CLI/테스트 강제-ON) 또는
+// UI 토글(app_settings) 중 하나라도 켜지면 활성. 지연 평가라 매 호출 시점의 상태를 읽는다.
+function isClaudeAnalysisEnabled(): boolean {
+  return process.env.CLAUDE_ANALYSIS_ENABLED === "true" || getAiAnalysisEnabled();
+}
 
 let client: Anthropic | undefined;
 function getClient(): Anthropic {
@@ -28,7 +32,7 @@ const SYSTEM_PROMPT = `당신은 서버에 설치된 패키지의 알려진 취�
 export async function analyzeCveImpact(
   match: CveMatch,
 ): Promise<{ impact: string; remediation: string } | null> {
-  if (!CLAUDE_ANALYSIS_ENABLED) return null;
+  if (!isClaudeAnalysisEnabled()) return null;
 
   const userPrompt = sanitizeForClaude(
     `CVE: ${match.cveId}\n` +

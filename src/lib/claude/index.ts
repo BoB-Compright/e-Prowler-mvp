@@ -6,17 +6,19 @@ import { analyzeCheck } from "./analyze";
 import { saveAnalysisReport } from "./store";
 import { applyVerdict } from "./verdict";
 import { updateCheckVerdict } from "@/lib/checks/store";
+import { getAiAnalysisEnabled } from "@/lib/settings/store";
 
 export { analyzeCheck } from "./analyze";
 export { listAnalysisReports } from "./store";
 
 // Off by default: every check result is a separate real Anthropic API call,
-// which burns real tokens on every dev/scan run. Set
-// CLAUDE_ANALYSIS_ENABLED=true only when actually exercising Claude
-// analysis (e.g. right before a demo/test), not for routine pipeline runs.
-// Read lazily (not a module-load-time const) so tests can toggle it per-case.
-function isClaudeAnalysisEnabled(): boolean {
-  return process.env.CLAUDE_ANALYSIS_ENABLED === "true";
+// which burns real tokens on every dev/scan run. Two ways to enable, OR'd:
+//   - CLAUDE_ANALYSIS_ENABLED=true env var (CLI/test force-on override), or
+//   - the runtime "AI 분석" toggle stored in app_settings (the UI switch).
+// In production the env var is unset, so the UI toggle is the sole control.
+// Read lazily (not a module-load-time const) so both can change per-request.
+function isClaudeAnalysisEnabled(db: Database): boolean {
+  return process.env.CLAUDE_ANALYSIS_ENABLED === "true" || getAiAnalysisEnabled(db);
 }
 
 export interface AnalyzeDeps {
@@ -33,7 +35,7 @@ export async function analyzeAndSaveChecks(
   db: Database = getDb(),
   deps: AnalyzeDeps = defaultDeps,
 ): Promise<void> {
-  if (!isClaudeAnalysisEnabled()) return;
+  if (!isClaudeAnalysisEnabled(db)) return;
 
   for (const result of results) {
     const item = getCatalogItem(result.id);

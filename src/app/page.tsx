@@ -22,6 +22,8 @@ import { SecurityScoreGauge } from "./_components/dashboard/SecurityScoreGauge";
 import { AssetStatusDonut } from "./_components/dashboard/AssetStatusDonut";
 import { ActivityFeedCard } from "./_components/dashboard/ActivityFeedCard";
 import { OnboardingTour } from "./_components/onboarding/OnboardingTour";
+import { AiAnalysisToggle } from "./_components/AiAnalysisToggle";
+import { getAiAnalysisEnabled } from "@/lib/settings/store";
 
 export default function DashboardPage() {
   const assets = listAssets();
@@ -114,13 +116,16 @@ export default function DashboardPage() {
           <h1 className="text-[26px] font-bold tracking-[-0.02em]">보안 현황 개요</h1>
           <p className="text-[13px] text-muted">전체 자산의 보안 점검 현황 요약</p>
         </div>
-        <Link
-          href="/assets/new"
-          data-tour="asset-register"
-          className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
-        >
-          자산 등록
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <AiAnalysisToggle initialEnabled={getAiAnalysisEnabled()} />
+          <Link
+            href="/assets/new"
+            data-tour="asset-register"
+            className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+          >
+            자산 등록
+          </Link>
+        </div>
       </div>
 
       {assets.length === 0 ? (

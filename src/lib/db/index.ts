@@ -111,6 +111,11 @@ CREATE TABLE IF NOT EXISTS cve_matches (
   UNIQUE(asset_id, cve_id)
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS nvd_query_cache (
   package_name TEXT PRIMARY KEY,
   raw_response TEXT NOT NULL,
