@@ -5,6 +5,7 @@ import { listCheckResults } from "@/lib/checks/store";
 import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { listAnalysisReports } from "@/lib/claude";
 import { getCatalogItem } from "@/lib/catalog";
+import { listCveMatches } from "@/lib/cve/store";
 
 export async function GET(
   req: Request,
@@ -45,5 +46,7 @@ export async function GET(
     };
   });
 
-  return NextResponse.json({ run, events: listRunEvents(id), checks });
+  const cveMatches = run.sourceType === "server" && run.assetId ? listCveMatches(run.assetId) : [];
+
+  return NextResponse.json({ run, events: listRunEvents(id), checks, cveMatches });
 }

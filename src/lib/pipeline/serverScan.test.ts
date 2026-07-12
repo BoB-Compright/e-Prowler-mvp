@@ -62,6 +62,7 @@ function baseDeps(overrides: Partial<ServerScanDeps> = {}): ServerScanDeps {
     saveCheckResults,
     analyzeAndSaveChecks,
     runPipeline,
+    checkAssetForCves: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -238,6 +239,52 @@ describe("runServerScanPipeline", () => {
     expect(listCheckResults(run.id, db)).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "W-01", status: "review" })]),
     );
+  });
+
+  it("fires checkAssetForCves in the background after a successful non-windows scan (#cve)", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const checkAssetForCves = vi.fn().mockResolvedValue(undefined);
+    const deps = baseDeps({ checkAssetForCves });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    expect(getRun(run.id, db)!.stage).toBe("done");
+    expect(checkAssetForCves).toHaveBeenCalledTimes(1);
+    expect(checkAssetForCves).toHaveBeenCalledWith(asset);
+  });
+
+  it("does not fire checkAssetForCves for a windows-only plan (#cve)", async () => {
+    const asset = createServerAsset(serverAssetInput({ displayName: "win-01", hostname: "win-01" }), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const windowsPlan: CheckPlan = { packs: [osWindowsPack], evidenceTasks: [] };
+    const checkAssetForCves = vi.fn().mockResolvedValue(undefined);
+    const deps = baseDeps({
+      resolveCheckPlan: () => windowsPlan,
+      evaluatePlan: vi.fn().mockReturnValue([{ id: "W-01", status: "review" as const, evidence: "대기" }]),
+      checkAssetForCves,
+    });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    expect(getRun(run.id, db)!.stage).toBe("done");
+    expect(checkAssetForCves).not.toHaveBeenCalled();
+  });
+
+  it("does not let a rejected checkAssetForCves affect the run's succeeded status (#cve)", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const checkAssetForCves = vi.fn().mockRejectedValue(new Error("ssh timeout"));
+    const deps = baseDeps({ checkAssetForCves });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    // Give the fire-and-forget promise's microtask a chance to run before asserting.
+    await new Promise((r) => setTimeout(r, 0));
+
+    const finished = getRun(run.id, db)!;
+    expect(finished.stage).toBe("done");
+    expect(finished.status).toBe("succeeded");
   });
 });
 
