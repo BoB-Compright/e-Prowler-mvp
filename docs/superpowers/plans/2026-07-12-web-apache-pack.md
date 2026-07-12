@@ -146,12 +146,21 @@ export function getApacheDocRootScan(tasks: AnsibleTaskOutput[]): { leftovers: s
   };
 }
 
-// 로그/권한 stat 공용: "%U:%G %a" 문자열에서 group/other 쓰기 비트가 없으면 양호.
+// 로그 디렉터리(WEB-26)용: group/other에 쓰기 비트가 없으면 양호(예: 750 OK, 777 취약).
 export function statNoGroupOtherWrite(statLine: string): boolean {
   const mode = statLine.trim().split(/\s+/).pop() ?? "";
   if (!/^[0-7]{3,4}$/.test(mode)) return false;
   const [g, o] = mode.slice(-2).split("").map(Number);
   return (g & 2) === 0 && (o & 2) === 0;
+}
+
+// 비밀번호 파일(WEB-03)용: 소유자 전용(group·other 권한 전무)이어야 양호
+// (예: 600/400 OK, 640/644 취약). 로그 디렉터리보다 엄격한 별도 기준이다.
+export function isOwnerOnly(statLine: string): boolean {
+  const mode = statLine.trim().split(/\s+/).pop() ?? "";
+  if (!/^[0-7]{3,4}$/.test(mode)) return false;
+  const [g, o] = mode.slice(-2).split("").map(Number);
+  return g === 0 && o === 0;
 }
 ```
 
@@ -230,7 +239,7 @@ export function evaluateApacheWEB02(tasks: AnsibleTaskOutput[]): CheckResult {
 export function evaluateApacheWEB03(tasks: AnsibleTaskOutput[]): CheckResult {
   const stat = tasks.find((t) => t.taskName === "WEB-03: apache auth password file permissions")?.stdout.trim() ?? "";
   if (!stat || stat === "__MISSING__") return { id: "WEB-03", status: "skip", evidence: "AuthUserFile(비밀번호 파일)이 설정/발견되지 않음" };
-  const ok = statNoGroupOtherWrite(stat);
+  const ok = isOwnerOnly(stat);
   return { id: "WEB-03", status: ok ? "pass" : "fail", evidence: `AuthUserFile 권한: ${stat}` };
 }
 ```
@@ -496,9 +505,9 @@ it("WEB-21 http→https redirect present → pass else fail", () => {
   expect(evaluateApacheWEB21(cfg("ServerTokens Prod")).status).toBe("fail");
 });
 it("WEB-22/23/24 → review", () => {
-  expect(evaluateApacheWEB22(cfg("")).status).toBe("review");
-  expect(evaluateApacheWEB23(cfg("")).status).toBe("review");
-  expect(evaluateApacheWEB24(cfg("")).status).toBe("review");
+  expect(evaluateApacheWEB22().status).toBe("review");
+  expect(evaluateApacheWEB23().status).toBe("review");
+  expect(evaluateApacheWEB24().status).toBe("review");
 });
 it("WEB-25 → review with version evidence", () => {
   const r = evaluateApacheWEB25([{ taskName: "apache version (internal)", stdout: "Server version: Apache/2.4.58 (Ubuntu)" }]);
