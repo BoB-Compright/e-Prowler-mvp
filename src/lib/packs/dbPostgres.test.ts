@@ -54,6 +54,12 @@ describe("evaluators PG-01~06", () => {
     expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = 'localhost'")])).status).toBe("pass");
     expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = '*'")])).status).toBe("fail");
   });
+  it("PG-05 comma-list listen_addresses: any exposed entry → fail", () => {
+    expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = '0.0.0.0, ::'")])).status).toBe("fail");
+  });
+  it("PG-05 comma-list listen_addresses: no exposed entry → pass", () => {
+    expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = 'localhost,10.0.0.5'")])).status).toBe("pass");
+  });
   it("PG-06 ssl on → pass, off/absent → fail", () => {
     expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = on")])).status).toBe("pass");
     expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = off")])).status).toBe("fail");
@@ -64,6 +70,12 @@ describe("evaluators PG-07~12", () => {
   it("PG-07 trust in pg_hba → fail, scram only → pass", () => {
     expect(evaluatePG07(P([t("pg_hba.conf (internal)", "host all all 0.0.0.0/0 trust")])).status).toBe("fail");
     expect(evaluatePG07(P([t("pg_hba.conf (internal)", "# comment\nlocal all all peer\nhost all all 127.0.0.1/32 scram-sha-256")])).status).toBe("pass");
+  });
+  it("PG-07 hostssl with trailing option: METHOD is field 4, not the last token → fail", () => {
+    expect(evaluatePG07(P([t("pg_hba.conf (internal)", "hostssl all all 0.0.0.0/0 trust clientcert=verify-ca")])).status).toBe("fail");
+  });
+  it("PG-07 hostgssenc TYPE is recognized (not dropped) → fail on trust", () => {
+    expect(evaluatePG07(P([t("pg_hba.conf (internal)", "hostgssenc all all 0.0.0.0/0 trust")])).status).toBe("fail");
   });
   it("PG-08 password_encryption scram → pass, md5/absent → fail", () => {
     expect(evaluatePG08(P([t("postgresql.conf (internal)", "password_encryption = scram-sha-256")])).status).toBe("pass");

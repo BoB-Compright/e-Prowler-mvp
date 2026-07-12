@@ -5,8 +5,8 @@ import { getCatalogByCategory } from "@/lib/catalog";
 import type { EvalContext, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
-const CONF_GLOB = "/etc/postgresql/*/main/postgresql.conf /var/lib/pgsql/*/data/postgresql.conf /var/lib/postgresql/*/main/postgresql.conf /var/lib/pgsql/data/postgresql.conf";
-const HBA_GLOB = "/etc/postgresql/*/main/pg_hba.conf /var/lib/pgsql/*/data/pg_hba.conf /var/lib/postgresql/*/main/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf";
+const CONF_GLOB = "/etc/postgresql/*/main/postgresql.conf /var/lib/pgsql/*/data/postgresql.conf /var/lib/postgresql/*/main/postgresql.conf /var/lib/pgsql/data/postgresql.conf /var/lib/postgresql/data/postgresql.conf";
+const HBA_GLOB = "/etc/postgresql/*/main/pg_hba.conf /var/lib/pgsql/*/data/pg_hba.conf /var/lib/postgresql/*/main/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf";
 
 export const PG_EVIDENCE: PlaybookTask[] = [
   { name: "postgres detection (internal)",
@@ -16,7 +16,7 @@ export const PG_EVIDENCE: PlaybookTask[] = [
   { name: "pg_hba.conf (internal)",
     raw: `sh -c 'found=0; for f in ${HBA_GLOB}; do if [ -f "$f" ]; then found=1; echo "### $f"; cat "$f"; fi; done; [ "$found" -eq 0 ] && echo ${MISSING}; true'` },
   { name: "postgres datadir perms (internal)",
-    raw: `sh -c 'D=$(grep -rhiE "^[[:space:]]*data_directory" /etc/postgresql /var/lib/pgsql 2>/dev/null | head -1 | sed "s/.*=//; s/#.*//; s/[[:space:]\\x27]//g"); if [ -z "$D" ]; then for c in /var/lib/postgresql/*/main /var/lib/pgsql/*/data /var/lib/pgsql/data; do [ -d "$c" ] && D="$c" && break; done; fi; if [ -n "$D" ] && [ -d "$D" ]; then stat -c "%U:%G %a" "$D"; else echo ${MISSING}; fi; true'` },
+    raw: `sh -c 'D=$(grep -rhiE "^[[:space:]]*data_directory" /etc/postgresql /var/lib/pgsql 2>/dev/null | head -1 | sed "s/.*=//; s/#.*//; s/[[:space:]\\x27]//g"); if [ -z "$D" ]; then for c in /var/lib/postgresql/*/main /var/lib/pgsql/*/data /var/lib/pgsql/data /var/lib/postgresql/data; do [ -d "$c" ] && D="$c" && break; done; fi; if [ -n "$D" ] && [ -d "$D" ]; then stat -c "%U:%G %a" "$D"; else echo ${MISSING}; fi; true'` },
   { name: "postgres conf perms (internal)",
     raw: `sh -c 'for f in ${CONF_GLOB}; do if [ -f "$f" ]; then stat -c "%U:%G %a" "$f"; exit 0; fi; done; echo ${MISSING}; true'` },
   { name: "postgres process user (internal)",
@@ -107,22 +107,30 @@ export function evaluatePG04(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 export function evaluatePG05(tasks: AnsibleTaskOutput[]): CheckResult {
   const v = pgValue(getPgState(tasks).conf, "listen_addresses");
-  const exposed = v === "*" || v === "0.0.0.0" || v === "::";
-  const ok = v !== null && !exposed;
-  return { id: "PG-05", status: ok ? "pass" : "fail", evidence: v === null ? "listen_addresses 미설정" : `listen_addresses: ${v}${exposed ? " (전체 노출)" : ""}` };
+  if (v === null) return { id: "PG-05", status: "fail", evidence: "listen_addresses 미설정" };
+  const entries = v.split(",").map((s) => s.trim());
+  const exposed = entries.some((e) => e === "*" || e === "0.0.0.0" || e === "::");
+  return { id: "PG-05", status: exposed ? "fail" : "pass", evidence: `listen_addresses: ${v}${exposed ? " (전체 노출)" : ""}` };
 }
 export function evaluatePG06(tasks: AnsibleTaskOutput[]): CheckResult {
   const on = pgBool(getPgState(tasks).conf, "ssl");
   return { id: "PG-06", status: on ? "pass" : "fail", evidence: on ? "ssl가 on" : "ssl가 off이거나 미설정" };
 }
 
-// pg_hba.conf 활성 라인의 마지막 필드(METHOD)들. include/기타 지시어는 무시.
+// pg_hba.conf 활성 라인의 METHOD 필드(TYPE별 고정 인덱스). include/기타 지시어는 무시.
+// local DB USER METHOD [options...] → index 3
+// host|hostssl|hostnossl|hostgssenc|hostnogssenc DB USER ADDRESS METHOD [options...] → index 4
 export function hbaMethods(hba: string): string[] {
-  return hba.split("\n")
-    .map((l) => l.replace(/#.*$/, "").trim())
-    .filter((l) => l && !l.startsWith("###") && /^(local|host|hostssl|hostnossl)\b/i.test(l))
-    .map((l) => l.split(/\s+/).pop() as string)
-    .filter(Boolean);
+  const out: string[] = [];
+  for (const raw of hba.split("\n")) {
+    const line = raw.replace(/#.*$/, "").trim();
+    if (!line || line.startsWith("###")) continue;
+    const f = line.split(/\s+/);
+    const type = f[0].toLowerCase();
+    if (type === "local") { if (f[3]) out.push(f[3]); }
+    else if (["host", "hostssl", "hostnossl", "hostgssenc", "hostnogssenc"].includes(type)) { if (f[4]) out.push(f[4]); }
+  }
+  return out;
 }
 
 export function evaluatePG07(tasks: AnsibleTaskOutput[]): CheckResult {
