@@ -21,6 +21,12 @@ describe("resolveCheckPlan", () => {
     expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "web-apache"]);
     expect(plan.evidenceTasks.some((t) => t.name === "apache detection (internal)")).toBe(true);
   });
+  it("server + WAS/Tomcat → os-unix + was-tomcat with tomcat evidence", () => {
+    const asset = { ...base, type: "server", category: "WAS", vendor: "Tomcat" } as Asset;
+    const plan = resolveCheckPlan(asset);
+    expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "was-tomcat"]);
+    expect(plan.evidenceTasks.some((t) => t.name === "tomcat detection (internal)")).toBe(true);
+  });
   it("server + OS/Ubuntu → os-unix only", () => {
     const asset = { ...base, type: "server", category: "OS", vendor: "Ubuntu" } as Asset;
     expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-unix"]);

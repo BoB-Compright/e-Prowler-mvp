@@ -10,10 +10,14 @@ describe("registry", () => {
     expect(findVendorPack("DB", "Oracle")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "os-unix", "web-apache", "web-nginx"]);
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "os-unix", "was-tomcat", "web-apache", "web-nginx"]);
   });
   it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
     expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
     expect(findVendorPack("WEB", "apache")?.id).toBe("web-apache");
+  });
+  it("finds the tomcat pack by WAS/Tomcat (case-insensitive vendor)", () => {
+    expect(findVendorPack("WAS", "Tomcat")?.id).toBe("was-tomcat");
+    expect(findVendorPack("WAS", "tomcat")?.id).toBe("was-tomcat");
   });
 });

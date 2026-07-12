@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TOMCAT_EVIDENCE, getTomcatState, noGroupOtherWrite, evaluateWAS01, evaluateWAS02, evaluateWAS03, evaluateWAS04, evaluateWAS05, evaluateWAS06, evaluateWAS07, evaluateWAS08, evaluateWAS09, evaluateWAS10, evaluateWAS11, evaluateWAS12 } from "./wasTomcat";
+import { TOMCAT_EVIDENCE, getTomcatState, noGroupOtherWrite, evaluateWAS01, evaluateWAS02, evaluateWAS03, evaluateWAS04, evaluateWAS05, evaluateWAS06, evaluateWAS07, evaluateWAS08, evaluateWAS09, evaluateWAS10, evaluateWAS11, evaluateWAS12, wasTomcatPack } from "./wasTomcat";
+import { getCatalogByCategory } from "@/lib/catalog";
 
 const present = [
   { taskName: "tomcat detection (internal)", stdout: "present:/opt/tomcat\n" },
@@ -91,4 +92,15 @@ it("WAS-12 shows 확인 불가 for __MISSING__ version", () => {
   const r = evaluateWAS12(base([t("tomcat version", "__MISSING__")]));
   expect(r.evidence).toContain("확인 불가");
   expect(r.evidence).not.toContain("__MISSING__");
+});
+
+it("wasTomcatPack shape + evaluate one result per WAS item", () => {
+  const wasIds = getCatalogByCategory("was").map((i) => i.id).sort();
+  expect(wasTomcatPack.id).toBe("was-tomcat");
+  expect(wasTomcatPack.vendors).toEqual(["Tomcat"]);
+  expect(wasTomcatPack.itemIds.slice().sort()).toEqual(wasIds);
+  const present = [{ taskName: "tomcat detection (internal)", stdout: "present:/opt/tomcat" }];
+  expect(wasTomcatPack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort()).toEqual(wasIds);
+  expect(wasTomcatPack.detect(present)).toBe(true);
+  expect(wasTomcatPack.detect([])).toBe(false);
 });

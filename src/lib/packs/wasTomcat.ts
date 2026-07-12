@@ -1,6 +1,7 @@
+import { getCatalogByCategory } from "@/lib/catalog";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { CheckResult } from "@/lib/checks/types";
-import type { PlaybookTask } from "./types";
+import type { EvalContext, PlaybookTask, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
 
@@ -166,3 +167,22 @@ export function evaluateWAS12(tasks: AnsibleTaskOutput[]): CheckResult {
   const version = rawVersion && rawVersion !== MISSING ? rawVersion : "확인 불가";
   return { id: "WAS-12", status: "review", evidence: `Tomcat 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
+
+function evaluateTomcat(ctx: EvalContext): CheckResult[] {
+  const t = ctx.tasks;
+  return [
+    evaluateWAS01(t), evaluateWAS02(t), evaluateWAS03(t), evaluateWAS04(t), evaluateWAS05(t), evaluateWAS06(t),
+    evaluateWAS07(t), evaluateWAS08(t), evaluateWAS09(t), evaluateWAS10(t), evaluateWAS11(t), evaluateWAS12(t),
+  ];
+}
+
+export const wasTomcatPack: VendorPack = {
+  id: "was-tomcat",
+  category: "WAS",
+  vendors: ["Tomcat"],
+  executionPath: "linux",
+  itemIds: getCatalogByCategory("was").map((i) => i.id),
+  evidenceTasks: TOMCAT_EVIDENCE,
+  detect: (tasks) => getTomcatState(tasks).present,
+  evaluate: evaluateTomcat,
+};
