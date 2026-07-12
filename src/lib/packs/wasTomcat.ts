@@ -1,4 +1,5 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
+import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
 
 const MISSING = "__MISSING__";
@@ -65,4 +66,53 @@ export function getTomcatState(tasks: AnsibleTaskOutput[]): {
     processLine: (findExact(tasks, "tomcat process user")?.stdout ?? "").trim(),
     version: (findExact(tasks, "tomcat version")?.stdout ?? "").trim(),
   };
+}
+
+const SAMPLE_APPS = ["manager", "host-manager", "examples", "docs"];
+
+export function evaluateWAS01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { webapps } = getTomcatState(tasks);
+  const found = webapps.filter((w) => SAMPLE_APPS.includes(w.toLowerCase()));
+  return { id: "WAS-01", status: found.length ? "fail" : "pass", evidence: found.length ? `기본/샘플 앱 잔존: ${found.join(", ")}` : "기본/샘플 웹 애플리케이션이 발견되지 않음" };
+}
+
+export function evaluateWAS02(tasks: AnsibleTaskOutput[]): CheckResult {
+  const xml = getTomcatState(tasks).serverXml;
+  const server = activeLines(xml).find((l) => /<Server\b/i.test(l)) ?? "";
+  const portNeg1 = /<Server\b[^>]*\bport\s*=\s*"-1"/i.test(server);
+  const shutdown = server.match(/shutdown\s*=\s*"([^"]*)"/i)?.[1];
+  const hardened = portNeg1 || (shutdown !== undefined && shutdown !== "SHUTDOWN");
+  return { id: "WAS-02", status: hardened ? "pass" : "fail", evidence: hardened ? "shutdown 포트/명령이 하드닝됨" : `shutdown 포트/명령이 기본값(port=8005, SHUTDOWN)임: ${server || "확인 불가"}` };
+}
+
+export function evaluateWAS03(tasks: AnsibleTaskOutput[]): CheckResult {
+  const line = getTomcatState(tasks).processLine;
+  if (!line) return { id: "WAS-03", status: "review", evidence: "Tomcat 프로세스를 확인할 수 없어 실행 계정 판정 불가 — 수동/AI 확인" };
+  const user = line.split(/\s+/)[0];
+  const isRoot = user === "root";
+  return { id: "WAS-03", status: isRoot ? "fail" : "pass", evidence: `Tomcat 실행 계정: ${user}` };
+}
+
+export function evaluateWAS04(tasks: AnsibleTaskOutput[]): CheckResult {
+  const perms = getTomcatState(tasks).confPerms;
+  if (!perms) return { id: "WAS-04", status: "skip", evidence: "conf 디렉터리를 확인할 수 없음" };
+  const ok = noGroupOtherWrite(perms);
+  return { id: "WAS-04", status: ok ? "pass" : "fail", evidence: `conf 디렉터리 권한: ${perms}` };
+}
+
+export function evaluateWAS05(tasks: AnsibleTaskOutput[]): CheckResult {
+  const xml = getTomcatState(tasks).usersXml;
+  const lines = activeLines(xml); // 주석 제거됨
+  const hasUser = lines.some((l) => /<user\b/i.test(l));
+  const hasPrivRole = lines.some((l) => /<role\b[^>]*rolename\s*=\s*"(manager-gui|admin-gui|manager|admin)"/i.test(l)) || lines.some((l) => /<user\b[^>]*roles\s*=\s*"[^"]*(manager|admin)/i.test(l));
+  const fail = hasUser || hasPrivRole;
+  return { id: "WAS-05", status: fail ? "fail" : "pass", evidence: fail ? "tomcat-users.xml에 활성 계정/관리 역할이 설정되어 있음" : "활성 사용자/관리 역할이 없음(모두 주석 처리 또는 미설정)" };
+}
+
+export function evaluateWAS06(tasks: AnsibleTaskOutput[]): CheckResult {
+  const xml = getTomcatState(tasks).serverXml;
+  const ajpLines = activeLines(xml).filter((l) => /<Connector\b[^>]*protocol\s*=\s*"AJP/i.test(l));
+  if (ajpLines.length === 0) return { id: "WAS-06", status: "pass", evidence: "활성 AJP 커넥터가 없음" };
+  const secured = ajpLines.every((l) => /secret\s*=|secretRequired\s*=\s*"true"|address\s*=\s*"(127\.0\.0\.1|::1)"/i.test(l));
+  return { id: "WAS-06", status: secured ? "pass" : "fail", evidence: secured ? "AJP 커넥터가 보안 설정(secret/로컬 바인딩)됨" : "AJP 커넥터가 활성화되어 있고 보안 설정이 없음(Ghostcat 위험)" };
 }
