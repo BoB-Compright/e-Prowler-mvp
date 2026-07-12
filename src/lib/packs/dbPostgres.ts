@@ -10,7 +10,7 @@ const HBA_GLOB = "/etc/postgresql/*/main/pg_hba.conf /var/lib/pgsql/*/data/pg_hb
 
 export const PG_EVIDENCE: PlaybookTask[] = [
   { name: "postgres detection (internal)",
-    raw: `sh -c '(command -v postgres >/dev/null 2>&1 || command -v postmaster >/dev/null 2>&1) || ls ${CONF_GLOB} >/dev/null 2>&1 && echo present || echo absent; true'` },
+    raw: `sh -c 'p=absent; if command -v postgres >/dev/null 2>&1 || command -v postmaster >/dev/null 2>&1; then p=present; else for f in ${CONF_GLOB}; do [ -f "$f" ] && p=present && break; done; fi; echo "$p"; true'` },
   { name: "postgresql.conf (internal)",
     raw: `sh -c 'found=0; for f in ${CONF_GLOB}; do if [ -f "$f" ]; then found=1; echo "### $f"; cat "$f"; fi; done; [ "$found" -eq 0 ] && echo ${MISSING}; true'` },
   { name: "pg_hba.conf (internal)",
