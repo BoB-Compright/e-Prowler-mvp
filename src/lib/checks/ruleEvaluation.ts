@@ -1703,7 +1703,7 @@ function findExactTaskOutput(
 // Shared by every real WEB check: whether nginx is present, and (if so) its
 // fully-resolved `nginx -T` config text. When nginx isn't present, every
 // real WEB item evaluates to "skip" rather than pass/fail.
-function getNginxState(tasks: AnsibleTaskOutput[]): { present: boolean; config: string } {
+export function getNginxState(tasks: AnsibleTaskOutput[]): { present: boolean; config: string } {
   const present = findExactTaskOutput(tasks, "nginx detection (internal)")?.stdout.trim() === "present";
   const rawConfig = findExactTaskOutput(tasks, "nginx effective config (internal)")?.stdout ?? "";
   return { present, config: rawConfig.trim() === MISSING_MARKER ? "" : rawConfig };
