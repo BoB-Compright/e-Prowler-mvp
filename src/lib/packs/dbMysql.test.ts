@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MYSQL_EVIDENCE, getMysqlState, cnfValue, cnfHasFlag, evaluateDB01, evaluateDB02, evaluateDB03, evaluateDB04, evaluateDB05, evaluateDB06, evaluateDB07, evaluateDB08, evaluateDB09, evaluateDB10, evaluateDB11, evaluateDB12 } from "./dbMysql";
+import { MYSQL_EVIDENCE, getMysqlState, cnfValue, cnfHasFlag, evaluateDB01, evaluateDB02, evaluateDB03, evaluateDB04, evaluateDB05, evaluateDB06, evaluateDB07, evaluateDB08, evaluateDB09, evaluateDB10, evaluateDB11, evaluateDB12, dbMysqlPack } from "./dbMysql";
+import { getCatalogByCategory } from "@/lib/catalog";
 
 const present = [
   { taskName: "mysql detection (internal)", stdout: "present\n" },
@@ -89,5 +90,18 @@ describe("evaluators DB-07..12", () => {
     const r = evaluateDB12(D([t("mysql version (internal)", "mysqld  Ver 8.0.36 for Linux")]));
     expect(r.status).toBe("review");
     expect(r.evidence).toContain("8.0.36");
+  });
+});
+
+describe("dbMysqlPack", () => {
+  it("dbMysqlPack shape + evaluate one result per DB item", () => {
+    const dbIds = getCatalogByCategory("db").map((i) => i.id).sort();
+    expect(dbMysqlPack.id).toBe("db-mysql");
+    expect(dbMysqlPack.vendors).toEqual(["MySQL", "MariaDB"]);
+    expect(dbMysqlPack.itemIds.slice().sort()).toEqual(dbIds);
+    const present = [{ taskName: "mysql detection (internal)", stdout: "present" }];
+    expect(dbMysqlPack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort()).toEqual(dbIds);
+    expect(dbMysqlPack.detect(present)).toBe(true);
+    expect(dbMysqlPack.detect([])).toBe(false);
   });
 });

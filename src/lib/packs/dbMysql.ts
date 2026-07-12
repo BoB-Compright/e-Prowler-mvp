@@ -1,6 +1,8 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
+import { getCatalogByCategory } from "@/lib/catalog";
+import type { EvalContext, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
 
@@ -167,3 +169,22 @@ export function evaluateDB12(tasks: AnsibleTaskOutput[]): CheckResult {
   const version = getMysqlState(tasks).version || "확인 불가";
   return { id: "DB-12", status: "review", evidence: `DB 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
+
+function evaluateMysql(ctx: EvalContext): CheckResult[] {
+  const t = ctx.tasks;
+  return [
+    evaluateDB01(t), evaluateDB02(t), evaluateDB03(t), evaluateDB04(t), evaluateDB05(t), evaluateDB06(t),
+    evaluateDB07(t), evaluateDB08(t), evaluateDB09(t), evaluateDB10(t), evaluateDB11(), evaluateDB12(t),
+  ];
+}
+
+export const dbMysqlPack: VendorPack = {
+  id: "db-mysql",
+  category: "DB",
+  vendors: ["MySQL", "MariaDB"],
+  executionPath: "linux",
+  itemIds: getCatalogByCategory("db").map((i) => i.id),
+  evidenceTasks: MYSQL_EVIDENCE,
+  detect: (tasks) => getMysqlState(tasks).present,
+  evaluate: evaluateMysql,
+};
