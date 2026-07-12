@@ -116,3 +116,53 @@ export function evaluateWAS06(tasks: AnsibleTaskOutput[]): CheckResult {
   const secured = ajpLines.every((l) => /secret\s*=|secretRequired\s*=\s*"true"|address\s*=\s*"(127\.0\.0\.1|::1)"/i.test(l));
   return { id: "WAS-06", status: secured ? "pass" : "fail", evidence: secured ? "AJP 커넥터가 보안 설정(secret/로컬 바인딩)됨" : "AJP 커넥터가 활성화되어 있고 보안 설정이 없음(Ghostcat 위험)" };
 }
+
+export function parseTomcatMajor(version: string): number | null {
+  const m = version.match(/(\d+)\.\d+/);
+  return m ? Number(m[1]) : null;
+}
+
+export function evaluateWAS07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getTomcatState(tasks).serverXml);
+  const bad = lines.some((l) => /<Host\b/i.test(l) && (/autoDeploy\s*=\s*"true"/i.test(l) || /deployOnStartup\s*=\s*"true"/i.test(l)));
+  return { id: "WAS-07", status: bad ? "fail" : "pass", evidence: bad ? "Host에 autoDeploy/deployOnStartup=true가 설정됨" : "autoDeploy/deployOnStartup이 비활성" };
+}
+
+export function evaluateWAS08(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getTomcatState(tasks).serverXml);
+  const xpowered = lines.some((l) => /xpoweredBy\s*=\s*"true"/i.test(l));
+  const connectors = lines.filter((l) => /<Connector\b/i.test(l));
+  const anyServerAttr = connectors.some((l) => /\bserver\s*=\s*"/i.test(l));
+  const ok = !xpowered && (connectors.length === 0 || anyServerAttr);
+  return { id: "WAS-08", status: ok ? "pass" : "fail", evidence: ok ? "버전/헤더 정보 노출이 제한됨(server 속성 설정, xpoweredBy 미사용)" : `헤더 정보 노출 제한 미흡 (xpoweredBy: ${xpowered}, server 속성: ${anyServerAttr})` };
+}
+
+export function evaluateWAS09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const present = /AccessLogValve/.test(getTomcatState(tasks).serverXml);
+  return { id: "WAS-09", status: present ? "pass" : "fail", evidence: present ? "AccessLogValve(접근 로깅)가 설정됨" : "AccessLogValve가 설정되어 있지 않음" };
+}
+
+export function evaluateWAS10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getTomcatState(tasks).serverXml);
+  const trace = lines.some((l) => /<Connector\b[^>]*allowTrace\s*=\s*"true"/i.test(l));
+  return { id: "WAS-10", status: trace ? "fail" : "pass", evidence: trace ? "커넥터에 allowTrace=\"true\"(TRACE 허용)가 설정됨" : "TRACE 메서드가 허용되어 있지 않음(allowTrace 미사용)" };
+}
+
+export function evaluateWAS11(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { version, processLine } = getTomcatState(tasks);
+  const major = parseTomcatMajor(version);
+  if (major !== null && major >= 10) {
+    return { id: "WAS-11", status: "pass", evidence: `Tomcat ${major}.x — SecurityManager는 deprecated로 해당 없음` };
+  }
+  if (major === null) {
+    return { id: "WAS-11", status: "review", evidence: "Tomcat 버전을 확인할 수 없어 SecurityManager 판정 불가 — 수동/AI 확인" };
+  }
+  const securityOn = /-security\b/.test(processLine);
+  return { id: "WAS-11", status: securityOn ? "pass" : "fail", evidence: securityOn ? `Tomcat ${major}.x — SecurityManager(-security) 활성` : `Tomcat ${major}.x — SecurityManager(-security)가 활성화되어 있지 않음` };
+}
+
+export function evaluateWAS12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const raw = getTomcatState(tasks).version;
+  const version = raw && raw !== MISSING ? raw : "확인 불가";
+  return { id: "WAS-12", status: "review", evidence: `Tomcat 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
+}

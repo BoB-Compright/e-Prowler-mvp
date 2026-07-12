@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TOMCAT_EVIDENCE, getTomcatState, noGroupOtherWrite, evaluateWAS01, evaluateWAS02, evaluateWAS03, evaluateWAS04, evaluateWAS05, evaluateWAS06 } from "./wasTomcat";
+import { TOMCAT_EVIDENCE, getTomcatState, noGroupOtherWrite, evaluateWAS01, evaluateWAS02, evaluateWAS03, evaluateWAS04, evaluateWAS05, evaluateWAS06, evaluateWAS07, evaluateWAS08, evaluateWAS09, evaluateWAS10, evaluateWAS11, evaluateWAS12 } from "./wasTomcat";
 
 const present = [
   { taskName: "tomcat detection (internal)", stdout: "present:/opt/tomcat\n" },
@@ -57,4 +57,35 @@ it("WAS-05 active manager role/user → fail, all commented → pass", () => {
 it("WAS-06 active AJP connector → fail, none → pass", () => {
   expect(evaluateWAS06(base([t("tomcat server.xml", '<Connector protocol="AJP/1.3" port="8009" />')])).status).toBe("fail");
   expect(evaluateWAS06(base([t("tomcat server.xml", '<Connector protocol="HTTP/1.1" port="8080" />')])).status).toBe("pass");
+});
+it("WAS-07 autoDeploy true → fail, false → pass", () => {
+  expect(evaluateWAS07(base([t("tomcat server.xml", '<Host name="localhost" autoDeploy="true">')])).status).toBe("fail");
+  expect(evaluateWAS07(base([t("tomcat server.xml", '<Host name="localhost" autoDeploy="false" deployOnStartup="false">')])).status).toBe("pass");
+});
+it("WAS-08 xpoweredBy true → fail, server attr set → pass", () => {
+  expect(evaluateWAS08(base([t("tomcat server.xml", '<Connector port="8080" xpoweredBy="true" />')])).status).toBe("fail");
+  expect(evaluateWAS08(base([t("tomcat server.xml", '<Connector port="8080" server="WebServer" />')])).status).toBe("pass");
+});
+it("WAS-09 AccessLogValve present → pass, absent → fail", () => {
+  expect(evaluateWAS09(base([t("tomcat server.xml", '<Valve className="org.apache.catalina.valves.AccessLogValve" />')])).status).toBe("pass");
+  expect(evaluateWAS09(base([t("tomcat server.xml", "<Engine/>")])).status).toBe("fail");
+});
+it("WAS-10 allowTrace true → fail, absent → pass", () => {
+  expect(evaluateWAS10(base([t("tomcat server.xml", '<Connector port="8080" allowTrace="true" />')])).status).toBe("fail");
+  expect(evaluateWAS10(base([t("tomcat server.xml", '<Connector port="8080" />')])).status).toBe("pass");
+});
+it("WAS-11 version>=10 → pass; <10 with -security → pass; <10 without → fail", () => {
+  expect(evaluateWAS11(base([t("tomcat version", "Server version: Apache Tomcat/10.1.7")])).status).toBe("pass");
+  expect(evaluateWAS11(base([t("tomcat version", "Apache Tomcat Version 9.0.71"), t("tomcat process user", "tomcat java -security org...")])).status).toBe("pass");
+  expect(evaluateWAS11(base([t("tomcat version", "Apache Tomcat Version 9.0.71"), t("tomcat process user", "tomcat java org...")])).status).toBe("fail");
+});
+it("WAS-12 → review with version evidence", () => {
+  const r = evaluateWAS12(base([t("tomcat version", "Server version: Apache Tomcat/9.0.71")]));
+  expect(r.status).toBe("review");
+  expect(r.evidence).toContain("9.0.71");
+});
+it("WAS-12 shows 확인 불가 for __MISSING__ version", () => {
+  const r = evaluateWAS12(base([t("tomcat version", "__MISSING__")]));
+  expect(r.evidence).toContain("확인 불가");
+  expect(r.evidence).not.toContain("__MISSING__");
 });
