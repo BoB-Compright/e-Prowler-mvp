@@ -3,6 +3,7 @@ import { runAnsibleChecks } from "./ansibleRunner";
 import { evaluateAllChecks, detectAssetProfile } from "./ruleEvaluation";
 import { getCatalogItem } from "@/lib/catalog";
 import { resolveCheckPlan, evaluatePlan } from "@/lib/packs/resolve";
+import { webNginxPack } from "@/lib/packs/webNginx";
 import type { Asset } from "@/lib/assets/types";
 import type { CheckResult } from "./types";
 
@@ -38,7 +39,10 @@ export async function runAllChecks(
   }
 
   // 하위호환: asset 없이 호출되면(로컬 이미지 재점검 등) 기존 전체 평가 경로를 유지한다.
-  const tasks = await runAnsibleChecks(containerName);
+  // nginx 증거 태스크는 base security-checks.yml에서 web-nginx 팩으로 이관됐으므로,
+  // 여기서도 composed-playbook 경로(extraTasks)로 명시 요청해야 detectAssetProfile이
+  // nginx를 인식하고 WEB-* appliesTo 필터가 예전처럼 동작한다.
+  const tasks = await runAnsibleChecks(containerName, webNginxPack.evidenceTasks);
   const profile = detectAssetProfile(tasks);
   return evaluateAllChecks(findings, tasks).filter((result) => {
     const appliesTo = getCatalogItem(result.id)?.appliesTo;

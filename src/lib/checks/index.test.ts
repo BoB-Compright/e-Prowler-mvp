@@ -64,4 +64,29 @@ describe("runAllChecks (stack-based scoping)", () => {
 
     expect(results.some((r) => r.id === "U-45")).toBe(true);
   });
+
+  // Regression (#vendor-scoped-checks): the nginx evidence tasks were moved out of
+  // the base security-checks.yml into webNginxPack.evidenceTasks. The asset-absent
+  // path must request them explicitly via extraTasks, or detectAssetProfile never
+  // sees nginx and the appliesTo:["nginx"] filter silently drops all WEB-* items.
+  it("requests the nginx evidence tasks as extraTasks so WEB-* items aren't silently dropped", async () => {
+    vi.mocked(runAnsibleChecks).mockResolvedValue([
+      task("nginx detection (internal)", "present"),
+      task("nginx effective config (internal)", "server {\n  autoindex off;\n}\n"),
+      task("nginx version (internal)", "nginx version: nginx/1.25.3"),
+    ]);
+
+    const results = await runAllChecks(undefined, "fake-container");
+
+    const calls = vi.mocked(runAnsibleChecks).mock.calls;
+    const [, extraTasks] = calls[calls.length - 1];
+    expect(extraTasks).toBeDefined();
+    expect(extraTasks!.length).toBeGreaterThan(0);
+    expect(extraTasks!.some((t) => t.name === "nginx detection (internal)")).toBe(true);
+
+    // With nginx evidence actually present, WEB-* items must survive the
+    // appliesTo/detectAssetProfile filter (not be dropped as before the fix).
+    expect(results.some((r) => r.id.startsWith("WEB-"))).toBe(true);
+    expect(results.some((r) => r.id === "WEB-04")).toBe(true);
+  });
 });
