@@ -472,7 +472,7 @@ export function RunStatus({ runId }: { runId: string }) {
               <b className="text-review">높음 {riskSummary.severityCounts.High}</b> 발견 ·{" "}
               {aiCount > 0 ? (
                 <span className="inline-flex items-center gap-1 align-[-2px] text-secondary">
-                  개선안 생성됨 <ClaudeSparkleIcon />
+                  AI 판정 {aiCount}건 <ClaudeSparkleIcon />
                 </span>
               ) : (
                 "자동 점검 판정 완료"

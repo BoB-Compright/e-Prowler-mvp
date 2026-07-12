@@ -44,11 +44,23 @@ const SEVERITY_STATUS: Record<Severity, BadgeStatus> = {
   Low: "neutral",
 };
 
-const SOURCE_LABELS: Record<CheckResultSource, string> = { rule: "룰 기반", ai: "AI 분석" };
+const SOURCE_LABELS: Record<CheckResultSource, string> = { rule: "룰 기반", ai: "AI 판정" };
 const SOURCE_STYLES: Record<CheckResultSource, string> = {
   rule: "bg-neutral/15 text-muted",
   ai: "bg-violet-100 text-violet-700",
 };
+
+// 룰이 판정을 보류(검토)한 항목을 AI가 판정했음을 표시하는 아이콘. RunStatus.tsx의
+// ClaudeSparkleIcon과 동일한 SVG를 로컬에 둔다(공용 컴포넌트로 추출할 만큼은 아님).
+function ClaudeSparkleIcon() {
+  return (
+    <svg width="12" height="12" viewBox="12 10 78 82" fill="currentColor" className="inline-block flex-none">
+      <path d="m83.5 49.281c-10.551-3.8984-18.871-12.219-22.781-22.781-0.25-0.67188-1.1914-0.67188-1.4414 0-3.8984 10.551-12.219 18.871-22.781 22.781-0.67188 0.25-0.67188 1.1914 0 1.4414 10.551 3.8984 18.871 12.219 22.781 22.781 0.25 0.67188 1.1914 0.67188 1.4414 0 3.8984-10.551 12.219-18.871 22.781-22.781 0.67188-0.25 0.67188-1.1914 0-1.4414z" />
+      <path d="m39.75 24.141c-5.2812-1.9492-9.4414-6.1094-11.391-11.391-0.12109-0.32812-0.60156-0.32812-0.71875 0-1.9492 5.2812-6.1094 9.4414-11.391 11.391-0.32812 0.12109-0.32812 0.60156 0 0.71875 5.2812 1.9492 9.4414 6.1094 11.391 11.391 0.12109 0.32812 0.60156 0.32812 0.71875 0 1.9492-5.2812 6.1094-9.4414 11.391-11.391 0.32812-0.12109 0.32812-0.60156 0-0.71875z" />
+      <path d="m43.828 79.262c-3.5195-1.3008-6.2891-4.0703-7.5898-7.5898-0.078125-0.21875-0.39844-0.21875-0.48047 0-1.3008 3.5195-4.0703 6.2891-7.5898 7.5898-0.21875 0.078125-0.21875 0.39844 0 0.48047 3.5195 1.3008 6.2891 4.0703 7.5898 7.5898 0.078126 0.21875 0.39844 0.21875 0.48047 0 1.3008-3.5195 4.0703-6.2891 7.5898-7.5898 0.21875-0.078126 0.21875-0.39844 0-0.48047z" />
+    </svg>
+  );
+}
 
 function chipStyle(active: boolean): string {
   return `rounded-lg border px-2.5 py-1 text-xs whitespace-nowrap ${
@@ -88,6 +100,7 @@ export function ReportView({ runId }: { runId: string }) {
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [statusFilter, setStatusFilter] = useState<CheckStatus | "all">("all");
   const [frameworkFilter, setFrameworkFilter] = useState<string | null>(null);
+  const [aiOnly, setAiOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -117,12 +130,14 @@ export function ReportView({ runId }: { runId: string }) {
     new Set(checks.map((c) => c.frameworkId).filter((x): x is string => !!x)),
   );
   const visibleFrameworks = frameworks.filter((f) => presentFrameworkIds.includes(f.id));
+  const hasAiVerdicts = checks.some((c) => c.source === "ai");
 
   const filtered = checks.filter(
     (c) =>
       (categoryFilter === "all" || c.category === categoryFilter) &&
       (statusFilter === "all" || c.status === statusFilter) &&
-      (!frameworkFilter || c.frameworkId === frameworkFilter),
+      (!frameworkFilter || c.frameworkId === frameworkFilter) &&
+      (!aiOnly || c.source === "ai"),
   );
   const selected = filtered.find((c) => c.id === selectedId) ?? filtered[0] ?? null;
   const summary = computeRiskSummary(checks);
@@ -255,6 +270,13 @@ export function ReportView({ runId }: { runId: string }) {
                   ))}
                 </div>
               )}
+              {hasAiVerdicts && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button className={chipStyle(aiOnly)} onClick={() => setAiOnly(!aiOnly)}>
+                    AI 판정
+                  </button>
+                </div>
+              )}
             </div>
             <div className="max-h-[560px] overflow-auto">
               {filtered.map((check) => {
@@ -272,6 +294,14 @@ export function ReportView({ runId }: { runId: string }) {
                       <StatusBadge status={CHECK_STATUS_BADGE[check.status]}>
                         {CHECK_STATUS_LABELS[check.status]}
                       </StatusBadge>
+                      {check.source === "ai" && (
+                        <span
+                          title="룰이 판정을 보류(검토)한 항목을 AI가 점검 증거로 판정함"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary"
+                        >
+                          <ClaudeSparkleIcon /> AI 판정
+                        </span>
+                      )}
                       {check.severity && (
                         <span className="ml-auto">
                           <StatusBadge status={SEVERITY_STATUS[check.severity]}>
