@@ -35,6 +35,15 @@ describe("computeRiskSummary", () => {
     expect(summary.statusCounts.pass).toBe(0);
     expect(summary.severityCounts.Critical).toBe(0);
   });
+
+  it("counts an AI-adjudicated (review→fail) item as fail, not review", () => {
+    const summary = computeRiskSummary([
+      { status: "fail", severity: "High" }, // AI가 review→fail로 갱신한 항목도 결국 status=fail로 집계
+      { status: "review", severity: null },
+    ]);
+    expect(summary.statusCounts.fail).toBe(1);
+    expect(summary.statusCounts.review).toBe(1);
+  });
 });
 
 describe("overallRunOutcome", () => {

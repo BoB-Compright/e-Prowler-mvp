@@ -32,9 +32,12 @@ export async function GET(
       severity: catalogItem?.severity ?? null,
       category: catalogItem?.category ?? null,
       frameworkId: result.frameworkId ?? catalogItem?.frameworkId ?? null,
-      // "ai" once Claude has analyzed this item (every item goes through
-      // Claude in this pipeline), "rule" while only rule_eval has run so far.
-      source: report ? "ai" : "rule",
+      // Stored verdict provenance (check_results.source): "ai" once an AI
+      // adjudication has updated this item's status, "rule" while only
+      // rule_eval has decided it. This is independent of whether an
+      // analysis report exists — reason/remediation/example below still
+      // come from the report when present.
+      source: result.source,
       sourceRef: catalogItem?.source.ref ?? null,
       reason: report?.reason ?? null,
       remediation: report?.remediation ?? null,
