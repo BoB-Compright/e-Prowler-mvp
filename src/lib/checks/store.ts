@@ -11,6 +11,7 @@ interface CheckResultRow {
   status: CheckStatus;
   evidence: string;
   framework_id: string | null;
+  source: "rule" | "ai";
   created_at: string;
 }
 
@@ -50,5 +51,17 @@ export function listCheckResults(runId: string, db: Database = getDb()): StoredC
     // Legacy rows saved before framework_id existed have it as null -- fall
     // back to a live catalog lookup so older runs still surface a framework.
     frameworkId: row.framework_id ?? getCatalogItem(row.item_id)?.frameworkId,
+    source: row.source ?? "rule",
   }));
+}
+
+export function updateCheckVerdict(
+  runId: string,
+  itemId: string,
+  status: CheckStatus,
+  db: Database = getDb(),
+): void {
+  db.prepare(
+    `UPDATE check_results SET status = @status, source = 'ai' WHERE run_id = @runId AND item_id = @itemId`,
+  ).run({ status, runId, itemId });
 }

@@ -18,6 +18,7 @@ export type CheckResultSource = "rule" | "ai";
 // evaluation/AI analysis produce.
 export interface StoredCheckResult extends CheckResult {
   frameworkId?: string;
+  source: CheckResultSource;
 }
 
 // The shape GET /api/runs/[id] returns per check: a CheckResult joined with

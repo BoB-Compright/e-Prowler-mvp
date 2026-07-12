@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRun } from "@/lib/pipeline/runs";
 import { getCatalogItem } from "@/lib/catalog";
-import { listCheckResults, saveCheckResults } from "./store";
+import { listCheckResults, saveCheckResults, updateCheckVerdict } from "./store";
 
 let db: Database;
 
@@ -25,9 +25,9 @@ describe("check result store", () => {
     );
 
     expect(listCheckResults(run.id, db)).toEqual([
-      { id: "C-01", status: "fail", evidence: "uid 0", frameworkId: "kisa" },
-      { id: "C-02", status: "pass", evidence: "no secrets", frameworkId: "kisa" },
-      { id: "U-16", status: "skip", evidence: "no /etc/passwd", frameworkId: "kisa" },
+      { id: "C-01", status: "fail", evidence: "uid 0", frameworkId: "kisa", source: "rule" },
+      { id: "C-02", status: "pass", evidence: "no secrets", frameworkId: "kisa", source: "rule" },
+      { id: "U-16", status: "skip", evidence: "no /etc/passwd", frameworkId: "kisa", source: "rule" },
     ]);
   });
 
@@ -51,5 +51,15 @@ describe("check result store", () => {
       .prepare(`SELECT framework_id FROM check_results WHERE item_id = 'U-16'`)
       .get() as { framework_id: string };
     expect(row.framework_id).toBe(getCatalogItem("U-16")!.frameworkId);
+  });
+
+  it("saves source='rule' by default and updateCheckVerdict flips to ai", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    saveCheckResults(run.id, [{ id: "U-16", status: "review", evidence: "e" }], db);
+    expect(listCheckResults(run.id, db)[0].source).toBe("rule");
+    updateCheckVerdict(run.id, "U-16", "fail", db);
+    const row = listCheckResults(run.id, db)[0];
+    expect(row.status).toBe("fail");
+    expect(row.source).toBe("ai");
   });
 });

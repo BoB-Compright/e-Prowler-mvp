@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS check_results (
   status TEXT NOT NULL,
   evidence TEXT NOT NULL,
   framework_id TEXT,
+  source TEXT NOT NULL DEFAULT 'rule',
   created_at TEXT NOT NULL
 );
 
@@ -185,6 +186,9 @@ export function migrate(db: Database.Database): void {
   const checkCols = db.prepare(`PRAGMA table_info(check_results)`).all() as { name: string }[];
   if (!checkCols.some((c) => c.name === "framework_id")) {
     db.exec(`ALTER TABLE check_results ADD COLUMN framework_id TEXT`);
+  }
+  if (!checkCols.some((c) => c.name === "source")) {
+    db.exec(`ALTER TABLE check_results ADD COLUMN source TEXT NOT NULL DEFAULT 'rule'`);
   }
 
   const projectColumns = db.prepare(`PRAGMA table_info(projects)`).all() as { name: string }[];
