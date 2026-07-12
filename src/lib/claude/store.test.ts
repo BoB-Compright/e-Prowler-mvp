@@ -21,6 +21,7 @@ function report(overrides: Partial<ClaudeAnalysis> = {}): ClaudeAnalysis {
     reason: "root 권한으로 실행되면 침해 시 위험이 커집니다",
     remediation: "Dockerfile에 USER 지시어를 추가하세요",
     example: "RUN useradd -r appuser\nUSER appuser",
+    verdict: "fail",
     ...overrides,
   };
 }

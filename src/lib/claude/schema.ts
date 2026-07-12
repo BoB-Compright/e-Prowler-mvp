@@ -14,6 +14,7 @@ export const ClaudeAnalysisSchema = z.object({
   reason: z.string(),
   remediation: z.string(),
   example: z.string(),
+  verdict: z.enum(["pass", "fail", "review", "skip", "not_automated"]),
 });
 
 export type ClaudeAnalysis = z.infer<typeof ClaudeAnalysisSchema>;
