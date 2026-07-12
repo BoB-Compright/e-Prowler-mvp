@@ -95,6 +95,11 @@ describe("service-management evaluators WEB-04/05/06/07/08/09/10/11/12", () => {
     expect(evaluateApacheWEB09(cfg("User root")).status).toBe("fail");
     expect(evaluateApacheWEB09(cfg("ServerTokens Prod")).status).toBe("skip");
   });
+  it("WEB-09 unresolved env var → review; literal root → fail; literal non-root → pass", () => {
+    expect(evaluateApacheWEB09(cfg("User ${APACHE_RUN_USER}")).status).toBe("review");
+    expect(evaluateApacheWEB09(cfg("User root")).status).toBe("fail");
+    expect(evaluateApacheWEB09(cfg("User www-data")).status).toBe("pass");
+  });
   it("WEB-10 proxy loaded → fail, not → pass", () => {
     expect(evaluateApacheWEB10([...cfg(""), mods(" proxy_module (shared)")]).status).toBe("fail");
     expect(evaluateApacheWEB10([...cfg(""), mods(" core_module (static)")]).status).toBe("pass");
@@ -106,6 +111,7 @@ describe("service-management evaluators WEB-04/05/06/07/08/09/10/11/12", () => {
   it("WEB-07 leftovers → fail, clean → pass, missing → skip", () => {
     expect(evaluateApacheWEB07([...cfg(""), { taskName: "apache document root scan (internal)", stdout: "LEFTOVER:/var/www/html/phpinfo.php" }]).status).toBe("fail");
     expect(evaluateApacheWEB07([...cfg(""), { taskName: "apache document root scan (internal)", stdout: "__MISSING__" }]).status).toBe("skip");
+    expect(evaluateApacheWEB07([...cfg(""), { taskName: "apache document root scan (internal)", stdout: "" }]).status).toBe("pass");
   });
   it("WEB-08/11 → review", () => {
     expect(evaluateApacheWEB08().status).toBe("review");
@@ -114,6 +120,9 @@ describe("service-management evaluators WEB-04/05/06/07/08/09/10/11/12", () => {
   it("WEB-06 root Directory deny → pass, missing → fail", () => {
     expect(evaluateApacheWEB06(cfg("<Directory />\n  Require all denied\n</Directory>")).status).toBe("pass");
     expect(evaluateApacheWEB06(cfg("ServerTokens Prod")).status).toBe("fail");
+  });
+  it("WEB-06 quoted root Directory (RHEL/httpd default) → pass", () => {
+    expect(evaluateApacheWEB06(cfg('<Directory "/">\n  Require all denied\n</Directory>')).status).toBe("pass");
   });
 });
 
@@ -152,6 +161,9 @@ describe("security-settings and patch-log evaluators WEB-19/20/21/22/23/24/25/26
   it("WEB-21 http→https redirect present → pass else fail", () => {
     expect(evaluateApacheWEB21(cfg("RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301]")).status).toBe("pass");
     expect(evaluateApacheWEB21(cfg("ServerTokens Prod")).status).toBe("fail");
+  });
+  it("WEB-21 commented-out redirect line only → fail (comments ignored)", () => {
+    expect(evaluateApacheWEB21(cfg("# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301]")).status).toBe("fail");
   });
   it("WEB-22/23/24 → review", () => {
     expect(evaluateApacheWEB22().status).toBe("review");

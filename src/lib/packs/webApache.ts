@@ -120,7 +120,7 @@ export function evaluateApacheWEB06(tasks: AnsibleTaskOutput[]): CheckResult {
   // 루트 <Directory /> 블록에서 기본 접근 거부(Require all denied 또는 Deny from all)를 선언했는지.
   let inRoot = false, denied = false;
   for (const l of lines) {
-    if (/^<Directory\s+\/>/i.test(l)) inRoot = true;
+    if (/^<Directory\s+["']?\/["']?\s*>/i.test(l)) inRoot = true;
     else if (/^<\/Directory>/i.test(l)) inRoot = false;
     else if (inRoot && (/^Require\s+all\s+denied/i.test(l) || /^Deny\s+from\s+all/i.test(l))) denied = true;
   }
@@ -141,6 +141,9 @@ export function evaluateApacheWEB09(tasks: AnsibleTaskOutput[]): CheckResult {
   const userLine = activeLines(getApacheState(tasks).config).find((l) => /^User\s+/i.test(l));
   if (!userLine) return { id: "WEB-09", status: "skip", evidence: "User 지시어가 설정에서 발견되지 않음" };
   const user = userLine.split(/\s+/)[1];
+  if (user.includes("${")) {
+    return { id: "WEB-09", status: "review", evidence: `웹 서비스 실행 계정(User)이 환경변수로 지정됨: ${user} — 실제 계정을 수동 확인 필요` };
+  }
   const isRoot = user === "root" || user === "#0";
   return { id: "WEB-09", status: isRoot ? "fail" : "pass", evidence: `웹 서비스 실행 계정(User): ${user}` };
 }
@@ -164,9 +167,9 @@ export function evaluateApacheWEB12(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 export function evaluateApacheWEB13(tasks: AnsibleTaskOutput[]): CheckResult {
-  const config = getApacheState(tasks).config;
+  const active = activeLines(getApacheState(tasks).config).join("\n");
   // `.ht*`(.htaccess/.htpasswd) 노출 차단 블록 존재 여부.
-  const protectsHt = /<Files(Match)?\s+[~*]?\s*["']?\^?\\?\.ht/i.test(config) && /Require\s+all\s+denied|Deny\s+from\s+all/i.test(config);
+  const protectsHt = /<Files(Match)?\s+[~*]?\s*["']?\^?\\?\.ht/i.test(active) && /Require\s+all\s+denied|Deny\s+from\s+all/i.test(active);
   return { id: "WEB-13", status: protectsHt ? "pass" : "fail", evidence: protectsHt ? "설정 파일(.ht*) 접근 차단(<Files ~ ^\\.ht> Require all denied)이 설정됨" : "설정 파일(.ht*) 노출 차단 블록이 확인되지 않음" };
 }
 
@@ -215,8 +218,8 @@ export function evaluateApacheWEB20(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 export function evaluateApacheWEB21(tasks: AnsibleTaskOutput[]): CheckResult {
-  const config = getApacheState(tasks).config;
-  const redirects = /Redirect\s+.*https:\/\//i.test(config) || /RewriteRule\s+.*https:\/\//i.test(config);
+  const active = activeLines(getApacheState(tasks).config).join("\n");
+  const redirects = /Redirect\s+.*https:\/\//i.test(active) || /RewriteRule\s+.*https:\/\//i.test(active);
   return { id: "WEB-21", status: redirects ? "pass" : "fail", evidence: redirects ? "HTTP→HTTPS 리디렉션 설정이 확인됨" : "HTTP→HTTPS 리디렉션 설정이 확인되지 않음" };
 }
 
