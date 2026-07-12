@@ -5,6 +5,7 @@ import {
   matchesCatalogQuery,
   parseCategoryParam,
   parseModeParam,
+  parseComplianceParam,
 } from "./filter";
 import type { CatalogItem } from "./types";
 
@@ -95,6 +96,25 @@ describe("filterCatalog", () => {
   it("returns an empty array when nothing matches", () => {
     expect(filterCatalog(items, { query: "존재하지-않음" })).toEqual([]);
   });
+
+  it("filters by compliance frameworkId (OR within group, AND with others)", () => {
+    const item = (id: string, frameworkId: string): CatalogItem => ({
+      id,
+      category: "web",
+      frameworkId,
+      title: id,
+      severity: "Low",
+      automationStatus: "automated",
+      source: { framework: frameworkId, ref: id },
+    });
+    const testItems = [item("A", "kisa"), item("B", "cis")];
+    expect(filterCatalog(testItems, { frameworks: ["kisa"] }).map((i) => i.id)).toEqual(["A"]);
+    expect(filterCatalog(testItems, { frameworks: ["kisa", "cis"] }).map((i) => i.id)).toEqual([
+      "A",
+      "B",
+    ]);
+    expect(filterCatalog(testItems, {}).map((i) => i.id)).toEqual(["A", "B"]);
+  });
 });
 
 describe("parseCategoryParam", () => {
@@ -136,5 +156,12 @@ describe("parseModeParam", () => {
 
   it("takes the first value when given an array", () => {
     expect(parseModeParam(["manual", "automated"])).toBe("manual");
+  });
+});
+
+describe("parseComplianceParam", () => {
+  it("parseComplianceParam keeps known framework ids, drops junk", () => {
+    expect(parseComplianceParam(["kisa", "cis", "bogus"])).toEqual(["kisa", "cis"]);
+    expect(parseComplianceParam(undefined)).toEqual([]);
   });
 });
