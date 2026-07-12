@@ -61,7 +61,10 @@ export function updateCheckVerdict(
   status: CheckStatus,
   db: Database = getDb(),
 ): void {
+  // Defense in depth: even if a caller mistakenly invokes this for an
+  // already-decided (non-review) item, the storage layer itself refuses to
+  // overwrite it -- only a rule verdict of "review" may be adjudicated by AI.
   db.prepare(
-    `UPDATE check_results SET status = @status, source = 'ai' WHERE run_id = @runId AND item_id = @itemId`,
+    `UPDATE check_results SET status = @status, source = 'ai' WHERE run_id = @runId AND item_id = @itemId AND status = 'review'`,
   ).run({ status, runId, itemId });
 }

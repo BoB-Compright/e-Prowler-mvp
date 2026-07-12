@@ -349,11 +349,9 @@ export function ReportView({ runId }: { runId: string }) {
 
               <div className="mt-5">
                 <SectionLabel>
-                  {selected.reason
-                    ? selected.source === "ai"
-                      ? "AI 분석 근거"
-                      : "룰 기반 판단 근거"
-                    : "설명"}
+                  {/* reason은 검증 provenance(source)와 무관하게 항상 Claude가
+                      작성한다 — 있으면 항상 "AI 분석 근거"로 표기한다. */}
+                  {selected.reason ? "AI 분석 근거" : "설명"}
                 </SectionLabel>
                 <p className="mt-1.5 text-sm leading-relaxed">
                   {selected.reason ? (

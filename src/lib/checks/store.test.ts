@@ -62,4 +62,28 @@ describe("check result store", () => {
     expect(row.status).toBe("fail");
     expect(row.source).toBe("ai");
   });
+
+  it("updateCheckVerdict guard: refuses to overwrite a non-review (rule) verdict, but still adjudicates a review item", () => {
+    const run = createRun("https://github.com/owner/repo.git", "git", null, db);
+    saveCheckResults(
+      run.id,
+      [
+        { id: "U-16", status: "fail", evidence: "e-rule" },
+        { id: "U-18", status: "review", evidence: "e-review" },
+      ],
+      db,
+    );
+
+    // Rule already decided fail -- AI must not be able to flip it, regardless
+    // of caller (defense in depth at the storage layer).
+    updateCheckVerdict(run.id, "U-16", "pass", db);
+    // Rule left this one for review -- AI adjudication is allowed through.
+    updateCheckVerdict(run.id, "U-18", "fail", db);
+
+    const rows = Object.fromEntries(listCheckResults(run.id, db).map((r) => [r.id, r]));
+    expect(rows["U-16"].status).toBe("fail");
+    expect(rows["U-16"].source).toBe("rule");
+    expect(rows["U-18"].status).toBe("fail");
+    expect(rows["U-18"].source).toBe("ai");
+  });
 });

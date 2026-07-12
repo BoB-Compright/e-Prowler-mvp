@@ -38,14 +38,23 @@ export async function analyzeAndSaveChecks(
   for (const result of results) {
     const item = getCatalogItem(result.id);
     if (!item) {
+      // A missing catalog id is a programming error (not a per-run AI
+      // failure), so it stays outside the try/catch below and aborts the run.
       throw new Error(`카탈로그에 없는 항목 id: ${result.id}`);
     }
-    const report = await deps.analyze({ item, result });
-    saveAnalysisReport(runId, report, db);
-    // review였던 항목만, AI verdict가 pass/fail이면 저장된 결과를 갱신한다.
-    const applied = applyVerdict(result.status, report.verdict);
-    if (applied.source === "ai") {
-      updateCheckVerdict(runId, result.id, applied.status, db);
+    try {
+      const report = await deps.analyze({ item, result });
+      saveAnalysisReport(runId, report, db);
+      // review였던 항목만, AI verdict가 pass/fail이면 저장된 결과를 갱신한다.
+      const applied = applyVerdict(result.status, report.verdict);
+      if (applied.source === "ai") {
+        updateCheckVerdict(runId, result.id, applied.status, db);
+      }
+    } catch (err) {
+      // One item's AI failure (e.g. a Claude refusal) must not abort the
+      // rest of the run -- skip this item, leaving its rule status intact,
+      // and keep adjudicating the remaining review items.
+      console.error(`[claude] analysis failed for ${result.id}, skipping:`, err);
     }
   }
 }

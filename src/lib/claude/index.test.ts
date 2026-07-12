@@ -49,4 +49,43 @@ describe("analyzeAndSaveChecks", () => {
     expect(rows["U-18"].source).toBe("rule");
     delete process.env.CLAUDE_ANALYSIS_ENABLED;
   });
+
+  it("continues past a per-item analyze failure (e.g. a Claude refusal), leaving that item's rule status intact", async () => {
+    process.env.CLAUDE_ANALYSIS_ENABLED = "true";
+    const run = createRun("https://github.com/o/r.git", "git", null, db);
+    saveCheckResults(
+      run.id,
+      [
+        { id: "U-16", status: "review", evidence: "e1" },
+        { id: "U-18", status: "review", evidence: "e2" },
+      ],
+      db,
+    );
+    const fakeReport = (id: string, verdict: ClaudeAnalysis["verdict"]): ClaudeAnalysis => ({
+      id, status: "review", severity: "Medium", verdict,
+      title: "t", evidence: "e", reason: "r", remediation: "m", example: "x",
+    });
+    const analyze = async ({ result }: { result: { id: string; status: string } }) => {
+      if (result.id === "U-16") throw new Error("Claude refused to analyze this item");
+      return fakeReport("U-18", "fail");
+    };
+    await analyzeAndSaveChecks(
+      run.id,
+      [
+        { id: "U-16", status: "review", evidence: "e1" },
+        { id: "U-18", status: "review", evidence: "e2" },
+      ],
+      db,
+      { analyze },
+    );
+    const rows = Object.fromEntries(listCheckResults(run.id, db).map((r) => [r.id, r]));
+    // U-16의 analyze가 던졌으므로 룰 상태(review)가 그대로 남는다 -- 루프가
+    // 멈추지 않았음을 증명.
+    expect(rows["U-16"].status).toBe("review");
+    expect(rows["U-16"].source).toBe("rule");
+    // U-18은 U-16 실패에도 불구하고 정상적으로 판정됨.
+    expect(rows["U-18"].status).toBe("fail");
+    expect(rows["U-18"].source).toBe("ai");
+    delete process.env.CLAUDE_ANALYSIS_ENABLED;
+  });
 });

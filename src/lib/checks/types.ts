@@ -32,10 +32,11 @@ export interface DecoratedCheckResult {
   severity: Severity | null;
   category: Category | null;
   frameworkId: string | null;
-  // "rule"|"ai": whether an AI analysis report exists for this check yet.
-  // Distinct from frameworkId/sourceRef below, which identify the compliance
-  // framework (e.g. KISA/CIS) the item itself belongs to -- do not conflate
-  // the two "source" concepts.
+  // Verdict provenance: "ai" means a rule-`review` item was decided
+  // (pass/fail) by AI from evidence; "rule" means the rule decided the
+  // verdict. Distinct from frameworkId/sourceRef below, which identify the
+  // compliance framework (e.g. KISA/CIS) the item itself belongs to -- do
+  // not conflate the two "source" concepts.
   source: CheckResultSource;
   sourceRef: string | null;
   reason: string | null;
