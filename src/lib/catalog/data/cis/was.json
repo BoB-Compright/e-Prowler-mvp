@@ -1,0 +1,14 @@
+[
+  { "id": "WAS-01", "title": "기본/샘플 웹 애플리케이션 제거", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Remove default/sample apps (항목 확인 필요)" } },
+  { "id": "WAS-02", "title": "Shutdown 포트/명령 하드닝", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Shutdown port/command (항목 확인 필요)" } },
+  { "id": "WAS-03", "title": "비특권 전용 계정으로 구동", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Run as non-privileged user (항목 확인 필요)" } },
+  { "id": "WAS-04", "title": "conf 디렉터리 접근 권한 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - conf directory permissions (항목 확인 필요)" } },
+  { "id": "WAS-05", "title": "기본 관리자 계정/역할 비활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Default manager account (항목 확인 필요)" } },
+  { "id": "WAS-06", "title": "AJP 커넥터 비활성화/보안", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - AJP connector (Ghostcat) (항목 확인 필요)" } },
+  { "id": "WAS-07", "title": "autoDeploy/deployOnStartup 비활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - autoDeploy/deployOnStartup (항목 확인 필요)" } },
+  { "id": "WAS-08", "title": "에러/버전 헤더 정보 노출 제한", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Suppress server info (항목 확인 필요)" } },
+  { "id": "WAS-09", "title": "접근 로깅(AccessLogValve) 활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Access logging (항목 확인 필요)" } },
+  { "id": "WAS-10", "title": "커넥터 TLS/allowTrace 설정", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Connector allowTrace/TLS (항목 확인 필요)" } },
+  { "id": "WAS-11", "title": "SecurityManager 사용", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - SecurityManager (항목 확인 필요)" } },
+  { "id": "WAS-12", "title": "주기적 보안 패치 및 버전 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Apache Tomcat Benchmark - Patch/version (항목 확인 필요)" } }
+]
