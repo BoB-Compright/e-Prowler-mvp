@@ -3,6 +3,7 @@ import unixData from "./data/kisa/unix.json";
 import webData from "./data/kisa/web.json";
 import wasData from "./data/cis/was.json";
 import dbData from "./data/cis/db.json";
+import windowsData from "./data/cis/windows.json";
 import { FRAMEWORKS } from "./frameworks";
 import type { CatalogItem, Category, Framework } from "./types";
 
@@ -23,6 +24,7 @@ const CATALOG_SOURCES: CatalogSource[] = [
   { frameworkId: "kisa", category: "web", data: webData as RawItem[] },
   { frameworkId: "cis", category: "was", data: wasData as RawItem[] },
   { frameworkId: "cis", category: "db", data: dbData as RawItem[] },
+  { frameworkId: "cis", category: "windows", data: windowsData as RawItem[] },
 ];
 
 const CATALOG: CatalogItem[] = CATALOG_SOURCES.flatMap(({ frameworkId, category, data }) =>
@@ -69,6 +71,7 @@ export function getCatalogSummary(): CatalogSummary {
       web: getCatalogByCategory("web").length,
       was: getCatalogByCategory("was").length,
       db: getCatalogByCategory("db").length,
+      windows: getCatalogByCategory("windows").length,
     },
     byFramework,
     automated: CATALOG.filter((item) => item.automationStatus === "automated").length,

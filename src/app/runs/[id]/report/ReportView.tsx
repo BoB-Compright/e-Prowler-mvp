@@ -26,6 +26,7 @@ const CATEGORY_CHIP_LABELS: Record<Category, string> = {
   web: "웹",
   was: "WAS",
   db: "DB",
+  windows: "Windows",
 };
 
 const CHECK_STATUS_BADGE: Record<CheckStatus, BadgeStatus> = {

@@ -7,7 +7,7 @@
 import { FRAMEWORKS } from "./frameworks";
 import type { CatalogItem, Category } from "./types";
 
-const CATEGORY_VALUES: Category[] = ["container", "unix", "web", "was", "db"];
+const CATEGORY_VALUES: Category[] = ["container", "unix", "web", "was", "db", "windows"];
 
 // User-facing 자동/수동 filter. Distinct spelling from the underlying
 // AutomationStatus ("automated" | "not_automated") because this is the query

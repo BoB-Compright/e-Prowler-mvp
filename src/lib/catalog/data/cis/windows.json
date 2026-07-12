@@ -1,0 +1,12 @@
+[
+  { "id": "WIN-01", "title": "관리자 계정 이름 변경/기본 계정 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - default accounts (항목 확인 필요)" } },
+  { "id": "WIN-02", "title": "계정 잠금 정책", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - account lockout (항목 확인 필요)" } },
+  { "id": "WIN-03", "title": "암호 정책(복잡도/길이/이력)", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - password policy (항목 확인 필요)" } },
+  { "id": "WIN-04", "title": "감사 정책(로그온/권한 사용 등)", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - audit policy (항목 확인 필요)" } },
+  { "id": "WIN-05", "title": "불필요한 서비스 비활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - unnecessary services (항목 확인 필요)" } },
+  { "id": "WIN-06", "title": "SMBv1 비활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - SMBv1 disabled (항목 확인 필요)" } },
+  { "id": "WIN-07", "title": "원격 데스크톱(RDP) NLA 강제", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - RDP NLA (항목 확인 필요)" } },
+  { "id": "WIN-08", "title": "Windows 방화벽 활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - firewall enabled (항목 확인 필요)" } },
+  { "id": "WIN-09", "title": "UAC 활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - UAC (항목 확인 필요)" } },
+  { "id": "WIN-10", "title": "보안 패치 최신화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Windows Server Benchmark - patch level (항목 확인 필요)" } }
+]

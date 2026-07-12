@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 150 items across the five categories", () => {
+  it("loads all 160 items across the six categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(150);
+    expect(summary.total).toBe(160);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(12);
     expect(summary.byCategory.db).toBe(36);
+    expect(summary.byCategory.windows).toBe(10);
   });
 
   it("has no duplicate ids", () => {
@@ -101,5 +102,12 @@ describe("catalog", () => {
     expect(ids.filter((i) => i.startsWith("ORA-"))).toHaveLength(12);
     expect(ids).toContain("ORA-01");
     expect(ids).toContain("ORA-12");
+  });
+
+  it("has 10 CIS-sourced Windows(WIN-*) items in the windows category", () => {
+    const win = getCatalogByCategory("windows");
+    expect(win).toHaveLength(10);
+    expect(win.every((i) => i.frameworkId === "cis")).toBe(true);
+    expect(win.map((i) => i.id)).toContain("WIN-01");
   });
 });

@@ -3,7 +3,7 @@ import type { ModeFilter } from "@/lib/catalog/filter";
 import { CATEGORY_LABELS, type Category } from "@/lib/catalog/types";
 import { Card } from "../_components/Card";
 
-const CATEGORIES: Category[] = ["container", "unix", "web"];
+const CATEGORIES: Category[] = ["container", "unix", "web", "windows"];
 const MODE_OPTIONS: { value: ModeFilter; label: string }[] = [
   { value: "automated", label: "자동" },
   { value: "manual", label: "수동" },

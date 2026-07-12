@@ -13,7 +13,7 @@ import type { BadgeStatus } from "../_components/statusBadgeStyles";
 import { CatalogSearch } from "./CatalogSearch";
 import { FilterPanel } from "./FilterPanel";
 
-const CATEGORIES: Category[] = ["container", "unix", "web"];
+const CATEGORIES: Category[] = ["container", "unix", "web", "windows"];
 
 // severity 매핑 관례: critical/high→fail, medium→review, low→neutral.
 const SEVERITY_BADGE: Record<Severity, BadgeStatus> = {

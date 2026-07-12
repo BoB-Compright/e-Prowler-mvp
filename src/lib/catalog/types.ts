@@ -1,4 +1,4 @@
-export type Category = "container" | "unix" | "web" | "was" | "db";
+export type Category = "container" | "unix" | "web" | "was" | "db" | "windows";
 
 export type Severity = "Critical" | "High" | "Medium" | "Low";
 
@@ -51,4 +51,5 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   web: "웹서비스 (KISA 가이드 기반)",
   was: "WAS (CIS 기반)",
   db: "DB (CIS 기반)",
+  windows: "Windows 서버 (CIS 기반)",
 };
