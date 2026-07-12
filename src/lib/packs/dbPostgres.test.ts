@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PG_EVIDENCE, getPgState, pgValue, pgBool, evaluatePG01, evaluatePG02, evaluatePG03, evaluatePG04, evaluatePG05, evaluatePG06 } from "./dbPostgres";
+import { PG_EVIDENCE, getPgState, pgValue, pgBool, evaluatePG01, evaluatePG02, evaluatePG03, evaluatePG04, evaluatePG05, evaluatePG06, evaluatePG07, evaluatePG08, evaluatePG09, evaluatePG10, evaluatePG11, evaluatePG12 } from "./dbPostgres";
 
 const present = [
   { taskName: "postgres detection (internal)", stdout: "present\n" },
@@ -56,5 +56,27 @@ describe("evaluators PG-01~06", () => {
   it("PG-06 ssl on → pass, off/absent → fail", () => {
     expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = on")])).status).toBe("pass");
     expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = off")])).status).toBe("fail");
+  });
+});
+
+describe("evaluators PG-07~12", () => {
+  it("PG-07 trust in pg_hba → fail, scram only → pass", () => {
+    expect(evaluatePG07(P([t("pg_hba.conf (internal)", "host all all 0.0.0.0/0 trust")])).status).toBe("fail");
+    expect(evaluatePG07(P([t("pg_hba.conf (internal)", "# comment\nlocal all all peer\nhost all all 127.0.0.1/32 scram-sha-256")])).status).toBe("pass");
+  });
+  it("PG-08 password_encryption scram → pass, md5/absent → fail", () => {
+    expect(evaluatePG08(P([t("postgresql.conf (internal)", "password_encryption = scram-sha-256")])).status).toBe("pass");
+    expect(evaluatePG08(P([t("postgresql.conf (internal)", "password_encryption = md5")])).status).toBe("fail");
+  });
+  it("PG-09/10 connections/disconnections on → pass, off → fail", () => {
+    expect(evaluatePG09(P([t("postgresql.conf (internal)", "log_connections = on")])).status).toBe("pass");
+    expect(evaluatePG09(P([t("postgresql.conf (internal)", "log_connections = off")])).status).toBe("fail");
+    expect(evaluatePG10(P([t("postgresql.conf (internal)", "log_disconnections = on")])).status).toBe("pass");
+  });
+  it("PG-11 → review, PG-12 → review with version", () => {
+    expect(evaluatePG11().status).toBe("review");
+    const r = evaluatePG12(P([t("postgres version (internal)", "postgres (PostgreSQL) 16.3")]));
+    expect(r.status).toBe("review");
+    expect(r.evidence).toContain("16.3");
   });
 });

@@ -113,3 +113,39 @@ export function evaluatePG06(tasks: AnsibleTaskOutput[]): CheckResult {
   const on = pgBool(getPgState(tasks).conf, "ssl");
   return { id: "PG-06", status: on ? "pass" : "fail", evidence: on ? "ssl가 on" : "ssl가 off이거나 미설정" };
 }
+
+// pg_hba.conf 활성 라인의 마지막 필드(METHOD)들. include/기타 지시어는 무시.
+export function hbaMethods(hba: string): string[] {
+  return hba.split("\n")
+    .map((l) => l.replace(/#.*$/, "").trim())
+    .filter((l) => l && !l.startsWith("###") && /^(local|host|hostssl|hostnossl)\b/i.test(l))
+    .map((l) => l.split(/\s+/).pop() as string)
+    .filter(Boolean);
+}
+
+export function evaluatePG07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const methods = hbaMethods(getPgState(tasks).hba);
+  if (methods.length === 0) return { id: "PG-07", status: "skip", evidence: "pg_hba.conf 규칙을 확인할 수 없음" };
+  const trust = methods.filter((m) => /^trust$/i.test(m));
+  return { id: "PG-07", status: trust.length ? "fail" : "pass", evidence: trust.length ? "pg_hba.conf에 trust 인증이 사용됨" : "pg_hba.conf에 trust 인증이 없음" };
+}
+export function evaluatePG08(tasks: AnsibleTaskOutput[]): CheckResult {
+  const v = pgValue(getPgState(tasks).conf, "password_encryption");
+  const ok = v !== null && /^scram-sha-256$/i.test(v);
+  return { id: "PG-08", status: ok ? "pass" : "fail", evidence: ok ? "password_encryption=scram-sha-256" : `password_encryption: ${v ?? "미설정"}` };
+}
+export function evaluatePG09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const on = pgBool(getPgState(tasks).conf, "log_connections");
+  return { id: "PG-09", status: on ? "pass" : "fail", evidence: on ? "log_connections가 on" : "log_connections가 off이거나 미설정" };
+}
+export function evaluatePG10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const on = pgBool(getPgState(tasks).conf, "log_disconnections");
+  return { id: "PG-10", status: on ? "pass" : "fail", evidence: on ? "log_disconnections가 on" : "log_disconnections가 off이거나 미설정" };
+}
+export function evaluatePG11(): CheckResult {
+  return { id: "PG-11", status: "review", evidence: "슈퍼유저/과다 권한 역할은 라이브 SQL(pg_roles) 확인이 필요 — 수동 점검" };
+}
+export function evaluatePG12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const version = getPgState(tasks).version || "확인 불가";
+  return { id: "PG-12", status: "review", evidence: `PostgreSQL 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
+}
