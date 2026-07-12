@@ -223,7 +223,9 @@ export function ReportView({ runId }: { runId: string }) {
           <p className="mb-2 text-[13px] text-muted">
             이 자산의 CVE — 스캔 후 백그라운드로 수집되며, 새로고침 시 최신 상태로 갱신됩니다.
           </p>
-          <CveList matches={cveMatches} />
+          {/* 리포트의 주 콘텐츠는 컴플라이언스 점검 결과 — CVE는 기본 접힘으로
+              심각도 요약만 보여주고, 펼치면 최신순 목록(높이 제한 스크롤)이 나온다. */}
+          <CveList matches={cveMatches} defaultOpen={false} />
         </div>
       )}
 

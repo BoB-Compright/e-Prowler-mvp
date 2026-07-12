@@ -165,8 +165,14 @@ export function setCveDismissed(id: string, dismissed: boolean, db: Database = g
 }
 
 export function listCveMatches(assetId: string, db: Database = getDb()): CveMatch[] {
+  // 최신 발표(published_at) CVE가 목록 상단에 오도록 정렬한다. 발표일이 없는
+  // 항목은 마지막으로, 같은 발표일 안에서는 CVSS 높은 순으로 둔다 — UI(리포트·
+  // 자산 상세)가 이 순서를 그대로 렌더한다.
   const rows = db
-    .prepare(`SELECT * FROM cve_matches WHERE asset_id = ? ORDER BY cvss_score DESC, first_seen_at DESC`)
+    .prepare(
+      `SELECT * FROM cve_matches WHERE asset_id = ?
+       ORDER BY published_at IS NULL, published_at DESC, cvss_score DESC`,
+    )
     .all(assetId) as CveMatchRow[];
   return rows.map(toCveMatch);
 }
