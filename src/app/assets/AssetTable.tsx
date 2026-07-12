@@ -17,6 +17,9 @@ export interface AssetRowData {
   scheduleLabel: string;
   badgeStatus: BadgeStatus;
   badgeLabel: string;
+  // 최근 7일 내 critical CVE 경보 수. /assets 목록만 채워 넣는다 — 업로드
+  // 미리보기·프로젝트 상세 등 다른 사용처는 생략(배지 없음)이 기본이라 optional.
+  newCveAlertCount?: number;
 }
 
 type PanelMode = null | "move" | "schedule";
@@ -260,6 +263,11 @@ export function AssetTable({
                   <Link href={`/assets/${row.id}`} className="font-semibold text-primary hover:underline">
                     {row.displayName}
                   </Link>
+                  {(row.newCveAlertCount ?? 0) > 0 && (
+                    <span className="ml-2 align-middle">
+                      <StatusBadge status="fail">신규 CVE {row.newCveAlertCount}</StatusBadge>
+                    </span>
+                  )}
                   <p className="mt-0.5 font-mono text-[13px] text-muted">{row.detail}</p>
                 </td>
                 <td className="px-5 py-3 text-muted">{row.typeLabel}</td>

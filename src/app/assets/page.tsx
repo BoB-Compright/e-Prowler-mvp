@@ -3,6 +3,7 @@ import { listAssets } from "@/lib/assets/store";
 import { listProjects } from "@/lib/projects/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
+import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
 import { matchesAssetQuery } from "@/lib/search/match";
 import { AssetFilters } from "./AssetFilters";
 import { AssetTable } from "./AssetTable";
@@ -23,6 +24,7 @@ export default async function AssetsPage({
   const assets = listAssets(filter).filter((asset) => matchesAssetQuery(asset, query));
   const projects = listProjects();
   const statusMap = getAssetStatusMap();
+  const cveAlertCounts = countRecentCriticalCveAlertsByAsset();
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
@@ -81,6 +83,7 @@ export default async function AssetsPage({
               scheduleLabel,
               badgeStatus: badge.status,
               badgeLabel: badge.label,
+              newCveAlertCount: cveAlertCounts.get(asset.id) ?? 0,
             };
           })}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
