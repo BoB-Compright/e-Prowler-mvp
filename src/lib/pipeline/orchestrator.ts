@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { getDb } from "@/lib/db";
+import { getAsset } from "@/lib/assets/store";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
 import { buildImage, removeImage } from "./build";
@@ -212,9 +213,15 @@ export async function runPipeline(
     const sandboxTimeout = deps.scheduleSandboxTimeout(runId, containerName, undefined, undefined, db);
 
     updateRunStage(runId, "ansible", "running", {}, db);
+    const assetId = (
+      db.prepare(`SELECT asset_id FROM runs WHERE id = ?`).get(runId) as
+        | { asset_id: string | null }
+        | undefined
+    )?.asset_id ?? null;
+    const asset = assetId ? getAsset(assetId, db) : undefined;
     let results;
     try {
-      results = await deps.runChecks(dockerfilePath, containerName);
+      results = await deps.runChecks(dockerfilePath, containerName, asset);
     } catch (err) {
       clearTimeout(sandboxTimeout);
       await deps.stopSandbox(containerName);

@@ -4,9 +4,9 @@ import type { Asset } from "@/lib/assets/types";
 import { getAsset, listAssets } from "@/lib/assets/store";
 import { runAnsibleForServer } from "@/lib/checks/ansibleRunner";
 import { retryOnConnectionFailure, AuthFailureError } from "@/lib/checks/retry";
-import { evaluateAllChecks } from "@/lib/checks/ruleEvaluation";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
+import { resolveCheckPlan, evaluatePlan } from "@/lib/packs/resolve";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { createRun, isCancelled, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
@@ -30,7 +30,8 @@ export function repoScanConcurrency(env: Record<string, string | undefined> = pr
 export interface ServerScanDeps {
   runAnsibleForServer: typeof runAnsibleForServer;
   retryOnConnectionFailure: typeof retryOnConnectionFailure;
-  evaluateAllChecks: typeof evaluateAllChecks;
+  resolveCheckPlan: typeof resolveCheckPlan;
+  evaluatePlan: typeof evaluatePlan;
   saveCheckResults: typeof saveCheckResults;
   analyzeAndSaveChecks: typeof analyzeAndSaveChecks;
   runPipeline: typeof runPipeline;
@@ -39,7 +40,8 @@ export interface ServerScanDeps {
 const defaultDeps: ServerScanDeps = {
   runAnsibleForServer,
   retryOnConnectionFailure,
-  evaluateAllChecks,
+  resolveCheckPlan,
+  evaluatePlan,
   saveCheckResults,
   analyzeAndSaveChecks,
   runPipeline,
@@ -100,9 +102,10 @@ export async function runServerScanPipeline(
   db: Database = getDb(),
 ): Promise<void> {
   updateRunStage(run.id, "connect", "running", {}, db);
+  const plan = deps.resolveCheckPlan(asset);
   let tasks;
   try {
-    tasks = await deps.retryOnConnectionFailure(() => deps.runAnsibleForServer(asset));
+    tasks = await deps.retryOnConnectionFailure(() => deps.runAnsibleForServer(asset, plan.evidenceTasks));
   } catch (err) {
     // Global constraint: never surface raw credentials/stderr for an auth
     // failure — only the fixed "인증 실패" message is recorded.
@@ -116,7 +119,7 @@ export async function runServerScanPipeline(
   updateRunStage(run.id, "ansible_scan", "succeeded", {}, db);
 
   updateRunStage(run.id, "rule_evaluation", "running", {}, db);
-  const results: CheckResult[] = deps.evaluateAllChecks(null, tasks);
+  const results: CheckResult[] = deps.evaluatePlan(plan, { findings: null, tasks }, asset);
   deps.saveCheckResults(run.id, results, db);
   updateRunStage(run.id, "rule_evaluation", "succeeded", {}, db);
 

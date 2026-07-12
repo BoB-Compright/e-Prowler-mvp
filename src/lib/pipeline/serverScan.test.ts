@@ -7,8 +7,11 @@ import { createServerAsset, createRepoAsset } from "@/lib/assets/store";
 import { cancelRun, getRun } from "@/lib/pipeline/runs";
 import { createScanBatch } from "./scanBatches";
 import { listCheckResults } from "@/lib/checks/store";
-import { evaluateAllChecks } from "@/lib/checks/ruleEvaluation";
 import { saveCheckResults } from "@/lib/checks/store";
+import type { CheckResult } from "@/lib/checks/types";
+import { osUnixPack } from "@/lib/packs/osUnix";
+import type { CheckPlan, EvalContext } from "@/lib/packs/types";
+import type { Asset } from "@/lib/assets/types";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { retryOnConnectionFailure, AuthFailureError, ConnectionFailureError } from "@/lib/checks/retry";
@@ -25,15 +28,36 @@ import {
 
 let db: Database;
 
+// resolveCheckPlan/evaluatePlan are stubbed (not the real vendor-pack
+// implementation) — the real osUnixPack only covers U-* items, so it can't
+// produce a "C-01" result for the fixture task below. The stub instead maps
+// each ansible task straight to a "pass" CheckResult keyed by its catalog id
+// prefix, which is enough to exercise the pipeline wiring (resolve -> run
+// ansible with plan.evidenceTasks -> evaluate -> save) without duplicating
+// resolve.ts/osUnix.ts's own (separately tested) logic here.
+function fakeResolveCheckPlan(_asset: Asset): CheckPlan {
+  return { packs: [osUnixPack], evidenceTasks: [] };
+}
+
+function fakeEvaluatePlan(_plan: CheckPlan, ctx: EvalContext, _asset: Asset): CheckResult[] {
+  return ctx.tasks.map((t) => ({
+    id: t.taskName.split(":")[0].trim(),
+    status: "pass",
+    evidence: t.stdout,
+  }));
+}
+
 // Only the actual SSH/ansible-playbook boundary (runAnsibleForServer) is
-// mocked here — rule evaluation, check persistence and Claude analysis reuse
-// the real (already independently tested) implementations, same as the
-// container orchestrator's tests mock only clone/build/sandbox/runChecks.
+// mocked here — check persistence and Claude analysis reuse the real
+// (already independently tested) implementations, same as the container
+// orchestrator's tests mock only clone/build/sandbox/runChecks.
+// resolveCheckPlan/evaluatePlan are stubbed (see fakeResolveCheckPlan above).
 function baseDeps(overrides: Partial<ServerScanDeps> = {}): ServerScanDeps {
   return {
     runAnsibleForServer: vi.fn().mockResolvedValue([{ taskName: "C-01: runtime uid", stdout: "1000\n" }]),
     retryOnConnectionFailure,
-    evaluateAllChecks,
+    resolveCheckPlan: fakeResolveCheckPlan,
+    evaluatePlan: fakeEvaluatePlan,
     saveCheckResults,
     analyzeAndSaveChecks,
     runPipeline,

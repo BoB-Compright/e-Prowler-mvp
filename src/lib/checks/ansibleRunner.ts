@@ -1,8 +1,12 @@
 import { execFile } from "child_process";
+import fs from "fs";
+import os from "os";
 import path from "path";
 import { promisify } from "util";
 import type { Asset } from "@/lib/assets/types";
 import { decryptSecret } from "@/lib/crypto/secretCipher";
+import { renderTasksYaml } from "@/lib/packs/playbook";
+import type { PlaybookTask } from "@/lib/packs/types";
 import { AuthFailureError, ConnectionFailureError } from "./retry";
 import { buildSshArgs } from "./sshCommand";
 import { withTempKeyFile } from "./tempKeyFile";
@@ -10,6 +14,26 @@ import { withTempKeyFile } from "./tempKeyFile";
 const execFileAsync = promisify(execFile);
 
 const PLAYBOOK_PATH = path.join(process.cwd(), "ansible", "security-checks.yml");
+
+// base 플레이북(security-checks.yml)에 벤더 증거 태스크를 append한 임시
+// 플레이북을 만들어 그 경로를 콜백에 넘긴다. extraTasks가 비면 base 경로를
+// 그대로 사용(임시 파일 없음).
+async function withComposedPlaybook<T>(
+  extraTasks: PlaybookTask[],
+  fn: (playbookPath: string) => Promise<T>,
+): Promise<T> {
+  if (extraTasks.length === 0) return fn(PLAYBOOK_PATH);
+  const base = fs.readFileSync(PLAYBOOK_PATH, "utf8");
+  const composed = `${base.replace(/\s*$/, "")}\n${renderTasksYaml(extraTasks)}\n`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nhg-playbook-"));
+  const file = path.join(dir, "checks.yml");
+  fs.writeFileSync(file, composed, { mode: 0o600 });
+  try {
+    return await fn(file);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 // Servers can be slower/less predictable to reach than the local sandbox
 // container, so they get a longer timeout than the container path's 60s.
@@ -62,10 +86,15 @@ async function execAnsiblePlaybook(
 // Runs ansible/security-checks.yml against a single running sandbox
 // container via the community.docker.docker connection plugin (docker exec
 // under the hood — no SSH/agent setup, no Python required in the target).
-export async function runAnsibleChecks(containerName: string): Promise<AnsibleTaskOutput[]> {
-  return execAnsiblePlaybook(
-    ["-i", `${containerName},`, "-c", "community.docker.docker", PLAYBOOK_PATH],
-    60_000,
+export async function runAnsibleChecks(
+  containerName: string,
+  extraTasks: PlaybookTask[] = [],
+): Promise<AnsibleTaskOutput[]> {
+  return withComposedPlaybook(extraTasks, (playbookPath) =>
+    execAnsiblePlaybook(
+      ["-i", `${containerName},`, "-c", "community.docker.docker", playbookPath],
+      60_000,
+    ),
   );
 }
 
@@ -143,8 +172,9 @@ async function runAnsibleWithArgs(
   connectionArgs: string[],
   extraVars: Record<string, string>,
   timeoutMs: number,
+  playbookPath: string,
 ): Promise<AnsibleTaskOutput[]> {
-  const baseArgs = [...connectionArgs, PLAYBOOK_PATH];
+  const baseArgs = [...connectionArgs, playbookPath];
   const invoke = (args: string[]) =>
     execAnsiblePlaybook(args, timeoutMs, { ANSIBLE_HOST_KEY_CHECKING: "false" }).catch((err) => {
       throw classifyAnsibleError(err);
@@ -166,21 +196,24 @@ async function runAnsibleWithArgs(
 // predictable to reach than a local sandbox container.
 export async function runAnsibleForServer(
   asset: Asset,
+  extraTasks: PlaybookTask[] = [],
   timeoutMs: number = SERVER_TIMEOUT_MS,
 ): Promise<AnsibleTaskOutput[]> {
   const { decryptedSecret, needsKeyFile } = buildServerRunPlan(asset);
 
-  const run = (keyFilePath: string | null): Promise<AnsibleTaskOutput[]> => {
-    const plan = buildSshArgs(asset, decryptedSecret, keyFilePath);
-    return runAnsibleWithArgs(plan.args, plan.extraVars, timeoutMs);
-  };
+  return withComposedPlaybook(extraTasks, (playbookPath) => {
+    const run = (keyFilePath: string | null): Promise<AnsibleTaskOutput[]> => {
+      const plan = buildSshArgs(asset, decryptedSecret, keyFilePath);
+      return runAnsibleWithArgs(plan.args, plan.extraVars, timeoutMs, playbookPath);
+    };
 
-  if (needsKeyFile) {
-    // OpenSSH 개인키는 마지막 줄 뒤 개행이 없으면 ssh가 "invalid format"으로 거부해
-    // 인증이 실패한다. 저장 과정(엑셀 셀·폼 붙여넣기 등)에서 끝 개행이 누락됐을 수
-    // 있으므로 파일에 쓰기 전 개행을 보장한다.
-    const keyContent = decryptedSecret.endsWith("\n") ? decryptedSecret : `${decryptedSecret}\n`;
-    return withTempKeyFile(keyContent, (keyFilePath) => run(keyFilePath));
-  }
-  return run(null);
+    if (needsKeyFile) {
+      // OpenSSH 개인키는 마지막 줄 뒤 개행이 없으면 ssh가 "invalid format"으로 거부해
+      // 인증이 실패한다. 저장 과정(엑셀 셀·폼 붙여넣기 등)에서 끝 개행이 누락됐을 수
+      // 있으므로 파일에 쓰기 전 개행을 보장한다.
+      const keyContent = decryptedSecret.endsWith("\n") ? decryptedSecret : `${decryptedSecret}\n`;
+      return withTempKeyFile(keyContent, (keyFilePath) => run(keyFilePath));
+    }
+    return run(null);
+  });
 }
