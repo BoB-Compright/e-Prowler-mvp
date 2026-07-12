@@ -5,9 +5,9 @@ import { getCatalogByCategory } from "@/lib/catalog";
 import type { EvalContext, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
-const TNS = "$TNS_ADMIN/listener.ora /opt/oracle/*/network/admin/listener.ora /u01/*/network/admin/listener.ora /opt/oracle/product/*/*/network/admin/listener.ora";
-const SQLNET = "$TNS_ADMIN/sqlnet.ora /opt/oracle/*/network/admin/sqlnet.ora /u01/*/network/admin/sqlnet.ora /opt/oracle/product/*/*/network/admin/sqlnet.ora";
-const PFILE = "/opt/oracle/*/dbs/init*.ora /u01/*/dbs/init*.ora $ORACLE_HOME/dbs/init*.ora";
+const TNS = "$TNS_ADMIN/listener.ora /opt/oracle/*/network/admin/listener.ora /u01/*/network/admin/listener.ora /opt/oracle/product/*/*/network/admin/listener.ora /u01/app/oracle/product/*/*/network/admin/listener.ora";
+const SQLNET = "$TNS_ADMIN/sqlnet.ora /opt/oracle/*/network/admin/sqlnet.ora /u01/*/network/admin/sqlnet.ora /opt/oracle/product/*/*/network/admin/sqlnet.ora /u01/app/oracle/product/*/*/network/admin/sqlnet.ora";
+const PFILE = "/opt/oracle/*/dbs/init*.ora /u01/*/dbs/init*.ora $ORACLE_HOME/dbs/init*.ora /opt/oracle/product/*/*/dbs/init*.ora /u01/app/oracle/product/*/*/dbs/init*.ora";
 
 export const ORACLE_EVIDENCE: PlaybookTask[] = [
   { name: "oracle detection (internal)",
@@ -118,8 +118,8 @@ export function evaluateORA06(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 export function evaluateORA07(tasks: AnsibleTaskOutput[]): CheckResult {
   const v = oraValue(getOracleState(tasks).sqlnet, "SQLNET.ENCRYPTION_SERVER");
-  const ok = v !== null && v !== "";
-  return { id: "ORA-07", status: ok ? "pass" : "fail", evidence: ok ? `SQLNET.ENCRYPTION_SERVER: ${v}` : "SQLNET.ENCRYPTION_SERVER가 설정되어 있지 않음" };
+  const ok = v !== null && /^(required|requested)$/i.test(v.trim());
+  return { id: "ORA-07", status: ok ? "pass" : "fail", evidence: v === null ? "SQLNET.ENCRYPTION_SERVER가 설정되어 있지 않음" : `SQLNET.ENCRYPTION_SERVER: ${v}${ok ? "" : " (암호화 미강제)"}` };
 }
 export function evaluateORA08(tasks: AnsibleTaskOutput[]): CheckResult {
   const { listener } = getOracleState(tasks);
@@ -127,16 +127,18 @@ export function evaluateORA08(tasks: AnsibleTaskOutput[]): CheckResult {
   const off = oraHas(listener, /LOGGING_\w+\s*=\s*off/i);
   return { id: "ORA-08", status: off ? "fail" : "pass", evidence: off ? "리스너 로깅이 OFF로 설정됨" : "리스너 로깅이 비활성화되어 있지 않음" };
 }
+const SPFILE_POINTER_RE = /^\s*spfile\s*=/im;
+
 export function evaluateORA09(tasks: AnsibleTaskOutput[]): CheckResult {
   const { pfile } = getOracleState(tasks);
-  if (!pfile) return { id: "ORA-09", status: "review", evidence: "init pfile을 확인할 수 없음(spfile 사용 가능) — audit_trail은 라이브 확인 필요(수동/AI)" };
+  if (!pfile || SPFILE_POINTER_RE.test(pfile)) return { id: "ORA-09", status: "review", evidence: "init pfile을 확인할 수 없거나 spfile 포인터만 존재함(실제 파라미터는 바이너리 spfile에 있음) — audit_trail은 라이브 확인 필요(수동/AI)" };
   const v = oraValue(pfile, "audit_trail");
   const ok = v !== null && !/^(none|false)$/i.test(v);
   return { id: "ORA-09", status: ok ? "pass" : "fail", evidence: `audit_trail: ${v ?? "미설정"}` };
 }
 export function evaluateORA10(tasks: AnsibleTaskOutput[]): CheckResult {
   const { pfile } = getOracleState(tasks);
-  if (!pfile) return { id: "ORA-10", status: "review", evidence: "init pfile을 확인할 수 없음(spfile 사용 가능) — remote_login_passwordfile은 라이브 확인 필요(수동/AI)" };
+  if (!pfile || SPFILE_POINTER_RE.test(pfile)) return { id: "ORA-10", status: "review", evidence: "init pfile을 확인할 수 없거나 spfile 포인터만 존재함(실제 파라미터는 바이너리 spfile에 있음) — remote_login_passwordfile은 라이브 확인 필요(수동/AI)" };
   const v = oraValue(pfile, "remote_login_passwordfile");
   const ok = v !== null && /^(exclusive|none)$/i.test(v);
   return { id: "ORA-10", status: ok ? "pass" : "fail", evidence: `remote_login_passwordfile: ${v ?? "미설정"}` };

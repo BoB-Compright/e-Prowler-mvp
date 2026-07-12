@@ -64,8 +64,11 @@ describe("evaluators ORA-01~06", () => {
 });
 
 describe("evaluators ORA-07~12", () => {
-  it("ORA-07 encryption set → pass, absent → fail", () => {
+  it("ORA-07 encryption REQUIRED/REQUESTED → pass, REJECTED/ACCEPTED/absent → fail", () => {
     expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "SQLNET.ENCRYPTION_SERVER = REQUIRED")])).status).toBe("pass");
+    expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "SQLNET.ENCRYPTION_SERVER = REQUESTED")])).status).toBe("pass");
+    expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "SQLNET.ENCRYPTION_SERVER = REJECTED")])).status).toBe("fail");
+    expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "SQLNET.ENCRYPTION_SERVER = ACCEPTED")])).status).toBe("fail");
     expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "# none")])).status).toBe("fail");
   });
   it("ORA-08 logging off → fail, else pass, no listener → skip", () => {
@@ -78,10 +81,16 @@ describe("evaluators ORA-07~12", () => {
     expect(evaluateORA09(O([t("oracle init pfile (internal)", "audit_trail = none")])).status).toBe("fail");
     expect(evaluateORA09(O([t("oracle init pfile (internal)", "__MISSING__")])).status).toBe("review");
   });
+  it("ORA-09 spfile pointer pfile (no live params) → review", () => {
+    expect(evaluateORA09(O([t("oracle init pfile (internal)", "SPFILE='/u01/app/oracle/product/19.0.0/dbhome_1/dbs/spfileORCL.ora'")])).status).toBe("review");
+  });
   it("ORA-10 pfile remote_login_passwordfile EXCLUSIVE → pass, SHARED → fail, no pfile → review", () => {
     expect(evaluateORA10(O([t("oracle init pfile (internal)", "remote_login_passwordfile = EXCLUSIVE")])).status).toBe("pass");
     expect(evaluateORA10(O([t("oracle init pfile (internal)", "remote_login_passwordfile = SHARED")])).status).toBe("fail");
     expect(evaluateORA10(O([t("oracle init pfile (internal)", "__MISSING__")])).status).toBe("review");
+  });
+  it("ORA-10 spfile pointer pfile (no live params) → review", () => {
+    expect(evaluateORA10(O([t("oracle init pfile (internal)", "SPFILE='/u01/app/oracle/product/19.0.0/dbhome_1/dbs/spfileORCL.ora'")])).status).toBe("review");
   });
   it("ORA-11 → review, ORA-12 → review with version", () => {
     expect(evaluateORA11().status).toBe("review");
