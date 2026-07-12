@@ -33,6 +33,12 @@ describe("resolveCheckPlan", () => {
     expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "db-mysql"]);
     expect(plan.evidenceTasks.some((t) => t.name === "mysql detection (internal)")).toBe(true);
   });
+  it("server + DB/PostgreSQL → os-unix + db-postgresql with postgres evidence", () => {
+    const asset = { ...base, type: "server", category: "DB", vendor: "PostgreSQL" } as Asset;
+    const plan = resolveCheckPlan(asset);
+    expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "db-postgresql"]);
+    expect(plan.evidenceTasks.some((t) => t.name === "postgres detection (internal)")).toBe(true);
+  });
   it("server + OS/Ubuntu → os-unix only", () => {
     const asset = { ...base, type: "server", category: "OS", vendor: "Ubuntu" } as Asset;
     expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-unix"]);

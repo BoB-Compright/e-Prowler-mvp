@@ -10,7 +10,7 @@ describe("registry", () => {
     expect(findVendorPack("DB", "Oracle")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mysql", "os-unix", "was-tomcat", "web-apache", "web-nginx"]);
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mysql", "db-postgresql", "os-unix", "was-tomcat", "web-apache", "web-nginx"]);
   });
   it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
     expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
@@ -25,5 +25,9 @@ describe("registry", () => {
     expect(findVendorPack("DB", "mysql")?.id).toBe("db-mysql");
     expect(findVendorPack("DB", "MariaDB")?.id).toBe("db-mysql");
     expect(findVendorPack("DB", "mariadb")?.id).toBe("db-mysql");
+  });
+  it("finds the db-postgresql pack by DB/PostgreSQL (case-insensitive vendor)", () => {
+    expect(findVendorPack("DB", "PostgreSQL")?.id).toBe("db-postgresql");
+    expect(findVendorPack("DB", "postgresql")?.id).toBe("db-postgresql");
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PG_EVIDENCE, getPgState, pgValue, pgBool, evaluatePG01, evaluatePG02, evaluatePG03, evaluatePG04, evaluatePG05, evaluatePG06, evaluatePG07, evaluatePG08, evaluatePG09, evaluatePG10, evaluatePG11, evaluatePG12 } from "./dbPostgres";
+import { PG_EVIDENCE, getPgState, pgValue, pgBool, evaluatePG01, evaluatePG02, evaluatePG03, evaluatePG04, evaluatePG05, evaluatePG06, evaluatePG07, evaluatePG08, evaluatePG09, evaluatePG10, evaluatePG11, evaluatePG12, dbPostgresPack } from "./dbPostgres";
+import { getCatalogByCategory } from "@/lib/catalog";
 
 const present = [
   { taskName: "postgres detection (internal)", stdout: "present\n" },
@@ -79,4 +80,16 @@ describe("evaluators PG-07~12", () => {
     expect(r.status).toBe("review");
     expect(r.evidence).toContain("16.3");
   });
+});
+
+it("dbPostgresPack shape: PG-* only, one result per item", () => {
+  const pgIds = getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("PG-")).sort();
+  expect(dbPostgresPack.id).toBe("db-postgresql");
+  expect(dbPostgresPack.vendors).toEqual(["PostgreSQL"]);
+  expect(dbPostgresPack.itemIds.slice().sort()).toEqual(pgIds);
+  expect(dbPostgresPack.itemIds.every((id) => id.startsWith("PG-"))).toBe(true);
+  const present = [{ taskName: "postgres detection (internal)", stdout: "present" }];
+  expect(dbPostgresPack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort()).toEqual(pgIds);
+  expect(dbPostgresPack.detect(present)).toBe(true);
+  expect(dbPostgresPack.detect([])).toBe(false);
 });

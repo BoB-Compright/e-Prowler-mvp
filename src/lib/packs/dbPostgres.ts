@@ -1,6 +1,8 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
+import { getCatalogByCategory } from "@/lib/catalog";
+import type { EvalContext, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
 const CONF_GLOB = "/etc/postgresql/*/main/postgresql.conf /var/lib/pgsql/*/data/postgresql.conf /var/lib/postgresql/*/main/postgresql.conf /var/lib/pgsql/data/postgresql.conf";
@@ -149,3 +151,22 @@ export function evaluatePG12(tasks: AnsibleTaskOutput[]): CheckResult {
   const version = getPgState(tasks).version || "확인 불가";
   return { id: "PG-12", status: "review", evidence: `PostgreSQL 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
+
+function evaluatePg(ctx: EvalContext): CheckResult[] {
+  const t = ctx.tasks;
+  return [
+    evaluatePG01(t), evaluatePG02(t), evaluatePG03(t), evaluatePG04(t), evaluatePG05(t), evaluatePG06(t),
+    evaluatePG07(t), evaluatePG08(t), evaluatePG09(t), evaluatePG10(t), evaluatePG11(), evaluatePG12(t),
+  ];
+}
+
+export const dbPostgresPack: VendorPack = {
+  id: "db-postgresql",
+  category: "DB",
+  vendors: ["PostgreSQL"],
+  executionPath: "linux",
+  itemIds: getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("PG-")),
+  evidenceTasks: PG_EVIDENCE,
+  detect: (tasks) => getPgState(tasks).present,
+  evaluate: evaluatePg,
+};
