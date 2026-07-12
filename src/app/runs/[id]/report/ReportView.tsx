@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Run } from "@/lib/pipeline/types";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
+import { getFrameworks } from "@/lib/catalog";
 import {
   CHECK_STATUS_LABELS,
   type Category,
@@ -86,6 +87,7 @@ export function ReportView({ runId }: { runId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [statusFilter, setStatusFilter] = useState<CheckStatus | "all">("all");
+  const [frameworkFilter, setFrameworkFilter] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -110,10 +112,17 @@ export function ReportView({ runId }: { runId: string }) {
   if (notFound) return <p className="text-fail">해당 실행을 찾을 수 없습니다.</p>;
   if (!run) return <p className="text-muted">불러오는 중…</p>;
 
+  const frameworks = getFrameworks();
+  const presentFrameworkIds = Array.from(
+    new Set(checks.map((c) => c.frameworkId).filter((x): x is string => !!x)),
+  );
+  const visibleFrameworks = frameworks.filter((f) => presentFrameworkIds.includes(f.id));
+
   const filtered = checks.filter(
     (c) =>
       (categoryFilter === "all" || c.category === categoryFilter) &&
-      (statusFilter === "all" || c.status === statusFilter),
+      (statusFilter === "all" || c.status === statusFilter) &&
+      (!frameworkFilter || c.frameworkId === frameworkFilter),
   );
   const selected = filtered.find((c) => c.id === selectedId) ?? filtered[0] ?? null;
   const summary = computeRiskSummary(checks);
@@ -227,6 +236,25 @@ export function ReportView({ runId }: { runId: string }) {
                   </button>
                 ))}
               </div>
+              {visibleFrameworks.length > 1 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button
+                    className={chipStyle(!frameworkFilter)}
+                    onClick={() => setFrameworkFilter(null)}
+                  >
+                    전체
+                  </button>
+                  {visibleFrameworks.map((f) => (
+                    <button
+                      key={f.id}
+                      className={chipStyle(frameworkFilter === f.id)}
+                      onClick={() => setFrameworkFilter(f.id)}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="max-h-[560px] overflow-auto">
               {filtered.map((check) => {
@@ -253,6 +281,12 @@ export function ReportView({ runId }: { runId: string }) {
                       )}
                     </div>
                     <div className="mt-1 text-[13px]">{check.title}</div>
+                    {check.frameworkId && (
+                      <span className="mt-1 inline-block rounded bg-bg px-2 py-0.5 text-[11px] text-muted">
+                        {frameworks.find((f) => f.id === check.frameworkId)?.name ?? check.frameworkId}
+                        {check.sourceRef ? ` · ${check.sourceRef}` : ""}
+                      </span>
+                    )}
                   </button>
                 );
               })}
