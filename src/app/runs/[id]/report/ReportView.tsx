@@ -19,6 +19,8 @@ import { SectionLabel } from "@/app/_components/SectionLabel";
 import { StatusBadge } from "@/app/_components/StatusBadge";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
 import { RescanButton } from "./RescanButton";
+import type { CveMatch } from "@/lib/cve/store";
+import { CveList } from "@/app/assets/[id]/CveList";
 
 const CATEGORY_CHIP_LABELS: Record<Category, string> = {
   container: "컨테이너",
@@ -97,6 +99,7 @@ function InlineCodeText({ text }: { text: string }) {
 export function ReportView({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [checks, setChecks] = useState<DecoratedCheckResult[]>([]);
+  const [cveMatches, setCveMatches] = useState<CveMatch[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [statusFilter, setStatusFilter] = useState<CheckStatus | "all">("all");
@@ -116,6 +119,7 @@ export function ReportView({ runId }: { runId: string }) {
       if (cancelled) return;
       setRun(data.run);
       setChecks(data.checks);
+      setCveMatches(data.cveMatches ?? []);
     }
     load();
     return () => {
@@ -212,6 +216,15 @@ export function ReportView({ runId }: { runId: string }) {
             <RiskSummaryBar summary={summary} />
           </div>
         </>
+      )}
+
+      {run.sourceType === "server" && cveMatches.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-2 text-[13px] text-muted">
+            이 자산의 CVE — 스캔 후 백그라운드로 수집되며, 새로고침 시 최신 상태로 갱신됩니다.
+          </p>
+          <CveList matches={cveMatches} />
+        </div>
       )}
 
       {checks.length === 0 ? (
