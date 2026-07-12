@@ -3,6 +3,7 @@ import type { CheckResult } from "@/lib/checks/types";
 import type { CheckPlan, EvalContext, VendorPack } from "./types";
 import { osUnixPack } from "./osUnix";
 import { containerPack } from "./container";
+import { osWindowsPack } from "./osWindows";
 import { findVendorPack } from "./registry";
 import { mergeEvidenceTasks } from "./playbook";
 
@@ -12,12 +13,19 @@ const UNSUPPORTED_VENDOR_ID = "VENDOR-NA";
 // 자산의 종류로 베이스라인을, category+vendor로 벤더 팩을 골라 합성한다.
 export function resolveCheckPlan(asset: Asset): CheckPlan {
   const packs: VendorPack[] = [];
-  packs.push(asset.type === "server" ? osUnixPack : containerPack);
+  const linuxBaseline = asset.type === "server" ? osUnixPack : containerPack;
 
-  // OS 카테고리는 베이스라인만(별도 벤더 팩 없음). WEB/WAS/DB만 벤더 팩을 더한다.
-  if (asset.category && asset.category !== "OS" && asset.vendor) {
-    const vp = findVendorPack(asset.category, asset.vendor);
-    if (vp) packs.push(vp);
+  if (asset.category === "OS") {
+    // OS 벤더 팩(os-windows 등) 매칭 시 그것만; 아니면 Linux 베이스라인.
+    const osVp = asset.vendor ? findVendorPack("OS", asset.vendor) : undefined;
+    packs.push(osVp ?? linuxBaseline);
+  } else {
+    const vendorPack =
+      asset.category && asset.vendor ? findVendorPack(asset.category, asset.vendor) : undefined;
+    // 벤더 팩이 windows 경로면 호스트도 Windows이므로 os-windows 베이스라인을 쓴다.
+    const baseline = vendorPack?.executionPath === "windows" ? osWindowsPack : linuxBaseline;
+    packs.push(baseline);
+    if (vendorPack) packs.push(vendorPack);
   }
 
   const evidenceTasks = mergeEvidenceTasks(packs.map((p) => p.evidenceTasks));

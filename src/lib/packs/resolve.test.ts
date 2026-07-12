@@ -53,6 +53,14 @@ describe("resolveCheckPlan", () => {
     const asset = { ...base, type: "repo", category: null, vendor: null } as Asset;
     expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["container"]);
   });
+  it("server + OS/Windows Server → [os-windows] (not os-unix)", () => {
+    const asset = { ...base, type: "server", category: "OS", vendor: "Windows Server" } as Asset;
+    expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-windows"]);
+  });
+  it("Linux OS/Ubuntu still → [os-unix] (no regression)", () => {
+    const asset = { ...base, type: "server", category: "OS", vendor: "Ubuntu" } as Asset;
+    expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-unix"]);
+  });
 });
 
 describe("evaluatePack review rules", () => {

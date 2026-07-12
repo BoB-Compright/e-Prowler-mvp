@@ -10,7 +10,7 @@ describe("registry", () => {
     expect(findVendorPack("DB", "SQLServer")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mysql", "db-oracle", "db-postgresql", "os-unix", "was-tomcat", "web-apache", "web-nginx"]);
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mysql", "db-oracle", "db-postgresql", "os-unix", "os-windows", "was-tomcat", "web-apache", "web-nginx"]);
   });
   it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
     expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
@@ -33,5 +33,8 @@ describe("registry", () => {
   it("finds the db-oracle pack by DB/Oracle (case-insensitive vendor)", () => {
     expect(findVendorPack("DB", "Oracle")?.id).toBe("db-oracle");
     expect(findVendorPack("DB", "oracle")?.id).toBe("db-oracle");
+  });
+  it("finds the os-windows pack by OS/Windows Server", () => {
+    expect(findVendorPack("OS", "Windows Server")?.id).toBe("os-windows");
   });
 });
