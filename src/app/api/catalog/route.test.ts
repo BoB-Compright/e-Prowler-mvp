@@ -45,6 +45,7 @@ describe("GET /api/catalog", () => {
 
     expect(body.frameworks).toEqual([
       { id: "kisa", name: "KISA 주요정보통신기반시설 가이드" },
+      { id: "cis", name: "CIS Benchmark" },
     ]);
     expect(body.summary.byFramework.kisa).toBe(102);
     expect(body.items[0].frameworkId).toBe("kisa");
