@@ -13,12 +13,13 @@ import { withTempKeyFile } from "./tempKeyFile";
 
 const execFileAsync = promisify(execFile);
 
-const PLAYBOOK_PATH = path.join(process.cwd(), "ansible", "security-checks.yml");
+export const PLAYBOOK_PATH = path.join(process.cwd(), "ansible", "security-checks.yml");
 
 // base 플레이북(security-checks.yml)에 벤더 증거 태스크를 append한 임시
 // 플레이북을 만들어 그 경로를 콜백에 넘긴다. extraTasks가 비면 base 경로를
 // 그대로 사용(임시 파일 없음).
-async function withComposedPlaybook<T>(
+// exported for unit testing (see ansibleRunner.test.ts) — no behavior change.
+export async function withComposedPlaybook<T>(
   extraTasks: PlaybookTask[],
   fn: (playbookPath: string) => Promise<T>,
 ): Promise<T> {

@@ -1,9 +1,19 @@
 import { randomBytes } from "crypto";
+import fs from "fs";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import type { Asset } from "@/lib/assets/types";
 import { encryptSecret } from "@/lib/crypto/secretCipher";
+import { renderTasksYaml } from "@/lib/packs/playbook";
+import type { PlaybookTask } from "@/lib/packs/types";
 import { AuthFailureError, ConnectionFailureError } from "./retry";
-import { buildServerRunPlan, classifyAnsibleError, findTaskOutput } from "./ansibleRunner";
+import {
+  PLAYBOOK_PATH,
+  buildServerRunPlan,
+  classifyAnsibleError,
+  findTaskOutput,
+  withComposedPlaybook,
+} from "./ansibleRunner";
 
 describe("findTaskOutput", () => {
   it("matches a task by its catalog id prefix", () => {
@@ -92,5 +102,61 @@ describe("classifyAnsibleError", () => {
   it("leaves an unrecognized error as-is", () => {
     const err = new Error("stdout was not valid JSON");
     expect(classifyAnsibleError(err)).toBe(err);
+  });
+});
+
+describe("withComposedPlaybook", () => {
+  it("calls fn with the base PLAYBOOK_PATH and writes no temp file when extraTasks is empty", async () => {
+    const seenPaths: string[] = [];
+    const result = await withComposedPlaybook([], async (playbookPath) => {
+      seenPaths.push(playbookPath);
+      return "ok";
+    });
+
+    expect(result).toBe("ok");
+    expect(seenPaths).toEqual([PLAYBOOK_PATH]);
+    expect(PLAYBOOK_PATH.endsWith(path.join("ansible", "security-checks.yml"))).toBe(true);
+  });
+
+  it("composes a temp playbook (base + rendered extra tasks) and passes its path to fn", async () => {
+    const extraTasks: PlaybookTask[] = [{ name: "V-01: vendor probe", raw: "echo hi" }];
+    const baseContent = fs.readFileSync(PLAYBOOK_PATH, "utf8");
+
+    let capturedPath = "";
+    let capturedContent = "";
+    let capturedMode = 0;
+    await withComposedPlaybook(extraTasks, async (playbookPath) => {
+      capturedPath = playbookPath;
+      capturedContent = fs.readFileSync(playbookPath, "utf8");
+      capturedMode = fs.statSync(playbookPath).mode & 0o777;
+      return undefined;
+    });
+
+    expect(capturedPath).not.toBe(PLAYBOOK_PATH);
+    expect(capturedContent).toContain('- name: "C-01: runtime uid"');
+    expect(capturedContent).toContain('- name: "V-01: vendor probe"');
+    expect(capturedContent).toContain(renderTasksYaml(extraTasks));
+    expect(capturedContent).toBe(
+      `${baseContent.replace(/\s*$/, "")}\n${renderTasksYaml(extraTasks)}\n`,
+    );
+    expect(capturedMode).toBe(0o600);
+
+    // cleanup: the temp dir must be gone once withComposedPlaybook resolves.
+    expect(fs.existsSync(path.dirname(capturedPath))).toBe(false);
+  });
+
+  it("still cleans up the temp dir when fn throws", async () => {
+    const extraTasks: PlaybookTask[] = [{ name: "V-02: failing probe", raw: "false" }];
+    let capturedPath = "";
+
+    await expect(
+      withComposedPlaybook(extraTasks, async (playbookPath) => {
+        capturedPath = playbookPath;
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+
+    expect(capturedPath).not.toBe("");
+    expect(fs.existsSync(path.dirname(capturedPath))).toBe(false);
   });
 });
