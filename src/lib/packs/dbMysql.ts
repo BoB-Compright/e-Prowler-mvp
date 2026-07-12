@@ -10,7 +10,7 @@ export const MYSQL_EVIDENCE: PlaybookTask[] = [
   { name: "mysql detection (internal)",
     raw: `sh -c '(command -v mysqld >/dev/null 2>&1 || command -v mariadbd >/dev/null 2>&1 || command -v mysql >/dev/null 2>&1 || [ -f /etc/mysql/my.cnf ] || [ -f /etc/my.cnf ]) && echo present || echo absent; true'` },
   { name: "mysql config (internal)",
-    raw: `sh -c 'found=0; for f in /etc/mysql/my.cnf /etc/mysql/mysql.conf.d/*.cnf /etc/mysql/mariadb.conf.d/*.cnf /etc/my.cnf /etc/my.cnf.d/*.cnf; do if [ -f "$f" ]; then found=1; echo "### $f"; cat "$f"; fi; done; [ "$found" -eq 0 ] && echo ${MISSING}; true'` },
+    raw: `sh -c 'found=0; for f in /etc/mysql/my.cnf /etc/mysql/conf.d/*.cnf /etc/mysql/mysql.conf.d/*.cnf /etc/mysql/mariadb.conf.d/*.cnf /etc/my.cnf /etc/my.cnf.d/*.cnf; do if [ -f "$f" ]; then found=1; echo "### $f"; cat "$f"; fi; done; [ "$found" -eq 0 ] && echo ${MISSING}; true'` },
   { name: "mysql datadir perms (internal)",
     raw: `sh -c 'D=$(grep -rhiE "^[[:space:]]*datadir" /etc/mysql /etc/my.cnf /etc/my.cnf.d 2>/dev/null | head -1 | sed "s/.*=//; s/[[:space:]]//g"); [ -z "$D" ] && D=/var/lib/mysql; if [ -d "$D" ]; then stat -c "%U:%G %a" "$D"; else echo ${MISSING}; fi; true'` },
   { name: "mysql conf perms (internal)",
@@ -29,9 +29,33 @@ function rawOut(tasks: AnsibleTaskOutput[], name: string): string {
   return s.trim() === MISSING ? "" : s;
 }
 
-// 활성(주석·빈 줄 제외) 라인. my.cnf 주석은 #, ;.
-function activeLines(config: string): string[] {
-  return config.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#") && !l.startsWith(";") && !l.startsWith("###") && !l.startsWith("["));
+// server 계열 섹션(값을 실제로 mysqld/mariadbd가 읽는 섹션)인지 판별.
+const SERVER_SECTIONS = new Set(["mysqld", "server", "mariadb", "mariadbd", "galera"]);
+function isServerSection(name: string): boolean {
+  const n = name.toLowerCase();
+  return SERVER_SECTIONS.has(n) || n.startsWith("mysqld-") || n.startsWith("mariadb-") || n.startsWith("mariadbd-");
+}
+
+// 섹션을 인지하며 서버가 실제로 읽는 라인만 반환. [client] 등 비서버 섹션은 제외,
+// 헤더 이전 라인은 포함(전역/legacy 설정), 인라인 주석은 제거.
+function serverConfigLines(config: string): string[] {
+  let currentSection: string | null = null;
+  const out: string[] = [];
+  for (const raw of config.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("#") || line.startsWith(";")) continue; // 주석, ### 파일 구분선 포함
+    if (/^!include(dir)?\b/i.test(line)) continue;
+    const header = line.match(/^\[(.+)\]$/);
+    if (header) {
+      currentSection = header[1].trim().toLowerCase();
+      continue;
+    }
+    if (currentSection !== null && !isServerSection(currentSection)) continue;
+    const cleaned = line.replace(/\s+#.*$/, "").trim();
+    if (cleaned) out.push(cleaned);
+  }
+  return out;
 }
 
 function normalizeKey(k: string): string {
@@ -39,23 +63,25 @@ function normalizeKey(k: string): string {
 }
 
 // `key = value` 또는 `key value`. 하이픈/언더스코어 동일 취급, 따옴표 제거.
+// 동일 키가 여러 번 나오면 마지막 값이 우선(MySQL last-wins semantics).
 export function cnfValue(config: string, key: string): string | null {
   const want = normalizeKey(key);
-  for (const line of activeLines(config)) {
+  let result: string | null = null;
+  for (const line of serverConfigLines(config)) {
     const eq = line.match(/^([A-Za-z0-9_-]+)\s*=\s*(.*)$/);
     const sp = line.match(/^([A-Za-z0-9_-]+)\s+(\S.*)$/);
     const m = eq ?? sp;
     if (m && normalizeKey(m[1]) === want) {
-      return m[2].trim().replace(/^["']|["']$/g, "");
+      result = m[2].trim().replace(/^["']|["']$/g, "");
     }
   }
-  return null;
+  return result;
 }
 
 // 값 없는 플래그(예: skip-networking) 또는 값 있는 키의 존재 여부.
 export function cnfHasFlag(config: string, key: string): boolean {
   const want = normalizeKey(key);
-  return activeLines(config).some((line) => {
+  return serverConfigLines(config).some((line) => {
     const m = line.match(/^([A-Za-z0-9_-]+)/);
     return m ? normalizeKey(m[1]) === want : false;
   });
@@ -156,7 +182,7 @@ export function evaluateDB09(tasks: AnsibleTaskOutput[]): CheckResult {
 
 export function evaluateDB10(tasks: AnsibleTaskOutput[]): CheckResult {
   const config = getMysqlState(tasks).config;
-  const configured = activeLines(config).some((l) => /^validate[_-]password/i.test(l));
+  const configured = serverConfigLines(config).some((l) => /^validate[_-]password/i.test(l));
   if (configured) return { id: "DB-10", status: "pass", evidence: "validate_password(비밀번호 검증)가 설정됨" };
   return { id: "DB-10", status: "review", evidence: "설정 파일에서 validate_password 구성을 확인할 수 없음 — 플러그인 로드는 라이브 SQL 확인 필요(수동/AI)" };
 }

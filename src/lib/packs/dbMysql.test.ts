@@ -93,6 +93,29 @@ describe("evaluators DB-07..12", () => {
   });
 });
 
+describe("my.cnf 파서: 섹션 인지 + last-match + 인라인 주석", () => {
+  it("last-match-wins: [mysqld] bind-address가 두 번 나오면 마지막 값이 우선", () => {
+    const config = "[mysqld]\nbind-address=127.0.0.1\n[mysqld]\nbind-address=0.0.0.0\n";
+    expect(evaluateDB08(D([t("mysql config (internal)", config)])).status).toBe("fail");
+  });
+  it("섹션 인지: [client]의 ssl-cert는 서버 TLS로 인정하지 않음", () => {
+    const config = "[client]\nssl-cert=/x.pem\n";
+    expect(evaluateDB07(D([t("mysql config (internal)", config)])).status).toBe("fail");
+  });
+  it("섹션 인지: [mysql] local-infile은 서버 설정이 아니므로 기본값(활성) 유지", () => {
+    const config = "[mysql]\nlocal-infile=0\n";
+    expect(evaluateDB06(D([t("mysql config (internal)", config)])).status).toBe("fail");
+  });
+  it("인라인 주석: 'symbolic-links=0 # hardened'는 값 0으로 파싱됨", () => {
+    const config = "[mysqld]\nsymbolic-links=0 # hardened\n";
+    expect(evaluateDB05(D([t("mysql config (internal)", config)])).status).toBe("pass");
+  });
+  it("회귀 방지: 헤더 이전 라인은 여전히 유효(bare local-infile=0)", () => {
+    const config = "local-infile=0\n";
+    expect(evaluateDB06(D([t("mysql config (internal)", config)])).status).toBe("pass");
+  });
+});
+
 describe("dbMysqlPack", () => {
   it("dbMysqlPack shape + evaluate one result per DB item", () => {
     const dbIds = getCatalogByCategory("db").map((i) => i.id).sort();
