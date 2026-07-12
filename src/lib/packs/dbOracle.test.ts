@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ORACLE_EVIDENCE, getOracleState, oraValue, oraHas, evaluateORA01, evaluateORA02, evaluateORA03, evaluateORA04, evaluateORA05, evaluateORA06 } from "./dbOracle";
+import { ORACLE_EVIDENCE, getOracleState, oraValue, oraHas, evaluateORA01, evaluateORA02, evaluateORA03, evaluateORA04, evaluateORA05, evaluateORA06, evaluateORA07, evaluateORA08, evaluateORA09, evaluateORA10, evaluateORA11, evaluateORA12 } from "./dbOracle";
 
 const present = [
   { taskName: "oracle detection (internal)", stdout: "present\n" },
@@ -59,5 +59,33 @@ describe("evaluators ORA-01~06", () => {
   it("ORA-06 auth services set → pass, absent → fail", () => {
     expect(evaluateORA06(O([t("oracle sqlnet.ora (internal)", "SQLNET.AUTHENTICATION_SERVICES = (NONE)")])).status).toBe("pass");
     expect(evaluateORA06(O([t("oracle sqlnet.ora (internal)", "# empty")])).status).toBe("fail");
+  });
+});
+
+describe("evaluators ORA-07~12", () => {
+  it("ORA-07 encryption set → pass, absent → fail", () => {
+    expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "SQLNET.ENCRYPTION_SERVER = REQUIRED")])).status).toBe("pass");
+    expect(evaluateORA07(O([t("oracle sqlnet.ora (internal)", "# none")])).status).toBe("fail");
+  });
+  it("ORA-08 logging off → fail, else pass, no listener → skip", () => {
+    expect(evaluateORA08(O([t("oracle listener.ora (internal)", "LOGGING_LISTENER = OFF")])).status).toBe("fail");
+    expect(evaluateORA08(O([t("oracle listener.ora (internal)", "LISTENER=(...)")])).status).toBe("pass");
+    expect(evaluateORA08(O([t("oracle listener.ora (internal)", "__MISSING__")])).status).toBe("skip");
+  });
+  it("ORA-09 pfile audit_trail db → pass, none → fail, no pfile → review", () => {
+    expect(evaluateORA09(O([t("oracle init pfile (internal)", "audit_trail = db")])).status).toBe("pass");
+    expect(evaluateORA09(O([t("oracle init pfile (internal)", "audit_trail = none")])).status).toBe("fail");
+    expect(evaluateORA09(O([t("oracle init pfile (internal)", "__MISSING__")])).status).toBe("review");
+  });
+  it("ORA-10 pfile remote_login_passwordfile EXCLUSIVE → pass, SHARED → fail, no pfile → review", () => {
+    expect(evaluateORA10(O([t("oracle init pfile (internal)", "remote_login_passwordfile = EXCLUSIVE")])).status).toBe("pass");
+    expect(evaluateORA10(O([t("oracle init pfile (internal)", "remote_login_passwordfile = SHARED")])).status).toBe("fail");
+    expect(evaluateORA10(O([t("oracle init pfile (internal)", "__MISSING__")])).status).toBe("review");
+  });
+  it("ORA-11 → review, ORA-12 → review with version", () => {
+    expect(evaluateORA11().status).toBe("review");
+    const r = evaluateORA12(O([t("oracle version (internal)", "SQL*Plus: Release 19.0.0.0.0")]));
+    expect(r.status).toBe("review");
+    expect(r.evidence).toContain("19.0.0.0.0");
   });
 });

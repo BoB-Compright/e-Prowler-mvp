@@ -114,3 +114,35 @@ export function evaluateORA06(tasks: AnsibleTaskOutput[]): CheckResult {
   const ok = v !== null && v !== "";
   return { id: "ORA-06", status: ok ? "pass" : "fail", evidence: ok ? `SQLNET.AUTHENTICATION_SERVICES: ${v}` : "SQLNET.AUTHENTICATION_SERVICES가 설정되어 있지 않음" };
 }
+export function evaluateORA07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const v = oraValue(getOracleState(tasks).sqlnet, "SQLNET.ENCRYPTION_SERVER");
+  const ok = v !== null && v !== "";
+  return { id: "ORA-07", status: ok ? "pass" : "fail", evidence: ok ? `SQLNET.ENCRYPTION_SERVER: ${v}` : "SQLNET.ENCRYPTION_SERVER가 설정되어 있지 않음" };
+}
+export function evaluateORA08(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { listener } = getOracleState(tasks);
+  if (!listener) return { id: "ORA-08", status: "skip", evidence: "listener.ora를 확인할 수 없음" };
+  const off = oraHas(listener, /LOGGING_\w+\s*=\s*off/i);
+  return { id: "ORA-08", status: off ? "fail" : "pass", evidence: off ? "리스너 로깅이 OFF로 설정됨" : "리스너 로깅이 비활성화되어 있지 않음" };
+}
+export function evaluateORA09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { pfile } = getOracleState(tasks);
+  if (!pfile) return { id: "ORA-09", status: "review", evidence: "init pfile을 확인할 수 없음(spfile 사용 가능) — audit_trail은 라이브 확인 필요(수동/AI)" };
+  const v = oraValue(pfile, "audit_trail");
+  const ok = v !== null && !/^(none|false)$/i.test(v);
+  return { id: "ORA-09", status: ok ? "pass" : "fail", evidence: `audit_trail: ${v ?? "미설정"}` };
+}
+export function evaluateORA10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { pfile } = getOracleState(tasks);
+  if (!pfile) return { id: "ORA-10", status: "review", evidence: "init pfile을 확인할 수 없음(spfile 사용 가능) — remote_login_passwordfile은 라이브 확인 필요(수동/AI)" };
+  const v = oraValue(pfile, "remote_login_passwordfile");
+  const ok = v !== null && /^(exclusive|none)$/i.test(v);
+  return { id: "ORA-10", status: ok ? "pass" : "fail", evidence: `remote_login_passwordfile: ${v ?? "미설정"}` };
+}
+export function evaluateORA11(): CheckResult {
+  return { id: "ORA-11", status: "review", evidence: "기본 계정/권한(예: 기본 비밀번호, 과다 권한)은 라이브 SQL(dba_users) 확인이 필요 — 수동 점검" };
+}
+export function evaluateORA12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const version = getOracleState(tasks).version || "확인 불가";
+  return { id: "ORA-12", status: "review", evidence: `Oracle 버전: ${version} — 정적 점검만으로 최신 패치(PSU/RU) 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
+}
