@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines, evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03 } from "./webApache";
+import { APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines, evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03, statNoGroupOtherWrite, isOwnerOnly } from "./webApache";
 
 const present = [
   { taskName: "apache detection (internal)", stdout: "present\n" },
@@ -51,5 +51,18 @@ describe("account-management evaluators WEB-01/02/03", () => {
     expect(evaluateApacheWEB03(ok).status).toBe("pass");
     expect(evaluateApacheWEB03(bad).status).toBe("fail");
     expect(evaluateApacheWEB03(none).status).toBe("skip");
+  });
+  it("statNoGroupOtherWrite: no group/other WRITE bit (750 ok, 777/775 fail)", () => {
+    expect(statNoGroupOtherWrite("root:adm 750")).toBe(true);
+    expect(statNoGroupOtherWrite("root:adm 640")).toBe(true);
+    expect(statNoGroupOtherWrite("root:root 777")).toBe(false);
+    expect(statNoGroupOtherWrite("root:root 775")).toBe(false);
+  });
+  it("isOwnerOnly: owner-only (600/400 ok, 640/644/750 fail)", () => {
+    expect(isOwnerOnly("root:root 600")).toBe(true);
+    expect(isOwnerOnly("root:root 400")).toBe(true);
+    expect(isOwnerOnly("root:root 640")).toBe(false);
+    expect(isOwnerOnly("root:root 644")).toBe(false);
+    expect(isOwnerOnly("root:adm 750")).toBe(false);
   });
 });
