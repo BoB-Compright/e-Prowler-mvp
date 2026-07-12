@@ -78,6 +78,21 @@ describe("cve matches", () => {
     expect(second.match.packageVersion).toBe("1.1.1g");
   });
 
+  it("lists matches newest-published first, undated last, cvss as tie-breaker", () => {
+    const asset = server();
+    const now = new Date(2026, 6, 13);
+    // 발표일 역순이 아닌 순서로 넣어 정렬이 실제로 동작하는지 확인한다.
+    upsertCveMatch({ assetId: asset.id, packageName: "a", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2023-1111", publishedAt: "2023-05-01T00:00:00.000", cvssScore: 9.8 }) }, now, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "b", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-2222", publishedAt: "2026-06-01T00:00:00.000", cvssScore: 5.0 }) }, now, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "c", packageVersion: "1", entry: cveEntry({ cveId: "CVE-0000-0000", publishedAt: null, cvssScore: 10.0 }) }, now, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "d", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-3333", publishedAt: "2026-06-01T00:00:00.000", cvssScore: 8.0 }) }, now, db);
+
+    const ids = listCveMatches(asset.id, db).map((m) => m.cveId);
+
+    // 최신 발표일 우선, 같은 날짜는 CVSS 높은 순, 발표일 없는 항목은 마지막.
+    expect(ids).toEqual(["CVE-2026-3333", "CVE-2026-2222", "CVE-2023-1111", "CVE-0000-0000"]);
+  });
+
   it("sets AI analysis and dismissed flag", () => {
     const asset = server();
     const { match } = upsertCveMatch({ assetId: asset.id, packageName: "openssl", packageVersion: "1.1.1f", entry: cveEntry() }, new Date(), db);
