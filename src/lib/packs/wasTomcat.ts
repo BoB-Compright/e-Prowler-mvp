@@ -191,7 +191,7 @@ export const wasTomcatPack: VendorPack = {
   category: "WAS",
   vendors: ["Tomcat"],
   executionPath: "linux",
-  itemIds: getCatalogByCategory("was").map((i) => i.id),
+  itemIds: getCatalogByCategory("was").map((i) => i.id).filter((id) => id.startsWith("WAS-")),
   evidenceTasks: TOMCAT_EVIDENCE,
   detect: (tasks) => getTomcatState(tasks).present,
   evaluate: evaluateTomcat,

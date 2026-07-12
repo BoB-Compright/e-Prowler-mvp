@@ -111,7 +111,7 @@ it("WAS-10 multiline <Connector> tag with allowTrace=true across lines → fail"
 });
 
 it("wasTomcatPack shape + evaluate one result per WAS item", () => {
-  const wasIds = getCatalogByCategory("was").map((i) => i.id).sort();
+  const wasIds = getCatalogByCategory("was").map((i) => i.id).filter((id) => id.startsWith("WAS-")).sort();
   expect(wasTomcatPack.id).toBe("was-tomcat");
   expect(wasTomcatPack.vendors).toEqual(["Tomcat"]);
   expect(wasTomcatPack.itemIds.slice().sort()).toEqual(wasIds);
