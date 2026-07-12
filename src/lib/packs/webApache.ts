@@ -161,3 +161,44 @@ export function evaluateApacheWEB12(tasks: AnsibleTaskOutput[]): CheckResult {
   const fail = hasFollow && !hasOwnerMatch;
   return { id: "WEB-12", status: fail ? "fail" : "pass", evidence: fail ? "FollowSymLinks가 SymLinksIfOwnerMatch 없이 활성화됨(심볼릭 링크 악용 위험)" : "심볼릭 링크 사용이 제한됨(FollowSymLinks 미사용 또는 OwnerMatch 병용)" };
 }
+
+export function evaluateApacheWEB13(tasks: AnsibleTaskOutput[]): CheckResult {
+  const config = getApacheState(tasks).config;
+  // `.ht*`(.htaccess/.htpasswd) 노출 차단 블록 존재 여부.
+  const protectsHt = /<Files(Match)?\s+[~*]?\s*["']?\^?\\?\.ht/i.test(config) && /Require\s+all\s+denied|Deny\s+from\s+all/i.test(config);
+  return { id: "WEB-13", status: protectsHt ? "pass" : "fail", evidence: protectsHt ? "설정 파일(.ht*) 접근 차단(<Files ~ ^\\.ht> Require all denied)이 설정됨" : "설정 파일(.ht*) 노출 차단 블록이 확인되지 않음" };
+}
+
+export function evaluateApacheWEB14(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getApacheState(tasks).config);
+  // 임의 <Directory> 블록 중 하나라도 `Require all granted`가 있고 기본 거부가 없으면 취약,
+  // 명시적 default-deny가 하나 이상 존재하면 양호로 본다(보수적).
+  const hasDeny = lines.some((l) => /^Require\s+all\s+denied/i.test(l) || /^Deny\s+from\s+all/i.test(l));
+  const hasOpenGrant = lines.some((l) => /^Require\s+all\s+granted/i.test(l));
+  const ok = hasDeny || !hasOpenGrant;
+  return { id: "WEB-14", status: ok ? "pass" : "fail", evidence: ok ? "디렉터리 기본 접근통제(Require all denied)가 존재하거나 전체 허용이 없음" : "명시적 기본 거부 없이 Require all granted만 존재(접근통제 미흡)" };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function evaluateApacheWEB15(_tasks: AnsibleTaskOutput[]): CheckResult {
+  return { id: "WEB-15", status: "review", evidence: "불필요한 스크립트 핸들러/매핑 제거 여부는 서비스 요건 판단 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB16(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getApacheState(tasks).config);
+  const tokensOk = lines.some((l) => /^ServerTokens\s+(Prod|ProductOnly)/i.test(l));
+  const sigOff = lines.some((l) => /^ServerSignature\s+Off/i.test(l));
+  const ok = tokensOk && sigOff;
+  return { id: "WEB-16", status: ok ? "pass" : "fail", evidence: ok ? "ServerTokens Prod + ServerSignature Off로 헤더 정보 노출이 제한됨" : `헤더 정보 노출 제한 미흡 (ServerTokens Prod: ${tokensOk}, ServerSignature Off: ${sigOff})` };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function evaluateApacheWEB17(_tasks: AnsibleTaskOutput[]): CheckResult {
+  return { id: "WEB-17", status: "review", evidence: "불필요한 가상 디렉터리(Alias) 삭제 여부는 서비스 요건 판단 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB18(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { modules } = getApacheState(tasks);
+  const dav = moduleLoaded(modules, "dav_module") || moduleLoaded(modules, "dav_fs_module");
+  return { id: "WEB-18", status: dav ? "fail" : "pass", evidence: dav ? "WebDAV 모듈(mod_dav)이 로드되어 있음 — 불필요 시 비활성화 필요" : "WebDAV 모듈이 로드되어 있지 않음" };
+}

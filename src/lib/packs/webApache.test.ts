@@ -4,6 +4,7 @@ import {
   evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03,
   evaluateApacheWEB04, evaluateApacheWEB05, evaluateApacheWEB06, evaluateApacheWEB07,
   evaluateApacheWEB08, evaluateApacheWEB09, evaluateApacheWEB10, evaluateApacheWEB11, evaluateApacheWEB12,
+  evaluateApacheWEB13, evaluateApacheWEB14, evaluateApacheWEB15, evaluateApacheWEB16, evaluateApacheWEB17, evaluateApacheWEB18,
   statNoGroupOtherWrite, isOwnerOnly,
 } from "./webApache";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
@@ -111,5 +112,28 @@ describe("service-management evaluators WEB-04/05/06/07/08/09/10/11/12", () => {
   it("WEB-06 root Directory deny → pass, missing → fail", () => {
     expect(evaluateApacheWEB06(cfg("<Directory />\n  Require all denied\n</Directory>")).status).toBe("pass");
     expect(evaluateApacheWEB06(cfg("ServerTokens Prod")).status).toBe("fail");
+  });
+});
+
+describe("service-management evaluators WEB-13/14/15/16/17/18", () => {
+  it("WEB-13 .ht protection present → pass, absent → fail", () => {
+    expect(evaluateApacheWEB13(cfg('<Files ~ "^\\.ht">\n  Require all denied\n</Files>')).status).toBe("pass");
+    expect(evaluateApacheWEB13(cfg("ServerTokens Prod")).status).toBe("fail");
+  });
+  it("WEB-14 docroot Directory default-deny → pass else fail", () => {
+    expect(evaluateApacheWEB14(cfg("<Directory /var/www/>\n  Require all denied\n</Directory>")).status).toBe("pass");
+    expect(evaluateApacheWEB14(cfg("<Directory /var/www/>\n  Require all granted\n</Directory>")).status).toBe("fail");
+  });
+  it("WEB-15/17 → review", () => {
+    expect(evaluateApacheWEB15(cfg("")).status).toBe("review");
+    expect(evaluateApacheWEB17(cfg("")).status).toBe("review");
+  });
+  it("WEB-16 ServerTokens Prod + ServerSignature Off → pass", () => {
+    expect(evaluateApacheWEB16(cfg("ServerTokens Prod\nServerSignature Off")).status).toBe("pass");
+    expect(evaluateApacheWEB16(cfg("ServerTokens Full\nServerSignature On")).status).toBe("fail");
+  });
+  it("WEB-18 dav loaded → fail, not → pass", () => {
+    expect(evaluateApacheWEB18([...cfg(""), mods(" dav_module (shared)\n dav_fs_module (shared)")]).status).toBe("fail");
+    expect(evaluateApacheWEB18([...cfg(""), mods(" core_module (static)")]).status).toBe("pass");
   });
 });
