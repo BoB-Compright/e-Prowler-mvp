@@ -4,6 +4,8 @@ import { getCatalogItem } from "@/lib/catalog";
 import type { CheckResult } from "@/lib/checks/types";
 import { analyzeCheck } from "./analyze";
 import { saveAnalysisReport } from "./store";
+import { applyVerdict } from "./verdict";
+import { updateCheckVerdict } from "@/lib/checks/store";
 
 export { analyzeCheck } from "./analyze";
 export { listAnalysisReports } from "./store";
@@ -12,7 +14,15 @@ export { listAnalysisReports } from "./store";
 // which burns real tokens on every dev/scan run. Set
 // CLAUDE_ANALYSIS_ENABLED=true only when actually exercising Claude
 // analysis (e.g. right before a demo/test), not for routine pipeline runs.
-const CLAUDE_ANALYSIS_ENABLED = process.env.CLAUDE_ANALYSIS_ENABLED === "true";
+// Read lazily (not a module-load-time const) so tests can toggle it per-case.
+function isClaudeAnalysisEnabled(): boolean {
+  return process.env.CLAUDE_ANALYSIS_ENABLED === "true";
+}
+
+export interface AnalyzeDeps {
+  analyze: typeof analyzeCheck;
+}
+const defaultDeps: AnalyzeDeps = { analyze: analyzeCheck };
 
 // Analyzes every check result for a run and saves each report as it
 // completes, so a failure partway through still leaves prior reports
@@ -21,15 +31,21 @@ export async function analyzeAndSaveChecks(
   runId: string,
   results: CheckResult[],
   db: Database = getDb(),
+  deps: AnalyzeDeps = defaultDeps,
 ): Promise<void> {
-  if (!CLAUDE_ANALYSIS_ENABLED) return;
+  if (!isClaudeAnalysisEnabled()) return;
 
   for (const result of results) {
     const item = getCatalogItem(result.id);
     if (!item) {
       throw new Error(`카탈로그에 없는 항목 id: ${result.id}`);
     }
-    const report = await analyzeCheck({ item, result });
+    const report = await deps.analyze({ item, result });
     saveAnalysisReport(runId, report, db);
+    // review였던 항목만, AI verdict가 pass/fail이면 저장된 결과를 갱신한다.
+    const applied = applyVerdict(result.status, report.verdict);
+    if (applied.source === "ai") {
+      updateCheckVerdict(runId, result.id, applied.status, db);
+    }
   }
 }
