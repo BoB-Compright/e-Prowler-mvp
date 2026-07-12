@@ -56,6 +56,24 @@ export function CveList({
   const [matches, setMatches] = useState(initialMatches);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [error, setError] = useState<string | null>(null);
+  // 선택된 심각도 필터. 비어 있으면 전체. 수천 건이 잡혀도 담당자가 심각/높음만
+  // 좁혀 볼 수 있게 한다. 필터를 바꾸면 "더 보기" 카운트를 처음으로 되돌린다.
+  const [severityFilter, setSeverityFilter] = useState<Set<CveMatch["severity"]>>(new Set());
+
+  function toggleSeverity(sev: CveMatch["severity"]) {
+    setSeverityFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(sev)) next.delete(sev);
+      else next.add(sev);
+      return next;
+    });
+    setVisibleCount(INITIAL_VISIBLE);
+  }
+
+  function clearSeverityFilter() {
+    setSeverityFilter(new Set());
+    setVisibleCount(INITIAL_VISIBLE);
+  }
 
   async function toggleDismissed(id: string, dismissed: boolean) {
     setError(null);
@@ -77,8 +95,13 @@ export function CveList({
 
   const active = matches.filter((m) => !m.dismissed);
   const dismissed = matches.filter((m) => m.dismissed);
-  const visible = active.slice(0, visibleCount);
-  const remaining = active.length - visible.length;
+  // 심각도별 개수(활성 전체 기준) — 필터 칩 라벨에 쓴다.
+  const activeCounts = new Map<CveMatch["severity"], number>();
+  for (const m of active) activeCounts.set(m.severity, (activeCounts.get(m.severity) ?? 0) + 1);
+  const filteredActive =
+    severityFilter.size === 0 ? active : active.filter((m) => severityFilter.has(m.severity));
+  const visible = filteredActive.slice(0, visibleCount);
+  const remaining = filteredActive.length - visible.length;
 
   return (
     <details
@@ -109,9 +132,40 @@ export function CveList({
           <p className="text-[13px] text-muted">감지된 CVE가 없습니다.</p>
         ) : (
           <>
+            {/* 심각도 필터: 여러 개 동시 선택 가능. 선택된 게 없으면 전체. */}
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={clearSeverityFilter}
+                className={`rounded-lg border px-2.5 py-1 text-xs whitespace-nowrap ${
+                  severityFilter.size === 0
+                    ? "border-primary bg-surface font-semibold text-primary"
+                    : "border-border text-muted hover:bg-bg"
+                }`}
+              >
+                전체 {active.length.toLocaleString()}
+              </button>
+              {SEVERITY_ORDER.filter((s) => activeCounts.get(s)).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => toggleSeverity(s)}
+                  aria-pressed={severityFilter.has(s)}
+                  className={`rounded-lg border px-2.5 py-1 text-xs whitespace-nowrap ${
+                    severityFilter.has(s)
+                      ? "border-primary bg-surface font-semibold text-primary"
+                      : "border-border text-muted hover:bg-bg"
+                  }`}
+                >
+                  {SEVERITY_LABEL[s]} {activeCounts.get(s)!.toLocaleString()}
+                </button>
+              ))}
+            </div>
             <p className="mb-3 text-xs text-muted">
-              최신 발표순 · {visible.length.toLocaleString()}건 표시 / 전체 {active.length.toLocaleString()}건
+              최신 발표순 · {visible.length.toLocaleString()}건 표시 / 필터 {filteredActive.length.toLocaleString()}건
+              {severityFilter.size > 0 && ` (전체 ${active.length.toLocaleString()})`}
             </p>
+            {filteredActive.length === 0 ? (
+              <p className="text-[13px] text-muted italic">선택한 심각도에 해당하는 CVE가 없습니다.</p>
+            ) : (
             <ul className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
               {visible.map((m) => (
                 <li key={m.id} className="rounded-lg border border-border p-4 text-sm">
@@ -153,6 +207,7 @@ export function CveList({
                 </li>
               )}
             </ul>
+            )}
           </>
         )}
         {dismissed.length > 0 && (
