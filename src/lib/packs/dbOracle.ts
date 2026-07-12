@@ -1,4 +1,5 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
+import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
 
 const MISSING = "__MISSING__";
@@ -78,4 +79,38 @@ export function getOracleState(tasks: AnsibleTaskOutput[]): {
     processLine: (findExact(tasks, "oracle process user (internal)")?.stdout ?? "").trim(),
     version: rawOut(tasks, "oracle version (internal)").trim(),
   };
+}
+
+export function evaluateORA01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const perms = getOracleState(tasks).homePerms;
+  if (!perms) return { id: "ORA-01", status: "skip", evidence: "ORACLE_HOME을 확인할 수 없음" };
+  return { id: "ORA-01", status: noGroupOtherWrite(perms) ? "pass" : "fail", evidence: `ORACLE_HOME 권한: ${perms}` };
+}
+export function evaluateORA02(tasks: AnsibleTaskOutput[]): CheckResult {
+  const line = getOracleState(tasks).processLine;
+  if (!line) return { id: "ORA-02", status: "review", evidence: "Oracle 프로세스를 확인할 수 없어 실행 계정 판정 불가 — 수동/AI 확인" };
+  const user = line.split(/\s+/)[0];
+  return { id: "ORA-02", status: user === "root" ? "fail" : "pass", evidence: `Oracle 실행 계정: ${user}` };
+}
+export function evaluateORA03(tasks: AnsibleTaskOutput[]): CheckResult {
+  const perms = getOracleState(tasks).listenerPerms;
+  if (!perms) return { id: "ORA-03", status: "skip", evidence: "listener.ora를 확인할 수 없음" };
+  return { id: "ORA-03", status: noGroupOtherWrite(perms) ? "pass" : "fail", evidence: `listener.ora 권한: ${perms}` };
+}
+export function evaluateORA04(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { listener } = getOracleState(tasks);
+  if (!listener) return { id: "ORA-04", status: "skip", evidence: "listener.ora를 확인할 수 없음" };
+  const ok = oraHas(listener, /ADMIN_RESTRICTIONS_\w+\s*=\s*(on|true|yes)/i);
+  return { id: "ORA-04", status: ok ? "pass" : "fail", evidence: ok ? "ADMIN_RESTRICTIONS가 ON" : "ADMIN_RESTRICTIONS가 설정되어 있지 않음" };
+}
+export function evaluateORA05(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { listener } = getOracleState(tasks);
+  if (!listener) return { id: "ORA-05", status: "skip", evidence: "listener.ora를 확인할 수 없음" };
+  const extproc = oraHas(listener, /extproc/i);
+  return { id: "ORA-05", status: extproc ? "fail" : "pass", evidence: extproc ? "리스너에 외부 프로시저(extproc) 등록이 있음" : "extproc 등록이 없음" };
+}
+export function evaluateORA06(tasks: AnsibleTaskOutput[]): CheckResult {
+  const v = oraValue(getOracleState(tasks).sqlnet, "SQLNET.AUTHENTICATION_SERVICES");
+  const ok = v !== null && v !== "";
+  return { id: "ORA-06", status: ok ? "pass" : "fail", evidence: ok ? `SQLNET.AUTHENTICATION_SERVICES: ${v}` : "SQLNET.AUTHENTICATION_SERVICES가 설정되어 있지 않음" };
 }
