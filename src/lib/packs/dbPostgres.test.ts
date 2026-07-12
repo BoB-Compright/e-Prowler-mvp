@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PG_EVIDENCE, getPgState, pgValue, pgBool } from "./dbPostgres";
+import { PG_EVIDENCE, getPgState, pgValue, pgBool, evaluatePG01, evaluatePG02, evaluatePG03, evaluatePG04, evaluatePG05, evaluatePG06 } from "./dbPostgres";
 
 const present = [
   { taskName: "postgres detection (internal)", stdout: "present\n" },
@@ -24,5 +24,37 @@ describe("postgres evidence + state", () => {
   });
   it("absent detection", () => {
     expect(getPgState([{ taskName: "postgres detection (internal)", stdout: "absent" }]).present).toBe(false);
+  });
+});
+
+const t = (name: string, stdout: string) => ({ taskName: name, stdout });
+const P = (extra: { taskName: string; stdout: string }[]) => [t("postgres detection (internal)", "present"), ...extra];
+
+describe("evaluators PG-01~06", () => {
+  it("PG-01 datadir 700 → pass, 750 → fail, missing → skip", () => {
+    expect(evaluatePG01(P([t("postgres datadir perms (internal)", "postgres:postgres 700")])).status).toBe("pass");
+    expect(evaluatePG01(P([t("postgres datadir perms (internal)", "postgres:postgres 750")])).status).toBe("fail");
+    expect(evaluatePG01(P([t("postgres datadir perms (internal)", "__MISSING__")])).status).toBe("skip");
+  });
+  it("PG-02 non-root → pass, root → fail, none → review", () => {
+    expect(evaluatePG02(P([t("postgres process user (internal)", "postgres /usr/lib/postgresql/16/bin/postgres")])).status).toBe("pass");
+    expect(evaluatePG02(P([t("postgres process user (internal)", "root /usr/.../postgres")])).status).toBe("fail");
+    expect(evaluatePG02(P([])).status).toBe("review");
+  });
+  it("PG-03 conf not world-writable → pass, 666 → fail", () => {
+    expect(evaluatePG03(P([t("postgres conf perms (internal)", "postgres:postgres 640")])).status).toBe("pass");
+    expect(evaluatePG03(P([t("postgres conf perms (internal)", "postgres:postgres 666")])).status).toBe("fail");
+  });
+  it("PG-04 logging_collector on → pass, off/absent → fail", () => {
+    expect(evaluatePG04(P([t("postgresql.conf (internal)", "logging_collector = on")])).status).toBe("pass");
+    expect(evaluatePG04(P([t("postgresql.conf (internal)", "logging_collector = off")])).status).toBe("fail");
+  });
+  it("PG-05 listen_addresses not * → pass, * → fail", () => {
+    expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = 'localhost'")])).status).toBe("pass");
+    expect(evaluatePG05(P([t("postgresql.conf (internal)", "listen_addresses = '*'")])).status).toBe("fail");
+  });
+  it("PG-06 ssl on → pass, off/absent → fail", () => {
+    expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = on")])).status).toBe("pass");
+    expect(evaluatePG06(P([t("postgresql.conf (internal)", "ssl = off")])).status).toBe("fail");
   });
 });

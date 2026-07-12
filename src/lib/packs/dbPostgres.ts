@@ -1,4 +1,5 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
+import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
 
 const MISSING = "__MISSING__";
@@ -79,4 +80,36 @@ export function getPgState(tasks: AnsibleTaskOutput[]): {
     processLine: (findExact(tasks, "postgres process user (internal)")?.stdout ?? "").trim(),
     version: rawOut(tasks, "postgres version (internal)").trim(),
   };
+}
+
+export function evaluatePG01(tasks: AnsibleTaskOutput[]): CheckResult {
+  const perms = getPgState(tasks).datadirPerms;
+  if (!perms) return { id: "PG-01", status: "skip", evidence: "데이터 디렉터리를 확인할 수 없음" };
+  const ok = noGroupOtherAccess(perms);
+  return { id: "PG-01", status: ok ? "pass" : "fail", evidence: `데이터 디렉터리 권한: ${perms}` };
+}
+export function evaluatePG02(tasks: AnsibleTaskOutput[]): CheckResult {
+  const line = getPgState(tasks).processLine;
+  if (!line) return { id: "PG-02", status: "review", evidence: "PostgreSQL 프로세스를 확인할 수 없어 실행 계정 판정 불가 — 수동/AI 확인" };
+  const user = line.split(/\s+/)[0];
+  return { id: "PG-02", status: user === "root" ? "fail" : "pass", evidence: `PostgreSQL 실행 계정: ${user}` };
+}
+export function evaluatePG03(tasks: AnsibleTaskOutput[]): CheckResult {
+  const perms = getPgState(tasks).confPerms;
+  if (!perms) return { id: "PG-03", status: "skip", evidence: "설정 파일을 확인할 수 없음" };
+  return { id: "PG-03", status: noOtherWrite(perms) ? "pass" : "fail", evidence: `설정 파일 권한: ${perms}` };
+}
+export function evaluatePG04(tasks: AnsibleTaskOutput[]): CheckResult {
+  const on = pgBool(getPgState(tasks).conf, "logging_collector");
+  return { id: "PG-04", status: on ? "pass" : "fail", evidence: on ? "logging_collector가 on" : "logging_collector가 off이거나 미설정" };
+}
+export function evaluatePG05(tasks: AnsibleTaskOutput[]): CheckResult {
+  const v = pgValue(getPgState(tasks).conf, "listen_addresses");
+  const exposed = v === "*" || v === "0.0.0.0" || v === "::";
+  const ok = v !== null && !exposed;
+  return { id: "PG-05", status: ok ? "pass" : "fail", evidence: v === null ? "listen_addresses 미설정" : `listen_addresses: ${v}${exposed ? " (전체 노출)" : ""}` };
+}
+export function evaluatePG06(tasks: AnsibleTaskOutput[]): CheckResult {
+  const on = pgBool(getPgState(tasks).conf, "ssl");
+  return { id: "PG-06", status: on ? "pass" : "fail", evidence: on ? "ssl가 on" : "ssl가 off이거나 미설정" };
 }
