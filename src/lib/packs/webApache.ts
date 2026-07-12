@@ -100,3 +100,64 @@ export function evaluateApacheWEB03(tasks: AnsibleTaskOutput[]): CheckResult {
   const ok = isOwnerOnly(stat);
   return { id: "WEB-03", status: ok ? "pass" : "fail", evidence: `AuthUserFile 권한: ${stat}` };
 }
+
+export function evaluateApacheWEB04(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { config, modules } = getApacheState(tasks);
+  const lines = activeLines(config);
+  // `Options ... Indexes`가 활성(명시적 `-Indexes`가 아닌)이고 autoindex 모듈이 로드된 경우 취약.
+  const indexesOn = lines.some((l) => /^Options\b/i.test(l) && /(^|\s)\+?Indexes\b/i.test(l) && !/-Indexes\b/i.test(l));
+  const fail = indexesOn && moduleLoaded(modules, "autoindex_module");
+  return { id: "WEB-04", status: fail ? "fail" : "pass", evidence: fail ? "디렉터리 리스팅(Options Indexes + mod_autoindex)이 활성화되어 있음" : "디렉터리 리스팅이 비활성(Indexes 미사용 또는 mod_autoindex 미로드)" };
+}
+
+export function evaluateApacheWEB05(): CheckResult {
+  return { id: "WEB-05", status: "review", evidence: "CGI/스크립트 핸들러의 지정 범위 적정성은 서비스 맥락 판단이 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB06(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getApacheState(tasks).config);
+  // 루트 <Directory /> 블록에서 기본 접근 거부(Require all denied 또는 Deny from all)를 선언했는지.
+  let inRoot = false, denied = false;
+  for (const l of lines) {
+    if (/^<Directory\s+\/>/i.test(l)) inRoot = true;
+    else if (/^<\/Directory>/i.test(l)) inRoot = false;
+    else if (inRoot && (/^Require\s+all\s+denied/i.test(l) || /^Deny\s+from\s+all/i.test(l))) denied = true;
+  }
+  return { id: "WEB-06", status: denied ? "pass" : "fail", evidence: denied ? "루트 디렉터리(<Directory />)에 기본 접근 거부가 설정됨" : "루트 디렉터리(<Directory />) 기본 접근 거부(Require all denied)가 확인되지 않음" };
+}
+
+export function evaluateApacheWEB07(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { leftovers, missing } = getApacheDocRootScan(tasks);
+  if (missing) return { id: "WEB-07", status: "skip", evidence: "웹 루트(DocumentRoot)를 확인할 수 없음" };
+  return { id: "WEB-07", status: leftovers.length === 0 ? "pass" : "fail", evidence: leftovers.length === 0 ? "웹 루트에 불필요한 설치/샘플 파일이 발견되지 않음" : `불필요 파일 발견: ${leftovers.join(", ")}` };
+}
+
+export function evaluateApacheWEB08(): CheckResult {
+  return { id: "WEB-08", status: "review", evidence: "업로드/다운로드 용량 제한(LimitRequestBody) 값의 적정성은 조직 기준 판단 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB09(tasks: AnsibleTaskOutput[]): CheckResult {
+  const userLine = activeLines(getApacheState(tasks).config).find((l) => /^User\s+/i.test(l));
+  if (!userLine) return { id: "WEB-09", status: "skip", evidence: "User 지시어가 설정에서 발견되지 않음" };
+  const user = userLine.split(/\s+/)[1];
+  const isRoot = user === "root" || user === "#0";
+  return { id: "WEB-09", status: isRoot ? "fail" : "pass", evidence: `웹 서비스 실행 계정(User): ${user}` };
+}
+
+export function evaluateApacheWEB10(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { modules } = getApacheState(tasks);
+  const proxy = ["proxy_module", "proxy_http_module", "proxy_ftp_module", "proxy_connect_module"].some((m) => moduleLoaded(modules, m));
+  return { id: "WEB-10", status: proxy ? "fail" : "pass", evidence: proxy ? "프록시 모듈(mod_proxy 계열)이 로드되어 있음 — 불필요 시 제거 필요" : "프록시 모듈이 로드되어 있지 않음" };
+}
+
+export function evaluateApacheWEB11(): CheckResult {
+  return { id: "WEB-11", status: "review", evidence: "웹 서비스 경로(DocumentRoot) 설정 적정성은 맥락 판단 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB12(tasks: AnsibleTaskOutput[]): CheckResult {
+  const lines = activeLines(getApacheState(tasks).config);
+  const hasFollow = lines.some((l) => /^Options\b/i.test(l) && /(^|\s)\+?FollowSymLinks\b/i.test(l));
+  const hasOwnerMatch = lines.some((l) => /SymLinksIfOwnerMatch/i.test(l));
+  const fail = hasFollow && !hasOwnerMatch;
+  return { id: "WEB-12", status: fail ? "fail" : "pass", evidence: fail ? "FollowSymLinks가 SymLinksIfOwnerMatch 없이 활성화됨(심볼릭 링크 악용 위험)" : "심볼릭 링크 사용이 제한됨(FollowSymLinks 미사용 또는 OwnerMatch 병용)" };
+}

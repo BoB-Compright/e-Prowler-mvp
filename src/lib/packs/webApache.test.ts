@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines, evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03, statNoGroupOtherWrite, isOwnerOnly } from "./webApache";
+import {
+  APACHE_EVIDENCE, getApacheState, moduleLoaded, activeLines,
+  evaluateApacheWEB01, evaluateApacheWEB02, evaluateApacheWEB03,
+  evaluateApacheWEB04, evaluateApacheWEB05, evaluateApacheWEB06, evaluateApacheWEB07,
+  evaluateApacheWEB08, evaluateApacheWEB09, evaluateApacheWEB10, evaluateApacheWEB11, evaluateApacheWEB12,
+  statNoGroupOtherWrite, isOwnerOnly,
+} from "./webApache";
+import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 
 const present = [
   { taskName: "apache detection (internal)", stdout: "present\n" },
@@ -64,5 +71,45 @@ describe("account-management evaluators WEB-01/02/03", () => {
     expect(isOwnerOnly("root:root 640")).toBe(false);
     expect(isOwnerOnly("root:root 644")).toBe(false);
     expect(isOwnerOnly("root:adm 750")).toBe(false);
+  });
+});
+
+const cfg = (config: string, extra: AnsibleTaskOutput[] = []) => [
+  { taskName: "apache detection (internal)", stdout: "present" },
+  { taskName: "apache effective config (internal)", stdout: config },
+  ...extra,
+];
+const mods = (list: string) => ({ taskName: "apache modules (internal)", stdout: list });
+
+describe("service-management evaluators WEB-04/05/06/07/08/09/10/11/12", () => {
+  it("WEB-04 listing: Indexes on → fail, off → pass", () => {
+    expect(evaluateApacheWEB04([...cfg("Options Indexes FollowSymLinks"), mods(" autoindex_module (shared)")]).status).toBe("fail");
+    expect(evaluateApacheWEB04([...cfg("Options -Indexes"), mods(" core_module (static)")]).status).toBe("pass");
+  });
+  it("WEB-05 → review", () => { expect(evaluateApacheWEB05().status).toBe("review"); });
+  it("WEB-09 User root → fail, non-root → pass, absent → skip", () => {
+    expect(evaluateApacheWEB09(cfg("User www-data\nGroup www-data")).status).toBe("pass");
+    expect(evaluateApacheWEB09(cfg("User root")).status).toBe("fail");
+    expect(evaluateApacheWEB09(cfg("ServerTokens Prod")).status).toBe("skip");
+  });
+  it("WEB-10 proxy loaded → fail, not → pass", () => {
+    expect(evaluateApacheWEB10([...cfg(""), mods(" proxy_module (shared)")]).status).toBe("fail");
+    expect(evaluateApacheWEB10([...cfg(""), mods(" core_module (static)")]).status).toBe("pass");
+  });
+  it("WEB-12 FollowSymLinks without owner-match → fail", () => {
+    expect(evaluateApacheWEB12(cfg("Options FollowSymLinks")).status).toBe("fail");
+    expect(evaluateApacheWEB12(cfg("Options SymLinksIfOwnerMatch")).status).toBe("pass");
+  });
+  it("WEB-07 leftovers → fail, clean → pass, missing → skip", () => {
+    expect(evaluateApacheWEB07([...cfg(""), { taskName: "apache document root scan (internal)", stdout: "LEFTOVER:/var/www/html/phpinfo.php" }]).status).toBe("fail");
+    expect(evaluateApacheWEB07([...cfg(""), { taskName: "apache document root scan (internal)", stdout: "__MISSING__" }]).status).toBe("skip");
+  });
+  it("WEB-08/11 → review", () => {
+    expect(evaluateApacheWEB08().status).toBe("review");
+    expect(evaluateApacheWEB11().status).toBe("review");
+  });
+  it("WEB-06 root Directory deny → pass, missing → fail", () => {
+    expect(evaluateApacheWEB06(cfg("<Directory />\n  Require all denied\n</Directory>")).status).toBe("pass");
+    expect(evaluateApacheWEB06(cfg("ServerTokens Prod")).status).toBe("fail");
   });
 });
