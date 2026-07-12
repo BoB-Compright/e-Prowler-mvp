@@ -1,6 +1,8 @@
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { CheckResult } from "@/lib/checks/types";
 import type { PlaybookTask } from "./types";
+import { getCatalogByCategory } from "@/lib/catalog";
+import type { EvalContext, VendorPack } from "./types";
 
 const MISSING = "__MISSING__";
 const TNS = "$TNS_ADMIN/listener.ora /opt/oracle/*/network/admin/listener.ora /u01/*/network/admin/listener.ora /opt/oracle/product/*/*/network/admin/listener.ora";
@@ -146,3 +148,22 @@ export function evaluateORA12(tasks: AnsibleTaskOutput[]): CheckResult {
   const version = getOracleState(tasks).version || "확인 불가";
   return { id: "ORA-12", status: "review", evidence: `Oracle 버전: ${version} — 정적 점검만으로 최신 패치(PSU/RU) 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
+
+function evaluateOracle(ctx: EvalContext): CheckResult[] {
+  const t = ctx.tasks;
+  return [
+    evaluateORA01(t), evaluateORA02(t), evaluateORA03(t), evaluateORA04(t), evaluateORA05(t), evaluateORA06(t),
+    evaluateORA07(t), evaluateORA08(t), evaluateORA09(t), evaluateORA10(t), evaluateORA11(), evaluateORA12(t),
+  ];
+}
+
+export const dbOraclePack: VendorPack = {
+  id: "db-oracle",
+  category: "DB",
+  vendors: ["Oracle"],
+  executionPath: "linux",
+  itemIds: getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("ORA-")),
+  evidenceTasks: ORACLE_EVIDENCE,
+  detect: (tasks) => getOracleState(tasks).present,
+  evaluate: evaluateOracle,
+};

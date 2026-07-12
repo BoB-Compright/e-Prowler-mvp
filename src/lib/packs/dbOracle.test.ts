@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ORACLE_EVIDENCE, getOracleState, oraValue, oraHas, evaluateORA01, evaluateORA02, evaluateORA03, evaluateORA04, evaluateORA05, evaluateORA06, evaluateORA07, evaluateORA08, evaluateORA09, evaluateORA10, evaluateORA11, evaluateORA12 } from "./dbOracle";
+import { ORACLE_EVIDENCE, getOracleState, oraValue, oraHas, evaluateORA01, evaluateORA02, evaluateORA03, evaluateORA04, evaluateORA05, evaluateORA06, evaluateORA07, evaluateORA08, evaluateORA09, evaluateORA10, evaluateORA11, evaluateORA12, dbOraclePack } from "./dbOracle";
+import { getCatalogByCategory } from "@/lib/catalog";
 
 const present = [
   { taskName: "oracle detection (internal)", stdout: "present\n" },
@@ -87,5 +88,19 @@ describe("evaluators ORA-07~12", () => {
     const r = evaluateORA12(O([t("oracle version (internal)", "SQL*Plus: Release 19.0.0.0.0")]));
     expect(r.status).toBe("review");
     expect(r.evidence).toContain("19.0.0.0.0");
+  });
+});
+
+describe("dbOraclePack", () => {
+  it("dbOraclePack shape: ORA-* only, one result per item", () => {
+    const oraIds = getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("ORA-")).sort();
+    expect(dbOraclePack.id).toBe("db-oracle");
+    expect(dbOraclePack.vendors).toEqual(["Oracle"]);
+    expect(dbOraclePack.itemIds.slice().sort()).toEqual(oraIds);
+    expect(dbOraclePack.itemIds.every((id) => id.startsWith("ORA-"))).toBe(true);
+    const present = [{ taskName: "oracle detection (internal)", stdout: "present" }];
+    expect(dbOraclePack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort()).toEqual(oraIds);
+    expect(dbOraclePack.detect(present)).toBe(true);
+    expect(dbOraclePack.detect([])).toBe(false);
   });
 });
