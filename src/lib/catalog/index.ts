@@ -2,6 +2,7 @@ import containerData from "./data/kisa/container.json";
 import unixData from "./data/kisa/unix.json";
 import webData from "./data/kisa/web.json";
 import wasData from "./data/cis/was.json";
+import dbData from "./data/cis/db.json";
 import { FRAMEWORKS } from "./frameworks";
 import type { CatalogItem, Category, Framework } from "./types";
 
@@ -21,6 +22,7 @@ const CATALOG_SOURCES: CatalogSource[] = [
   { frameworkId: "kisa", category: "unix", data: unixData as RawItem[] },
   { frameworkId: "kisa", category: "web", data: webData as RawItem[] },
   { frameworkId: "cis", category: "was", data: wasData as RawItem[] },
+  { frameworkId: "cis", category: "db", data: dbData as RawItem[] },
 ];
 
 const CATALOG: CatalogItem[] = CATALOG_SOURCES.flatMap(({ frameworkId, category, data }) =>

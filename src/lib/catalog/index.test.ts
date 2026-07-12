@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 114 items across the four categories", () => {
+  it("loads all 126 items across the five categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(114);
+    expect(summary.total).toBe(126);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(12);
+    expect(summary.byCategory.db).toBe(12);
   });
 
   it("has no duplicate ids", () => {
@@ -68,5 +69,13 @@ describe("catalog", () => {
     expect(was.every((i) => i.source.framework === "CIS")).toBe(true);
     expect(was.map((i) => i.id)).toContain("WAS-01");
     expect(was.map((i) => i.id)).toContain("WAS-12");
+  });
+
+  it("has 12 CIS-sourced DB items", () => {
+    const db = getCatalogByCategory("db");
+    expect(db).toHaveLength(12);
+    expect(db.every((i) => i.frameworkId === "cis")).toBe(true);
+    expect(db.map((i) => i.id)).toContain("DB-01");
+    expect(db.map((i) => i.id)).toContain("DB-12");
   });
 });
