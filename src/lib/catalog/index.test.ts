@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 160 items across the six categories", () => {
+  it("loads all 186 items across the six categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(160);
+    expect(summary.total).toBe(186);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
-    expect(summary.byCategory.was).toBe(12);
-    expect(summary.byCategory.db).toBe(36);
+    expect(summary.byCategory.was).toBe(28);
+    expect(summary.byCategory.db).toBe(46);
     expect(summary.byCategory.windows).toBe(10);
   });
 
@@ -63,18 +63,18 @@ describe("catalog", () => {
     expect(ids).toContain("cis");
   });
 
-  it("has 12 CIS-sourced WAS items", () => {
+  it("has 28 CIS-sourced WAS items", () => {
     const was = getCatalogByCategory("was");
-    expect(was).toHaveLength(12);
+    expect(was).toHaveLength(28);
     expect(was.every((i) => i.frameworkId === "cis")).toBe(true);
     expect(was.every((i) => i.source.framework === "CIS")).toBe(true);
     expect(was.map((i) => i.id)).toContain("WAS-01");
     expect(was.map((i) => i.id)).toContain("WAS-12");
   });
 
-  it("has 36 CIS-sourced DB items (MySQL + PostgreSQL + Oracle)", () => {
+  it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server)", () => {
     const db = getCatalogByCategory("db");
-    expect(db).toHaveLength(36);
+    expect(db).toHaveLength(46);
     expect(db.every((i) => i.frameworkId === "cis")).toBe(true);
     expect(db.map((i) => i.id)).toContain("DB-01");
     expect(db.map((i) => i.id)).toContain("DB-12");
@@ -84,11 +84,12 @@ describe("catalog", () => {
     expect(db.map((i) => i.id)).toContain("ORA-12");
   });
 
-  it("db category now has 36 items: DB-* (MySQL) + PG-* (PostgreSQL) + ORA-* (Oracle)", () => {
+  it("db category now has 46 items: DB-* (MySQL) + PG-* (PostgreSQL) + ORA-* (Oracle) + MSSQL-* (SQL Server)", () => {
     const ids = getCatalogByCategory("db").map((i) => i.id);
     expect(ids.filter((i) => i.startsWith("DB-"))).toHaveLength(12);
     expect(ids.filter((i) => i.startsWith("PG-"))).toHaveLength(12);
     expect(ids.filter((i) => i.startsWith("ORA-"))).toHaveLength(12);
+    expect(ids.filter((i) => i.startsWith("MSSQL-"))).toHaveLength(10);
     expect(ids).toContain("DB-01");
     expect(ids).toContain("DB-12");
     expect(ids).toContain("PG-01");
@@ -109,5 +110,13 @@ describe("catalog", () => {
     expect(win).toHaveLength(10);
     expect(win.every((i) => i.frameworkId === "cis")).toBe(true);
     expect(win.map((i) => i.id)).toContain("WIN-01");
+  });
+
+  it("db has MSSQL-*, was has WLS-*/WSP-*", () => {
+    const db = getCatalogByCategory("db").map((i) => i.id);
+    const was = getCatalogByCategory("was").map((i) => i.id);
+    expect(db.filter((i) => i.startsWith("MSSQL-"))).toHaveLength(10);
+    expect(was.filter((i) => i.startsWith("WLS-"))).toHaveLength(8);
+    expect(was.filter((i) => i.startsWith("WSP-"))).toHaveLength(8);
   });
 });

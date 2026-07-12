@@ -35,4 +35,14 @@
   { "id": "ORA-10", "title": "remote_login_passwordfile 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - remote_login_passwordfile (항목 확인 필요)" } },
   { "id": "ORA-11", "title": "기본 계정/권한 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - default accounts/privileges (항목 확인 필요)" } },
   { "id": "ORA-12", "title": "주기적 보안 패치 및 버전 관리", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "Oracle Database Benchmark - patch/version (항목 확인 필요)" } }
+  ,{ "id": "MSSQL-01", "title": "sa 계정 비활성화/이름변경", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - sa account (항목 확인 필요)" } },
+  { "id": "MSSQL-02", "title": "Windows 인증 모드 활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - authentication mode (항목 확인 필요)" } },
+  { "id": "MSSQL-03", "title": "원격 접속 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - remote connections (항목 확인 필요)" } },
+  { "id": "MSSQL-04", "title": "로그인 감사 활성화", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - login auditing (항목 확인 필요)" } },
+  { "id": "MSSQL-05", "title": "서비스 계정 최소권한 설정", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - service account privileges (항목 확인 필요)" } },
+  { "id": "MSSQL-06", "title": "xp_cmdshell 비활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - xp_cmdshell (항목 확인 필요)" } },
+  { "id": "MSSQL-07", "title": "네트워크 암호화(Force Encryption) 활성화", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - network encryption (항목 확인 필요)" } },
+  { "id": "MSSQL-08", "title": "최신 누적 업데이트(CU)/패치 적용", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - cumulative updates (항목 확인 필요)" } },
+  { "id": "MSSQL-09", "title": "데이터 파일 접근 권한 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - data file permissions (항목 확인 필요)" } },
+  { "id": "MSSQL-10", "title": "기본 포트(1433) 변경/노출 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "CIS", "ref": "SQL Server Benchmark - default port (항목 확인 필요)" } }
 ]
