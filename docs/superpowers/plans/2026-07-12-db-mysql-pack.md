@@ -474,7 +474,7 @@ function evaluateMysql(ctx: EvalContext): CheckResult[] {
   const t = ctx.tasks;
   return [
     evaluateDB01(t), evaluateDB02(t), evaluateDB03(t), evaluateDB04(t), evaluateDB05(t), evaluateDB06(t),
-    evaluateDB07(t), evaluateDB08(t), evaluateDB09(t), evaluateDB10(t), evaluateDB11(t), evaluateDB12(t),
+    evaluateDB07(t), evaluateDB08(t), evaluateDB09(t), evaluateDB10(t), evaluateDB11(), evaluateDB12(t),
   ];
 }
 
