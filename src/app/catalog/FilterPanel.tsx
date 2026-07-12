@@ -27,28 +27,38 @@ function CheckboxMark({ checked }: { checked: boolean }) {
 }
 
 // Builds a /catalog?... link that preserves the other active filters while
-// changing just the one being clicked. Categories are multi-select (toggle
-// membership); mode is single-select-with-toggle-off (clicking the active
-// one clears it back to "전체").
-function buildHref(params: { categories: Category[]; mode?: ModeFilter; query: string }): string {
-  const search = new URLSearchParams();
-  for (const category of params.categories) search.append("framework", category);
-  if (params.mode) search.set("mode", params.mode);
-  if (params.query) search.set("q", params.query);
-  const qs = search.toString();
+// changing just the one being clicked. Categories and frameworks are
+// multi-select (toggle membership); mode is single-select-with-toggle-off
+// (clicking the active one clears it back to "전체").
+function buildHref(p: {
+  categories: Category[];
+  frameworks: string[];
+  mode?: ModeFilter;
+  query: string;
+}): string {
+  const s = new URLSearchParams();
+  for (const c of p.categories) s.append("category", c);
+  for (const f of p.frameworks) s.append("compliance", f);
+  if (p.mode) s.set("mode", p.mode);
+  if (p.query) s.set("q", p.query);
+  const qs = s.toString();
   return qs ? `/catalog?${qs}` : "/catalog";
 }
 
 export function FilterPanel({
   selectedCategories,
+  selectedFrameworks,
   selectedMode,
   query,
   categoryCounts,
+  frameworks,
 }: {
   selectedCategories: Category[];
+  selectedFrameworks: string[];
   selectedMode?: ModeFilter;
   query: string;
   categoryCounts: Record<Category, number>;
+  frameworks: { id: string; name: string }[];
 }) {
   return (
     <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-64">
@@ -56,7 +66,7 @@ export function FilterPanel({
         <ul className="flex flex-col gap-1">
           <li>
             <Link
-              href={buildHref({ categories: [], mode: selectedMode, query })}
+              href={buildHref({ categories: [], frameworks: selectedFrameworks, mode: selectedMode, query })}
               aria-pressed={selectedCategories.length === 0}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-bg"
             >
@@ -72,7 +82,12 @@ export function FilterPanel({
             return (
               <li key={category}>
                 <Link
-                  href={buildHref({ categories: nextCategories, mode: selectedMode, query })}
+                  href={buildHref({
+                    categories: nextCategories,
+                    frameworks: selectedFrameworks,
+                    mode: selectedMode,
+                    query,
+                  })}
                   aria-pressed={checked}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-bg"
                 >
@@ -86,11 +101,49 @@ export function FilterPanel({
         </ul>
       </Card>
 
+      <Card title="컴플라이언스" bodyClassName="p-2">
+        <ul className="flex flex-col gap-1">
+          <li>
+            <Link
+              href={buildHref({ categories: selectedCategories, frameworks: [], mode: selectedMode, query })}
+              aria-pressed={selectedFrameworks.length === 0}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-bg"
+            >
+              <CheckboxMark checked={selectedFrameworks.length === 0} />
+              <span className="flex-1">전체</span>
+            </Link>
+          </li>
+          {frameworks.map((fw) => {
+            const checked = selectedFrameworks.includes(fw.id);
+            const next = checked
+              ? selectedFrameworks.filter((x) => x !== fw.id)
+              : [...selectedFrameworks, fw.id];
+            return (
+              <li key={fw.id}>
+                <Link
+                  href={buildHref({ categories: selectedCategories, frameworks: next, mode: selectedMode, query })}
+                  aria-pressed={checked}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-bg"
+                >
+                  <CheckboxMark checked={checked} />
+                  <span className="flex-1">{fw.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
       <Card title="점검 방식" bodyClassName="p-2">
         <ul className="flex flex-col gap-1">
           <li>
             <Link
-              href={buildHref({ categories: selectedCategories, mode: undefined, query })}
+              href={buildHref({
+                categories: selectedCategories,
+                frameworks: selectedFrameworks,
+                mode: undefined,
+                query,
+              })}
               aria-pressed={!selectedMode}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-bg"
             >
@@ -105,6 +158,7 @@ export function FilterPanel({
                 <Link
                   href={buildHref({
                     categories: selectedCategories,
+                    frameworks: selectedFrameworks,
                     mode: checked ? undefined : option.value,
                     query,
                   })}

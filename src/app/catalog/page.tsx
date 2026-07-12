@@ -1,5 +1,10 @@
 import { getCatalogByCategory, getCatalogSummary, getFrameworks } from "@/lib/catalog";
-import { filterCatalog, parseCategoryParam, parseModeParam } from "@/lib/catalog/filter";
+import {
+  filterCatalog,
+  parseCategoryParam,
+  parseComplianceParam,
+  parseModeParam,
+} from "@/lib/catalog/filter";
 import { CATEGORY_LABELS, type Category, type Severity } from "@/lib/catalog/types";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
@@ -21,16 +26,21 @@ const SEVERITY_BADGE: Record<Severity, BadgeStatus> = {
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ framework?: string | string[]; mode?: string | string[]; q?: string }>;
+  searchParams: Promise<{
+    category?: string | string[];
+    compliance?: string | string[];
+    mode?: string | string[];
+    q?: string;
+  }>;
 }) {
-  const { framework, mode: modeParam, q } = await searchParams;
-  const selectedCategories = parseCategoryParam(framework);
+  const { category, compliance, mode: modeParam, q } = await searchParams;
+  const selectedCategories = parseCategoryParam(category);
+  const selectedFrameworks = parseComplianceParam(compliance);
   const selectedMode = parseModeParam(modeParam);
   const query = q ?? "";
 
   const summary = getCatalogSummary();
   const frameworks = getFrameworks();
-  const frameworkNames = new Map(frameworks.map((framework) => [framework.id, framework.name]));
 
   const visibleCategories =
     selectedCategories.length > 0 ? CATEGORIES.filter((c) => selectedCategories.includes(c)) : CATEGORIES;
@@ -39,7 +49,11 @@ export default async function CatalogPage({
   const categoryCounts = {} as Record<Category, number>;
   let totalMatched = 0;
   for (const category of CATEGORIES) {
-    const items = filterCatalog(getCatalogByCategory(category), { mode: selectedMode, query });
+    const items = filterCatalog(getCatalogByCategory(category), {
+      frameworks: selectedFrameworks,
+      mode: selectedMode,
+      query,
+    });
     filteredByCategory.set(category, items);
     categoryCounts[category] = items.length;
     if (visibleCategories.includes(category)) totalMatched += items.length;
@@ -64,9 +78,11 @@ export default async function CatalogPage({
       <div className="mb-6 flex flex-col gap-6 lg:flex-row">
         <FilterPanel
           selectedCategories={selectedCategories}
+          selectedFrameworks={selectedFrameworks}
           selectedMode={selectedMode}
           query={query}
           categoryCounts={categoryCounts}
+          frameworks={frameworks}
         />
 
         <div className="min-w-0 flex-1">
@@ -118,7 +134,8 @@ export default async function CatalogPage({
                               <td className="px-5 py-3 font-mono text-[13px]">{item.id}</td>
                               <td className="px-5 py-3">{item.title}</td>
                               <td className="px-5 py-3 text-muted">
-                                {frameworkNames.get(item.frameworkId) ?? item.frameworkId}
+                                {item.source.framework} ·{" "}
+                                <span className="font-mono text-[12px]">{item.source.ref}</span>
                               </td>
                               <td className="px-5 py-3">
                                 <StatusBadge status={SEVERITY_BADGE[item.severity]}>
