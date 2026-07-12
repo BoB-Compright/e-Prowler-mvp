@@ -61,6 +61,14 @@ describe("resolveCheckPlan", () => {
     const asset = { ...base, type: "server", category: "OS", vendor: "Ubuntu" } as Asset;
     expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-unix"]);
   });
+  it("server + WEB/IIS → [os-windows, web-iis]", () => {
+    const asset = { ...base, type: "server", category: "WEB", vendor: "IIS" } as Asset;
+    expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-windows", "web-iis"]);
+  });
+  it("server + DB/MSSQL → [os-windows, db-mssql]", () => {
+    const asset = { ...base, type: "server", category: "DB", vendor: "MSSQL" } as Asset;
+    expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-windows", "db-mssql"]);
+  });
 });
 
 describe("evaluatePack review rules", () => {
