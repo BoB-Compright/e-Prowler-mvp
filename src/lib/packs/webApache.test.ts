@@ -125,8 +125,8 @@ describe("service-management evaluators WEB-13/14/15/16/17/18", () => {
     expect(evaluateApacheWEB14(cfg("<Directory /var/www/>\n  Require all granted\n</Directory>")).status).toBe("fail");
   });
   it("WEB-15/17 → review", () => {
-    expect(evaluateApacheWEB15(cfg("")).status).toBe("review");
-    expect(evaluateApacheWEB17(cfg("")).status).toBe("review");
+    expect(evaluateApacheWEB15().status).toBe("review");
+    expect(evaluateApacheWEB17().status).toBe("review");
   });
   it("WEB-16 ServerTokens Prod + ServerSignature Off → pass", () => {
     expect(evaluateApacheWEB16(cfg("ServerTokens Prod\nServerSignature Off")).status).toBe("pass");

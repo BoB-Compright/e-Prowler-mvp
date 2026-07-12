@@ -179,8 +179,7 @@ export function evaluateApacheWEB14(tasks: AnsibleTaskOutput[]): CheckResult {
   return { id: "WEB-14", status: ok ? "pass" : "fail", evidence: ok ? "디렉터리 기본 접근통제(Require all denied)가 존재하거나 전체 허용이 없음" : "명시적 기본 거부 없이 Require all granted만 존재(접근통제 미흡)" };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function evaluateApacheWEB15(_tasks: AnsibleTaskOutput[]): CheckResult {
+export function evaluateApacheWEB15(): CheckResult {
   return { id: "WEB-15", status: "review", evidence: "불필요한 스크립트 핸들러/매핑 제거 여부는 서비스 요건 판단 필요 — 수동 확인" };
 }
 
@@ -192,8 +191,7 @@ export function evaluateApacheWEB16(tasks: AnsibleTaskOutput[]): CheckResult {
   return { id: "WEB-16", status: ok ? "pass" : "fail", evidence: ok ? "ServerTokens Prod + ServerSignature Off로 헤더 정보 노출이 제한됨" : `헤더 정보 노출 제한 미흡 (ServerTokens Prod: ${tokensOk}, ServerSignature Off: ${sigOff})` };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function evaluateApacheWEB17(_tasks: AnsibleTaskOutput[]): CheckResult {
+export function evaluateApacheWEB17(): CheckResult {
   return { id: "WEB-17", status: "review", evidence: "불필요한 가상 디렉터리(Alias) 삭제 여부는 서비스 요건 판단 필요 — 수동 확인" };
 }
 
