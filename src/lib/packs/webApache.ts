@@ -200,3 +200,43 @@ export function evaluateApacheWEB18(tasks: AnsibleTaskOutput[]): CheckResult {
   const dav = moduleLoaded(modules, "dav_module") || moduleLoaded(modules, "dav_fs_module");
   return { id: "WEB-18", status: dav ? "fail" : "pass", evidence: dav ? "WebDAV 모듈(mod_dav)이 로드되어 있음 — 불필요 시 비활성화 필요" : "WebDAV 모듈이 로드되어 있지 않음" };
 }
+
+export function evaluateApacheWEB19(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { config, modules } = getApacheState(tasks);
+  const includesOn = moduleLoaded(modules, "include_module") || activeLines(config).some((l) => /^Options\b/i.test(l) && /(^|\s)\+?Includes\b/i.test(l) && !/-Includes\b/i.test(l));
+  return { id: "WEB-19", status: includesOn ? "fail" : "pass", evidence: includesOn ? "SSI(mod_include/Options Includes)가 활성화되어 있음 — 불필요 시 비활성화 필요" : "SSI가 비활성(mod_include 미로드 및 Includes 미사용)" };
+}
+
+export function evaluateApacheWEB20(tasks: AnsibleTaskOutput[]): CheckResult {
+  const { config, modules } = getApacheState(tasks);
+  const on = moduleLoaded(modules, "ssl_module") && activeLines(config).some((l) => /^SSLEngine\s+on/i.test(l));
+  return { id: "WEB-20", status: on ? "pass" : "fail", evidence: on ? "SSL/TLS가 활성화됨(mod_ssl + SSLEngine on)" : "SSL/TLS 활성화가 확인되지 않음(mod_ssl 미로드 또는 SSLEngine on 없음)" };
+}
+
+export function evaluateApacheWEB21(tasks: AnsibleTaskOutput[]): CheckResult {
+  const config = getApacheState(tasks).config;
+  const redirects = /Redirect\s+.*https:\/\//i.test(config) || /RewriteRule\s+.*https:\/\//i.test(config);
+  return { id: "WEB-21", status: redirects ? "pass" : "fail", evidence: redirects ? "HTTP→HTTPS 리디렉션 설정이 확인됨" : "HTTP→HTTPS 리디렉션 설정이 확인되지 않음" };
+}
+
+export function evaluateApacheWEB22(): CheckResult {
+  return { id: "WEB-22", status: "review", evidence: "커스텀 에러 페이지(ErrorDocument) 정책 적정성은 판단 필요 — 수동 확인" };
+}
+export function evaluateApacheWEB23(): CheckResult {
+  return { id: "WEB-23", status: "review", evidence: "LDAP 연동 알고리즘 구성은 외부 시스템 맥락 판단 필요 — 수동 확인" };
+}
+export function evaluateApacheWEB24(): CheckResult {
+  return { id: "WEB-24", status: "review", evidence: "별도 업로드 경로/권한 설정은 조직 정책 판단 필요 — 수동 확인" };
+}
+
+export function evaluateApacheWEB25(tasks: AnsibleTaskOutput[]): CheckResult {
+  const ver = tasks.find((t) => t.taskName === "apache version (internal)")?.stdout.trim() ?? "확인 불가";
+  return { id: "WEB-25", status: "review", evidence: `Apache 버전: ${ver} — 정적 점검만으로는 최신 보안 패치 적용 여부를 판단할 수 없어 벤더 권고사항과 수동 대조 필요` };
+}
+
+export function evaluateApacheWEB26(tasks: AnsibleTaskOutput[]): CheckResult {
+  const stat = tasks.find((t) => t.taskName === "WEB-26: apache log directory permissions")?.stdout.trim() ?? "";
+  if (!stat || stat === "__MISSING__") return { id: "WEB-26", status: "skip", evidence: "로그 디렉터리를 확인할 수 없음" };
+  const ok = statNoGroupOtherWrite(stat);
+  return { id: "WEB-26", status: ok ? "pass" : "fail", evidence: `로그 디렉터리 권한: ${stat}` };
+}

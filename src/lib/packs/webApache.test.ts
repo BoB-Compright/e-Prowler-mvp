@@ -5,6 +5,7 @@ import {
   evaluateApacheWEB04, evaluateApacheWEB05, evaluateApacheWEB06, evaluateApacheWEB07,
   evaluateApacheWEB08, evaluateApacheWEB09, evaluateApacheWEB10, evaluateApacheWEB11, evaluateApacheWEB12,
   evaluateApacheWEB13, evaluateApacheWEB14, evaluateApacheWEB15, evaluateApacheWEB16, evaluateApacheWEB17, evaluateApacheWEB18,
+  evaluateApacheWEB19, evaluateApacheWEB20, evaluateApacheWEB21, evaluateApacheWEB22, evaluateApacheWEB23, evaluateApacheWEB24, evaluateApacheWEB25, evaluateApacheWEB26,
   statNoGroupOtherWrite, isOwnerOnly,
 } from "./webApache";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
@@ -135,5 +136,35 @@ describe("service-management evaluators WEB-13/14/15/16/17/18", () => {
   it("WEB-18 dav loaded → fail, not → pass", () => {
     expect(evaluateApacheWEB18([...cfg(""), mods(" dav_module (shared)\n dav_fs_module (shared)")]).status).toBe("fail");
     expect(evaluateApacheWEB18([...cfg(""), mods(" core_module (static)")]).status).toBe("pass");
+  });
+});
+
+describe("security-settings and patch-log evaluators WEB-19/20/21/22/23/24/25/26", () => {
+  it("WEB-19 SSI: mod_include loaded → fail, not → pass", () => {
+    expect(evaluateApacheWEB19([...cfg(""), mods(" include_module (shared)")]).status).toBe("fail");
+    expect(evaluateApacheWEB19([...cfg(""), mods(" core_module (static)")]).status).toBe("pass");
+  });
+  it("WEB-20 SSL: mod_ssl + SSLEngine on → pass else fail", () => {
+    expect(evaluateApacheWEB20([...cfg("SSLEngine on"), mods(" ssl_module (shared)")]).status).toBe("pass");
+    expect(evaluateApacheWEB20([...cfg(""), mods(" core_module (static)")]).status).toBe("fail");
+  });
+  it("WEB-21 http→https redirect present → pass else fail", () => {
+    expect(evaluateApacheWEB21(cfg("RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301]")).status).toBe("pass");
+    expect(evaluateApacheWEB21(cfg("ServerTokens Prod")).status).toBe("fail");
+  });
+  it("WEB-22/23/24 → review", () => {
+    expect(evaluateApacheWEB22().status).toBe("review");
+    expect(evaluateApacheWEB23().status).toBe("review");
+    expect(evaluateApacheWEB24().status).toBe("review");
+  });
+  it("WEB-25 → review with version evidence", () => {
+    const r = evaluateApacheWEB25([{ taskName: "apache version (internal)", stdout: "Server version: Apache/2.4.58 (Ubuntu)" }]);
+    expect(r.status).toBe("review");
+    expect(r.evidence).toContain("2.4.58");
+  });
+  it("WEB-26 log dir perms pass/fail; missing → skip", () => {
+    expect(evaluateApacheWEB26([{ taskName: "WEB-26: apache log directory permissions", stdout: "root:adm 750" }]).status).toBe("pass");
+    expect(evaluateApacheWEB26([{ taskName: "WEB-26: apache log directory permissions", stdout: "root:root 777" }]).status).toBe("fail");
+    expect(evaluateApacheWEB26([{ taskName: "WEB-26: apache log directory permissions", stdout: "__MISSING__" }]).status).toBe("skip");
   });
 });
