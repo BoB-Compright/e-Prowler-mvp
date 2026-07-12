@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { getDb } from "@/lib/db";
 import type { Asset } from "@/lib/assets/types";
 import { getAsset, listAssets } from "@/lib/assets/store";
-import { runAnsibleForServer } from "@/lib/checks/ansibleRunner";
+import { runAnsibleForServer, type AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import { retryOnConnectionFailure, AuthFailureError } from "@/lib/checks/retry";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
@@ -103,20 +103,38 @@ export async function runServerScanPipeline(
 ): Promise<void> {
   updateRunStage(run.id, "connect", "running", {}, db);
   const plan = deps.resolveCheckPlan(asset);
-  let tasks;
-  try {
-    tasks = await deps.retryOnConnectionFailure(() => deps.runAnsibleForServer(asset, plan.evidenceTasks));
-  } catch (err) {
-    // Global constraint: never surface raw credentials/stderr for an auth
-    // failure — only the fixed "인증 실패" message is recorded.
-    const message = err instanceof AuthFailureError ? "인증 실패" : errorMessage(err);
+  // A fully-windows plan (every selected pack has executionPath "windows",
+  // e.g. os-windows + web-iis) has no real SSH/ansible target to reach yet —
+  // there's no sshd on a Windows host, and evaluatePack already ignores
+  // `tasks` for windows packs, unconditionally returning "Windows 호스트
+  // 연결 대기" review results. Running runAnsibleForServer here would only
+  // dial a connection that can never succeed and would prevent those review
+  // results from ever being recorded, so skip straight to evaluation.
+  const windowsOnly = plan.packs.length > 0 && plan.packs.every((p) => p.executionPath === "windows");
+  let tasks: AnsibleTaskOutput[];
+  if (windowsOnly) {
+    tasks = [];
     if (isCancelled(run.id, db)) return;
-    updateRunStage(run.id, "connect", "failed", { errorMessage: message }, db);
-    return;
+    // Use `message` (event log only), not `errorMessage` (persisted on the run
+    // row and rendered in a red "fail" box by RunStatus) — this is informational,
+    // not a failure.
+    updateRunStage(run.id, "connect", "succeeded", { message: "Windows 호스트 점검은 WinRM 연결 대기 — SSH/Ansible 단계 생략" }, db);
+    updateRunStage(run.id, "ansible_scan", "succeeded", { message: "Windows 호스트 점검은 WinRM 연결 대기 — SSH/Ansible 단계 생략" }, db);
+  } else {
+    try {
+      tasks = await deps.retryOnConnectionFailure(() => deps.runAnsibleForServer(asset, plan.evidenceTasks));
+    } catch (err) {
+      // Global constraint: never surface raw credentials/stderr for an auth
+      // failure — only the fixed "인증 실패" message is recorded.
+      const message = err instanceof AuthFailureError ? "인증 실패" : errorMessage(err);
+      if (isCancelled(run.id, db)) return;
+      updateRunStage(run.id, "connect", "failed", { errorMessage: message }, db);
+      return;
+    }
+    if (isCancelled(run.id, db)) return;
+    updateRunStage(run.id, "connect", "succeeded", {}, db);
+    updateRunStage(run.id, "ansible_scan", "succeeded", {}, db);
   }
-  if (isCancelled(run.id, db)) return;
-  updateRunStage(run.id, "connect", "succeeded", {}, db);
-  updateRunStage(run.id, "ansible_scan", "succeeded", {}, db);
 
   updateRunStage(run.id, "rule_evaluation", "running", {}, db);
   const results: CheckResult[] = deps.evaluatePlan(plan, { findings: null, tasks }, asset);

@@ -10,6 +10,7 @@ import { listCheckResults } from "@/lib/checks/store";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
 import { osUnixPack } from "@/lib/packs/osUnix";
+import { osWindowsPack } from "@/lib/packs/osWindows";
 import type { CheckPlan, EvalContext } from "@/lib/packs/types";
 import type { Asset } from "@/lib/assets/types";
 import { analyzeAndSaveChecks } from "@/lib/claude";
@@ -204,6 +205,39 @@ describe("runServerScanPipeline", () => {
     const finished = getRun(run.id, db)!;
     expect(finished.stage).toBe("done");
     expect(finished.status).toBe("succeeded");
+    // Linux path: the SSH/ansible boundary is still exercised as before.
+    expect(deps.runAnsibleForServer).toHaveBeenCalledTimes(1);
+  });
+
+  // Bug fix (#windows): a fully-windows plan (every selected pack has
+  // executionPath "windows", e.g. os-windows + web-iis) has no real sshd to
+  // reach — dialing runAnsibleForServer there only dies at connect and,
+  // since evaluatePack already ignores `tasks` for windows packs, prevents
+  // the intended "Windows 호스트 연결 대기" review results from ever being
+  // recorded. The pipeline must skip SSH/ansible entirely for such a plan
+  // and go straight to evaluation/save with an empty tasks array.
+  it("skips the SSH/Ansible step for a windows-only plan and still saves the review results", async () => {
+    const asset = createServerAsset(serverAssetInput({ displayName: "win-01", hostname: "win-01" }), db);
+    const { run } = createServerRun(asset.id, null, db);
+    const windowsPlan: CheckPlan = { packs: [osWindowsPack], evidenceTasks: [] };
+    const reviewResults: CheckResult[] = [
+      { id: "W-01", status: "review", evidence: "Windows 호스트 연결 대기 (자동 점검 미연결)" },
+    ];
+    const deps = baseDeps({
+      resolveCheckPlan: () => windowsPlan,
+      evaluatePlan: vi.fn().mockReturnValue(reviewResults),
+    });
+
+    await runServerScanPipeline(run, asset, deps, db);
+
+    expect(deps.runAnsibleForServer).not.toHaveBeenCalled();
+    const finished = getRun(run.id, db)!;
+    expect(finished.stage).toBe("done");
+    expect(finished.status).toBe("succeeded");
+    expect(deps.evaluatePlan).toHaveBeenCalledWith(windowsPlan, { findings: null, tasks: [] }, asset);
+    expect(listCheckResults(run.id, db)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "W-01", status: "review" })]),
+    );
   });
 });
 
