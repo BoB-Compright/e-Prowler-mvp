@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 126 items across the five categories", () => {
+  it("loads all 138 items across the five categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(126);
+    expect(summary.total).toBe(138);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(12);
-    expect(summary.byCategory.db).toBe(12);
+    expect(summary.byCategory.db).toBe(24);
   });
 
   it("has no duplicate ids", () => {
@@ -71,11 +71,21 @@ describe("catalog", () => {
     expect(was.map((i) => i.id)).toContain("WAS-12");
   });
 
-  it("has 12 CIS-sourced DB items", () => {
+  it("has 24 CIS-sourced DB items (MySQL + PostgreSQL)", () => {
     const db = getCatalogByCategory("db");
-    expect(db).toHaveLength(12);
+    expect(db).toHaveLength(24);
     expect(db.every((i) => i.frameworkId === "cis")).toBe(true);
     expect(db.map((i) => i.id)).toContain("DB-01");
     expect(db.map((i) => i.id)).toContain("DB-12");
+    expect(db.map((i) => i.id)).toContain("PG-01");
+    expect(db.map((i) => i.id)).toContain("PG-12");
+  });
+
+  it("db category now has 24 items: DB-* (MySQL) + PG-* (PostgreSQL)", () => {
+    const ids = getCatalogByCategory("db").map((i) => i.id);
+    expect(ids.filter((i) => i.startsWith("DB-"))).toHaveLength(12);
+    expect(ids.filter((i) => i.startsWith("PG-"))).toHaveLength(12);
+    expect(ids).toContain("PG-01");
+    expect(ids).toContain("PG-12");
   });
 });

@@ -118,7 +118,7 @@ describe("my.cnf 파서: 섹션 인지 + last-match + 인라인 주석", () => {
 
 describe("dbMysqlPack", () => {
   it("dbMysqlPack shape + evaluate one result per DB item", () => {
-    const dbIds = getCatalogByCategory("db").map((i) => i.id).sort();
+    const dbIds = getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("DB-")).sort();
     expect(dbMysqlPack.id).toBe("db-mysql");
     expect(dbMysqlPack.vendors).toEqual(["MySQL", "MariaDB"]);
     expect(dbMysqlPack.itemIds.slice().sort()).toEqual(dbIds);
@@ -126,5 +126,13 @@ describe("dbMysqlPack", () => {
     expect(dbMysqlPack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort()).toEqual(dbIds);
     expect(dbMysqlPack.detect(present)).toBe(true);
     expect(dbMysqlPack.detect([])).toBe(false);
+  });
+
+  it("dbMysqlPack itemIds are DB-* only (not PG-*)", () => {
+    expect(dbMysqlPack.itemIds.every((id) => id.startsWith("DB-"))).toBe(true);
+    expect(dbMysqlPack.itemIds).toHaveLength(12);
+    const present = [{ taskName: "mysql detection (internal)", stdout: "present" }];
+    expect(dbMysqlPack.evaluate({ findings: null, tasks: present }).map((r) => r.id).sort())
+      .toEqual(dbMysqlPack.itemIds.slice().sort());
   });
 });

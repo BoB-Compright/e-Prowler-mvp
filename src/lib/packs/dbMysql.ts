@@ -209,7 +209,7 @@ export const dbMysqlPack: VendorPack = {
   category: "DB",
   vendors: ["MySQL", "MariaDB"],
   executionPath: "linux",
-  itemIds: getCatalogByCategory("db").map((i) => i.id),
+  itemIds: getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith("DB-")),
   evidenceTasks: MYSQL_EVIDENCE,
   detect: (tasks) => getMysqlState(tasks).present,
   evaluate: evaluateMysql,
