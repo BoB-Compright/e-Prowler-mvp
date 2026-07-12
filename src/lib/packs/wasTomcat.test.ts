@@ -70,6 +70,9 @@ it("WAS-09 AccessLogValve present → pass, absent → fail", () => {
   expect(evaluateWAS09(base([t("tomcat server.xml", '<Valve className="org.apache.catalina.valves.AccessLogValve" />')])).status).toBe("pass");
   expect(evaluateWAS09(base([t("tomcat server.xml", "<Engine/>")])).status).toBe("fail");
 });
+it("WAS-09 commented-out AccessLogValve → fail (activeLines filters comments)", () => {
+  expect(evaluateWAS09(base([t("tomcat server.xml", "<!-- <Valve className=\"org.apache.catalina.valves.AccessLogValve\" /> -->")])).status).toBe("fail");
+});
 it("WAS-10 allowTrace true → fail, absent → pass", () => {
   expect(evaluateWAS10(base([t("tomcat server.xml", '<Connector port="8080" allowTrace="true" />')])).status).toBe("fail");
   expect(evaluateWAS10(base([t("tomcat server.xml", '<Connector port="8080" />')])).status).toBe("pass");

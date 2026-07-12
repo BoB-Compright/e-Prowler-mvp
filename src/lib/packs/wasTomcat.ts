@@ -138,7 +138,7 @@ export function evaluateWAS08(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 export function evaluateWAS09(tasks: AnsibleTaskOutput[]): CheckResult {
-  const present = /AccessLogValve/.test(getTomcatState(tasks).serverXml);
+  const present = activeLines(getTomcatState(tasks).serverXml).some((l) => /AccessLogValve/.test(l));
   return { id: "WAS-09", status: present ? "pass" : "fail", evidence: present ? "AccessLogValve(접근 로깅)가 설정됨" : "AccessLogValve가 설정되어 있지 않음" };
 }
 
@@ -162,7 +162,7 @@ export function evaluateWAS11(tasks: AnsibleTaskOutput[]): CheckResult {
 }
 
 export function evaluateWAS12(tasks: AnsibleTaskOutput[]): CheckResult {
-  const raw = getTomcatState(tasks).version;
-  const version = raw && raw !== MISSING ? raw : "확인 불가";
+  const rawVersion = getTomcatState(tasks).version;
+  const version = rawVersion && rawVersion !== MISSING ? rawVersion : "확인 불가";
   return { id: "WAS-12", status: "review", evidence: `Tomcat 버전: ${version} — 정적 점검만으로 최신 패치 적용 여부를 단정할 수 없어 벤더 권고와 대조 필요` };
 }
