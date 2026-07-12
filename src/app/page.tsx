@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listAssets } from "@/lib/assets/store";
 import { listRuns } from "@/lib/pipeline/runs";
-import { listCveMatches } from "@/lib/cve/store";
+import { listCveMatches, listRecentCriticalCveAlerts, CVE_ALERT_WINDOW_DAYS } from "@/lib/cve/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
@@ -59,6 +59,8 @@ export default function DashboardPage() {
   const topCves = [...criticalHighCves]
     .sort((x, y) => (y.cvssScore ?? 0) - (x.cvssScore ?? 0))
     .slice(0, 5);
+
+  const cveAlerts = listRecentCriticalCveAlerts();
 
   // 종합 점수 · 분포 · TOP 5
   const criticalHigh = (summary: { severityCounts: Record<string, number> } | null) =>
@@ -242,6 +244,41 @@ export default function DashboardPage() {
                 </table>
               </div>
             </Card>
+
+            {/* 신규 CVE 경보: 최근 7일 내 처음 발견된 critical·미해제 매치(발견
+                경로 무관 — 24h 폴러/델타 워처/스캔 트리거). 0건이면 카드 생략. */}
+            {cveAlerts.length > 0 && (
+              <Card
+                title={`신규 CVE 경보 (최근 ${CVE_ALERT_WINDOW_DAYS}일)`}
+                bodyClassName="p-0"
+              >
+                <ul className="divide-y divide-border">
+                  {cveAlerts.slice(0, 8).map((alert) => (
+                    <li key={alert.id}>
+                      <Link
+                        href={`/assets/${alert.assetId}`}
+                        className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm hover:bg-bg"
+                      >
+                        <StatusBadge status="fail">심각</StatusBadge>
+                        <span className="font-mono text-[13px] font-bold">{alert.cveId}</span>
+                        <span className="text-muted">{alert.assetName}</span>
+                        <span className="font-mono text-[13px] text-muted">
+                          {alert.packageName}@{alert.packageVersion}
+                        </span>
+                        <span className="ml-auto font-mono text-[12px] text-muted">
+                          발견 {alert.firstSeenAt.slice(0, 10)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                  {cveAlerts.length > 8 && (
+                    <li className="px-5 py-3 text-[13px] text-muted">
+                      외 {(cveAlerts.length - 8).toLocaleString()}건 — 자산 상세에서 확인
+                    </li>
+                  )}
+                </ul>
+              </Card>
+            )}
 
             {/* 4. 고위험 CVE TOP 5 (기존 유지) */}
             <Card title="고위험 CVE TOP 5" bodyClassName={topCves.length === 0 ? "p-5" : "p-0"}>

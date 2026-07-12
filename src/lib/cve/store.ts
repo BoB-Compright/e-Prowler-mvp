@@ -176,3 +176,42 @@ export function listCveMatches(assetId: string, db: Database = getDb()): CveMatc
     .all(assetId) as CveMatchRow[];
   return rows.map(toCveMatch);
 }
+
+// ── 신규 CVE 경보 (파생) ────────────────────────────────────────────────
+// 별도 테이블 없이 cve_matches에서 파생한다: 최근 7일 내 처음 발견된
+// critical·미해제 매치. 발견 경로(24h 폴러든 델타 워처든)와 무관하게 동일 취급.
+export const CVE_ALERT_WINDOW_DAYS = 7;
+
+export interface CveAlert extends CveMatch {
+  assetName: string;
+}
+
+function alertCutoffIso(now: Date): string {
+  return new Date(now.getTime() - CVE_ALERT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function listRecentCriticalCveAlerts(now: Date = new Date(), db: Database = getDb()): CveAlert[] {
+  const rows = db
+    .prepare(
+      `SELECT m.*, a.display_name FROM cve_matches m
+       JOIN assets a ON a.id = m.asset_id
+       WHERE m.severity = 'critical' AND m.dismissed = 0 AND m.first_seen_at >= ?
+       ORDER BY m.first_seen_at DESC`,
+    )
+    .all(alertCutoffIso(now)) as (CveMatchRow & { display_name: string })[];
+  return rows.map((row) => ({ ...toCveMatch(row), assetName: row.display_name }));
+}
+
+export function countRecentCriticalCveAlertsByAsset(
+  now: Date = new Date(),
+  db: Database = getDb(),
+): Map<string, number> {
+  const rows = db
+    .prepare(
+      `SELECT asset_id, COUNT(*) as cnt FROM cve_matches
+       WHERE severity = 'critical' AND dismissed = 0 AND first_seen_at >= ?
+       GROUP BY asset_id`,
+    )
+    .all(alertCutoffIso(now)) as { asset_id: string; cnt: number }[];
+  return new Map(rows.map((row) => [row.asset_id, row.cnt]));
+}

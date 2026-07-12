@@ -117,6 +117,11 @@ CREATE TABLE IF NOT EXISTS nvd_query_cache (
   fetched_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cve_delta_state (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  watermark TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,

@@ -25,7 +25,7 @@ export interface NvdClientDeps {
 const sharedRateLimiter = createRateLimiter();
 const defaultDeps: NvdClientDeps = { fetch, wait: sharedRateLimiter };
 
-function severityFromScore(score: number | null): CveSeverity {
+export function severityFromScore(score: number | null): CveSeverity {
   if (score === null) return "unknown";
   if (score >= 9.0) return "critical";
   if (score >= 7.0) return "high";

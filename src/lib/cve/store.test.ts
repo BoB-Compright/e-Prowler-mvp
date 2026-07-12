@@ -13,6 +13,8 @@ import {
   setCveAiAnalysis,
   setCveDismissed,
   upsertCveMatch,
+  listRecentCriticalCveAlerts,
+  countRecentCriticalCveAlertsByAsset,
 } from "./store";
 
 let db: Database;
@@ -104,5 +106,41 @@ describe("cve matches", () => {
     expect(updated.aiImpact).toBe("심각한 영향");
     expect(updated.aiRemediation).toBe("패키지 업그레이드");
     expect(updated.dismissed).toBe(true);
+  });
+});
+
+describe("cve alerts (derived)", () => {
+  it("lists only non-dismissed critical matches first seen within 7 days, newest first, with asset names", () => {
+    const asset = server({ hostIp: "10.0.1.1", displayName: "웹서버-1" });
+    const now = new Date("2026-07-13T12:00:00Z");
+    const recent = new Date("2026-07-12T12:00:00Z"); // 1일 전
+    const boundary = new Date("2026-07-06T12:00:00Z"); // 정확히 7일 전 → 포함
+    const old = new Date("2026-07-06T11:59:59Z"); // 7일 + 1초 전 → 제외
+
+    upsertCveMatch({ assetId: asset.id, packageName: "a", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0001", cvssScore: 9.8 }) }, recent, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "b", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0002", cvssScore: 9.8 }) }, boundary, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "c", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0003", cvssScore: 9.8 }) }, old, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "d", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0004", cvssScore: 8.0, severity: "high" }) }, recent, db); // high → 제외 (주의: cveEntry 기본값이 severity critical이라 반드시 override)
+    const dismissedMatch = upsertCveMatch({ assetId: asset.id, packageName: "e", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0005", cvssScore: 9.8 }) }, recent, db);
+    setCveDismissed(dismissedMatch.match.id, true, db);
+
+    const alerts = listRecentCriticalCveAlerts(now, db);
+
+    expect(alerts.map((a) => a.cveId)).toEqual(["CVE-2026-0001", "CVE-2026-0002"]);
+    expect(alerts[0].assetName).toBe("웹서버-1");
+  });
+
+  it("counts recent critical alerts per asset", () => {
+    const a1 = server({ hostIp: "10.0.1.2" });
+    const a2 = server({ hostIp: "10.0.1.3" });
+    const now = new Date("2026-07-13T12:00:00Z");
+    const recent = new Date("2026-07-12T12:00:00Z");
+    upsertCveMatch({ assetId: a1.id, packageName: "a", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0101", cvssScore: 9.8 }) }, recent, db);
+    upsertCveMatch({ assetId: a1.id, packageName: "b", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-0102", cvssScore: 9.8 }) }, recent, db);
+
+    const counts = countRecentCriticalCveAlertsByAsset(now, db);
+
+    expect(counts.get(a1.id)).toBe(2);
+    expect(counts.get(a2.id)).toBeUndefined();
   });
 });
