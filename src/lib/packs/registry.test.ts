@@ -10,6 +10,10 @@ describe("registry", () => {
     expect(findVendorPack("DB", "Oracle")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "os-unix", "web-nginx"]);
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "os-unix", "web-apache", "web-nginx"]);
+  });
+  it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
+    expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
+    expect(findVendorPack("WEB", "apache")?.id).toBe("web-apache");
   });
 });

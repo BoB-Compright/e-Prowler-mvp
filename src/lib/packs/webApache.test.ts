@@ -6,8 +6,9 @@ import {
   evaluateApacheWEB08, evaluateApacheWEB09, evaluateApacheWEB10, evaluateApacheWEB11, evaluateApacheWEB12,
   evaluateApacheWEB13, evaluateApacheWEB14, evaluateApacheWEB15, evaluateApacheWEB16, evaluateApacheWEB17, evaluateApacheWEB18,
   evaluateApacheWEB19, evaluateApacheWEB20, evaluateApacheWEB21, evaluateApacheWEB22, evaluateApacheWEB23, evaluateApacheWEB24, evaluateApacheWEB25, evaluateApacheWEB26,
-  statNoGroupOtherWrite, isOwnerOnly,
+  statNoGroupOtherWrite, isOwnerOnly, webApachePack,
 } from "./webApache";
+import { getCatalogByCategory } from "@/lib/catalog";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 
 const present = [
@@ -167,4 +168,20 @@ describe("security-settings and patch-log evaluators WEB-19/20/21/22/23/24/25/26
     expect(evaluateApacheWEB26([{ taskName: "WEB-26: apache log directory permissions", stdout: "root:root 777" }]).status).toBe("fail");
     expect(evaluateApacheWEB26([{ taskName: "WEB-26: apache log directory permissions", stdout: "__MISSING__" }]).status).toBe("skip");
   });
+});
+
+it("webApachePack shape + evaluate returns one result per web item", () => {
+  const webIds = getCatalogByCategory("web").map((i) => i.id).sort();
+  expect(webApachePack.id).toBe("web-apache");
+  expect(webApachePack.vendors).toEqual(["Apache"]);
+  expect(webApachePack.itemIds.slice().sort()).toEqual(webIds);
+  const present = [
+    { taskName: "apache detection (internal)", stdout: "present" },
+    { taskName: "apache modules (internal)", stdout: " core_module (static)" },
+    { taskName: "apache effective config (internal)", stdout: "ServerTokens Prod\nServerSignature Off" },
+  ];
+  const results = webApachePack.evaluate({ findings: null, tasks: present });
+  expect(results.map((r) => r.id).sort()).toEqual(webIds);
+  expect(webApachePack.detect(present)).toBe(true);
+  expect(webApachePack.detect([])).toBe(false);
 });

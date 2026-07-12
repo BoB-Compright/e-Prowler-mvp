@@ -1,5 +1,6 @@
+import { getCatalogByCategory } from "@/lib/catalog";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
-import type { PlaybookTask } from "./types";
+import type { EvalContext, PlaybookTask, VendorPack } from "./types";
 import type { CheckResult } from "@/lib/checks/types";
 
 const MISSING = "__MISSING__";
@@ -240,3 +241,26 @@ export function evaluateApacheWEB26(tasks: AnsibleTaskOutput[]): CheckResult {
   const ok = statNoGroupOtherWrite(stat);
   return { id: "WEB-26", status: ok ? "pass" : "fail", evidence: `로그 디렉터리 권한: ${stat}` };
 }
+
+function evaluateApache(ctx: EvalContext): CheckResult[] {
+  const t = ctx.tasks;
+  return [
+    evaluateApacheWEB01(t), evaluateApacheWEB02(t), evaluateApacheWEB03(t), evaluateApacheWEB04(t), evaluateApacheWEB05(),
+    evaluateApacheWEB06(t), evaluateApacheWEB07(t), evaluateApacheWEB08(), evaluateApacheWEB09(t), evaluateApacheWEB10(t),
+    evaluateApacheWEB11(), evaluateApacheWEB12(t), evaluateApacheWEB13(t), evaluateApacheWEB14(t), evaluateApacheWEB15(),
+    evaluateApacheWEB16(t), evaluateApacheWEB17(), evaluateApacheWEB18(t), evaluateApacheWEB19(t), evaluateApacheWEB20(t),
+    evaluateApacheWEB21(t), evaluateApacheWEB22(), evaluateApacheWEB23(), evaluateApacheWEB24(), evaluateApacheWEB25(t),
+    evaluateApacheWEB26(t),
+  ];
+}
+
+export const webApachePack: VendorPack = {
+  id: "web-apache",
+  category: "WEB",
+  vendors: ["Apache"],
+  executionPath: "linux",
+  itemIds: getCatalogByCategory("web").map((i) => i.id),
+  evidenceTasks: APACHE_EVIDENCE,
+  detect: (tasks) => getApacheState(tasks).present,
+  evaluate: evaluateApache,
+};

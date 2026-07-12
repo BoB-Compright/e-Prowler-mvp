@@ -15,6 +15,12 @@ describe("resolveCheckPlan", () => {
     expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "web-nginx"]);
     expect(plan.evidenceTasks.some((t) => t.name === "nginx detection (internal)")).toBe(true);
   });
+  it("server + WEB/Apache → os-unix + web-apache with apache evidence", () => {
+    const asset = { ...base, type: "server", category: "WEB", vendor: "Apache" } as Asset;
+    const plan = resolveCheckPlan(asset);
+    expect(plan.packs.map((p) => p.id)).toEqual(["os-unix", "web-apache"]);
+    expect(plan.evidenceTasks.some((t) => t.name === "apache detection (internal)")).toBe(true);
+  });
   it("server + OS/Ubuntu → os-unix only", () => {
     const asset = { ...base, type: "server", category: "OS", vendor: "Ubuntu" } as Asset;
     expect(resolveCheckPlan(asset).packs.map((p) => p.id)).toEqual(["os-unix"]);
