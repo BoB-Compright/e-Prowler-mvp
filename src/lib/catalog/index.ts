@@ -5,7 +5,7 @@ import wasData from "./data/cis/was.json";
 import dbData from "./data/cis/db.json";
 import windowsData from "./data/cis/windows.json";
 import { FRAMEWORKS } from "./frameworks";
-import type { CatalogItem, Category, Framework } from "./types";
+import type { CatalogItem, Category, Framework, Mitigation } from "./types";
 
 type RawItem = Omit<CatalogItem, "category" | "frameworkId">;
 
@@ -78,3 +78,6 @@ export function getCatalogSummary(): CatalogSummary {
     notAutomated: CATALOG.filter((item) => item.automationStatus === "not_automated").length,
   };
 }
+
+export { getMitigation } from "./mitigations";
+export type { Mitigation };

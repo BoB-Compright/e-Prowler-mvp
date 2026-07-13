@@ -1,0 +1,27 @@
+{
+  "U-01": {
+    "risk": "root 계정의 원격 접속이 허용되면 무차별 대입 공격의 직접 표적이 되고, 탈취 시 시스템 전체가 즉시 장악됩니다.",
+    "fix": "SSH에서 root 직접 로그인을 금지하고, 일반 계정으로 접속 후 su/sudo로 권한을 상승하도록 구성합니다.",
+    "example": "# /etc/ssh/sshd_config\nPermitRootLogin no\n\n# 적용\nsystemctl restart sshd"
+  },
+  "U-05": {
+    "risk": "root(UID 0)와 동일한 UID를 가진 계정이 있으면 그 계정이 root와 동일한 전권을 갖게 되어 권한 통제가 무너집니다.",
+    "fix": "root 외에 UID가 0인 계정이 없는지 확인하고, 있으면 해당 계정의 UID를 고유한 비-0 값으로 변경하거나 제거합니다.",
+    "example": "# UID 0 계정 확인\nawk -F: '($3==0){print $1}' /etc/passwd\n# root 하나만 출력되어야 함"
+  },
+  "U-13": {
+    "risk": "취약한 해시(예: DES/MD5)로 비밀번호를 저장하면 유출 시 오프라인 크래킹으로 쉽게 복원됩니다.",
+    "fix": "SHA-512 등 강한 알고리즘으로 비밀번호를 저장하도록 설정합니다.",
+    "example": "# /etc/login.defs\nENCRYPT_METHOD SHA512"
+  },
+  "U-16": {
+    "risk": "/etc/passwd의 소유자·권한이 부적절하면 계정 정보가 변조되어 권한 상승이나 계정 위조로 이어질 수 있습니다.",
+    "fix": "/etc/passwd의 소유자를 root로, 권한을 644 이하로 설정합니다.",
+    "example": "chown root:root /etc/passwd\nchmod 644 /etc/passwd"
+  },
+  "U-18": {
+    "risk": "/etc/shadow가 과도한 권한을 가지면 비밀번호 해시가 노출되어 크래킹의 대상이 됩니다.",
+    "fix": "/etc/shadow의 소유자를 root로, 권한을 400(또는 600) 이하로 제한합니다.",
+    "example": "chown root:root /etc/shadow\nchmod 400 /etc/shadow"
+  }
+}

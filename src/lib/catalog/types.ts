@@ -53,3 +53,10 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   db: "DB (CIS 기반)",
   windows: "Windows 서버 (CIS 기반)",
 };
+
+// 취약(fail)·검토(review) 항목의 정적 조치 가이드. AI·점검시점과 무관하게 항상 제공.
+export interface Mitigation {
+  risk: string; // 이 취약점이 왜 위험한가 (1~2문장)
+  fix: string; // 조치 방법 (설명/단계)
+  example?: string; // 설정·명령 예시 (코드블록으로 렌더)
+}
