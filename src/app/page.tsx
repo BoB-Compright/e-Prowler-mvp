@@ -22,6 +22,7 @@ import { SecurityScoreGauge } from "./_components/dashboard/SecurityScoreGauge";
 import { AssetStatusDonut } from "./_components/dashboard/AssetStatusDonut";
 import { ActivityFeedCard } from "./_components/dashboard/ActivityFeedCard";
 import { OnboardingTour } from "./_components/onboarding/OnboardingTour";
+import { CountUp } from "./_components/CountUp";
 
 export default function DashboardPage() {
   const assets = listAssets();
@@ -144,7 +145,7 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <SectionLabel>총 자산</SectionLabel>
                 <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                  {assets.length}
+                  <CountUp value={assets.length} />
                 </div>
                 <div className="mt-1 text-[13px] text-muted">
                   레포 {repoCount} · 서버 {serverCount}
@@ -155,7 +156,7 @@ export default function DashboardPage() {
                 <div
                   className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${vulnerableCount > 0 ? "text-fail" : ""}`}
                 >
-                  {vulnerableCount}
+                  <CountUp value={vulnerableCount} />
                 </div>
                 <div className="mt-1 text-[13px] text-muted">마지막 점검 결과 취약</div>
               </div>
@@ -164,7 +165,7 @@ export default function DashboardPage() {
                 <div
                   className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${criticalHighCves.length > 0 ? "text-fail" : ""}`}
                 >
-                  {openCves.length}
+                  <CountUp value={openCves.length} />
                 </div>
                 <div className="mt-1 text-[13px] text-muted">
                   Critical·High {criticalHighCves.length}
@@ -173,7 +174,7 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <SectionLabel>활성 스케줄</SectionLabel>
                 <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                  {activeScheduleCount}
+                  <CountUp value={activeScheduleCount} />
                 </div>
                 <div className="mt-1 text-[13px] text-muted">정기 점검 자산</div>
               </div>
