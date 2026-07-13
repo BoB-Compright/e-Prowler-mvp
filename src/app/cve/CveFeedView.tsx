@@ -1,68 +1,95 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { DemoFeedCve, DemoSeverity } from "@/lib/cve/demoFeed";
-import { actionRequired } from "@/lib/cve/demoFeed";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { FeedRow } from "@/lib/cve/feedStore";
+import type { CveSeverity } from "@/lib/cve/nvdClient";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
 
-// 값 기반 색 매핑(하드코딩 금지 원칙): 심각도·자산영향·점검결과는 모두 값에서 색을 파생한다.
-const SEVERITY_LABEL: Record<DemoSeverity, string> = { Critical: "심각", High: "높음", Medium: "중간" };
-const SEVERITY_STATUS: Record<DemoSeverity, BadgeStatus> = {
-  Critical: "fail", // CVSS 9.0+
-  High: "fail", // 7.0~8.9
-  Medium: "review", // 4.0~6.9
+const SEVERITY_LABEL: Record<CveSeverity, string> = {
+  critical: "심각", high: "높음", medium: "중간", low: "낮음", unknown: "미상",
+};
+const SEVERITY_STATUS: Record<CveSeverity, BadgeStatus> = {
+  critical: "fail", high: "fail", medium: "review", low: "neutral", unknown: "neutral",
 };
 
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`;
-}
-function formatNow(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+// feedStore.actionRequired과 동일 로직을 로컬에 둔다: feedStore.ts는 better-sqlite3(@/lib/db)를
+// 최상위에서 import하므로, 클라이언트 컴포넌트에서 값으로 import하면 서버 전용 모듈이
+// 브라우저 번들에 딸려 들어가 next build가 깨진다(fs 모듈 미해결). 타입(FeedRow)만 import한다.
+function actionRequired(assetMatches: number): boolean {
+  return assetMatches > 0;
 }
 
-export function CveFeedView({ feed }: { feed: DemoFeedCve[] }) {
+export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initialLastScan: string }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  // 자산 재대조가 마지막으로 돌아간 시점(매칭 신뢰도의 기준). "스캔 실행"이 갱신한다.
-  const [lastScan, setLastScan] = useState("2026-07-08 03:12");
   const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  // cve_id → 한국어 설명. 마운트 후 /api/cve/translate로 채워 영문 위에 덮어쓴다.
+  const [ko, setKo] = useState<Record<string, string>>({});
 
-  // 정렬 기준은 등록일이 아니라 수집 시각(최근 유입 우선)이다 — 오래된 CVE라도
-  // 방금 재수집됐으면 위로 온다.
-  const sorted = useMemo(
-    () => [...feed].sort((a, b) => a.collectedMinutesAgo - b.collectedMinutesAgo),
-    [feed],
-  );
+  // 보이는 행의 설명을 번역 요청(캐시 우선, AI 토글 ON이면 미스도 번역).
+  useEffect(() => {
+    if (feed.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/cve/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: feed.map((f) => ({ cveId: f.cveId, summary: f.summary })) }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setKo(data.translations ?? {});
+      } catch {
+        // 번역 실패 시 영문 유지
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [feed]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((c) =>
-      [c.cveId, c.description, c.severity, SEVERITY_LABEL[c.severity]]
+    if (!q) return feed;
+    return feed.filter((c) =>
+      [c.cveId, ko[c.cveId] ?? c.summary, SEVERITY_LABEL[c.severity], c.severity]
         .join(" ")
         .toLowerCase()
         .includes(q),
     );
-  }, [sorted, query]);
+  }, [feed, query, ko]);
 
-  // 상단 통계: 노이즈 총량 → 잠재적 큰불 → 실제 오늘 할 일. 데이터에서 파생한다.
   const collectedToday = feed.length;
-  const newCritical = feed.filter((c) => c.severity === "Critical").length;
+  const newCritical = feed.filter((c) => c.severity === "critical").length;
   const assetMatched = feed.filter((c) => c.assetMatches > 0).length;
 
   async function runScan() {
     setScanning(true);
-    // 시연: 자산 재대조를 트리거하는 자리. 지금은 마지막 스캔 시각만 갱신한다.
-    await new Promise((r) => setTimeout(r, 600));
-    setLastScan(formatNow(new Date()));
-    setScanning(false);
+    setScanError(null);
+    try {
+      const res = await fetch("/api/cve/scan", { method: "POST" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setScanError(d.error ?? "스캔 실패");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setScanError("서버 연결 실패");
+    } finally {
+      setScanning(false);
+    }
   }
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-[26px] font-bold tracking-[-0.02em]">CVE 피드</h1>
@@ -79,7 +106,8 @@ export function CveFeedView({ feed }: { feed: DemoFeedCve[] }) {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className="text-[12px] text-muted">마지막 스캔 {lastScan}</span>
+          <span className="text-[12px] text-muted">마지막 스캔 {initialLastScan}</span>
+          {scanError && <span className="text-[11px] text-fail">{scanError}</span>}
           <button
             onClick={runScan}
             disabled={scanning}
@@ -90,32 +118,21 @@ export function CveFeedView({ feed }: { feed: DemoFeedCve[] }) {
         </div>
       </div>
 
-      <div className="mb-3">
-        <span className="inline-block rounded-md border border-border bg-bg px-2 py-0.5 text-[11px] text-muted">
-          시연 데이터 — 실제 NVD 피드/자산 대조가 아닌 화면·판정 로직 예시입니다
-        </span>
-      </div>
-
-      {/* 상단 통계 3개: 47건 왔지만 실제 우리 일은 N건이라는 필터링 효과를 한눈에. */}
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <SectionLabel>오늘 수집</SectionLabel>
+          <SectionLabel>수집된 CVE</SectionLabel>
           <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">{collectedToday}</div>
-          <div className="mt-1 text-[13px] text-muted">피드로 들어온 전체 (노이즈 총량)</div>
+          <div className="mt-1 text-[13px] text-muted">최근 14일 피드 (노이즈 총량)</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <SectionLabel>신규 Critical</SectionLabel>
-          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}>
-            {newCritical}
-          </div>
+          <SectionLabel>Critical</SectionLabel>
+          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}>{newCritical}</div>
           <div className="mt-1 text-[13px] text-muted">최고 위험 등급 (잠재적 큰불)</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
           <SectionLabel>자산 매칭</SectionLabel>
-          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}>
-            {assetMatched}
-          </div>
-          <div className="mt-1 text-[13px] text-muted">우리 자산에 실제로 걸린 = 오늘 할 일</div>
+          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}>{assetMatched}</div>
+          <div className="mt-1 text-[13px] text-muted">우리 자산에 실제로 걸린 = 지금 할 일</div>
         </div>
       </div>
 
@@ -150,22 +167,16 @@ export function CveFeedView({ feed }: { feed: DemoFeedCve[] }) {
                 return (
                   <tr key={c.cveId} className="hover:bg-bg">
                     <td className="px-4 py-3 whitespace-nowrap text-muted">{c.collectedLabel}</td>
-                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] text-muted">{c.publishedDate}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={SEVERITY_STATUS[c.severity]}>{SEVERITY_LABEL[c.severity]}</StatusBadge>
-                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] text-muted">{c.publishedAt ? c.publishedAt.slice(0, 10) : "—"}</td>
+                    <td className="px-4 py-3"><StatusBadge status={SEVERITY_STATUS[c.severity]}>{SEVERITY_LABEL[c.severity]}</StatusBadge></td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] font-bold">{c.cveId}</td>
-                    <td className="px-4 py-3 min-w-[220px]">{c.description}</td>
-                    <td className="px-4 py-3 text-center font-mono text-[13px] font-bold">{c.cvss.toFixed(1)}</td>
+                    <td className="px-4 py-3 min-w-[220px]">{ko[c.cveId] ?? c.summary}</td>
+                    <td className="px-4 py-3 text-center font-mono text-[13px] font-bold">{c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <StatusBadge status={matched ? "fail" : "neutral"}>
-                        {matched ? `${c.assetMatches}대 매칭` : "영향 없음"}
-                      </StatusBadge>
+                      <StatusBadge status={matched ? "fail" : "neutral"}>{matched ? `${c.assetMatches}대 매칭` : "영향 없음"}</StatusBadge>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <StatusBadge status={needsAction ? "fail" : "pass"}>
-                        {needsAction ? "조치 필요" : "해당 없음"}
-                      </StatusBadge>
+                      <StatusBadge status={needsAction ? "fail" : "pass"}>{needsAction ? "조치 필요" : "해당 없음"}</StatusBadge>
                     </td>
                   </tr>
                 );
@@ -173,7 +184,10 @@ export function CveFeedView({ feed }: { feed: DemoFeedCve[] }) {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
+        {feed.length === 0 && (
+          <p className="p-5 text-[13px] text-muted italic">아직 수집된 CVE가 없습니다. &quot;스캔 실행&quot;으로 NVD 피드를 수집하세요.</p>
+        )}
+        {feed.length > 0 && filtered.length === 0 && (
           <p className="p-5 text-[13px] text-muted italic">검색 조건에 맞는 CVE가 없습니다.</p>
         )}
       </Card>
