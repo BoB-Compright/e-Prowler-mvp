@@ -4,7 +4,7 @@ import { getRun, listRunEvents } from "@/lib/pipeline/runs";
 import { listCheckResults } from "@/lib/checks/store";
 import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { listAnalysisReports } from "@/lib/claude";
-import { getCatalogItem } from "@/lib/catalog";
+import { getCatalogItem, getMitigation } from "@/lib/catalog";
 import { listCveMatches } from "@/lib/cve/store";
 
 export async function GET(
@@ -43,6 +43,7 @@ export async function GET(
       reason: report?.reason ?? null,
       remediation: report?.remediation ?? null,
       example: report?.example ?? null,
+      mitigation: getMitigation(result.id),
     };
   });
 

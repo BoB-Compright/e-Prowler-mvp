@@ -22,10 +22,19 @@ interface ShareRun {
   assetId: string | null;
 }
 
+interface ShareFinding {
+  id: string;
+  title: string;
+  severity: string | null;
+  status: "fail" | "review";
+  mitigation: { risk: string; fix: string; example?: string } | null;
+}
+
 interface ShareData {
   project: { name: string; pmName: string };
   assets: ShareAsset[];
   runs: ShareRun[];
+  findings: { assetId: string; items: ShareFinding[] }[];
 }
 
 function formatTimestamp(iso: string): string {
@@ -54,6 +63,14 @@ const VERDICT_BADGE: Record<AssetVerdict, { status: BadgeStatus; label: string }
   running: { status: "progress", label: "진행 중" },
   cancelled: { status: "neutral", label: "취소됨" },
   none: { status: "neutral", label: "미점검" },
+};
+
+// 조치 항목 심각도 배지: Critical/High→취약색, Medium→검토색, Low→중립.
+const SEVERITY_BADGE: Record<string, BadgeStatus> = {
+  Critical: "fail",
+  High: "fail",
+  Medium: "review",
+  Low: "neutral",
 };
 
 type ShareLinkStatus = { ok: true } | { ok: false; reason: "not_found" | "disabled" | "revoked" };
@@ -234,6 +251,68 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
             )}
           </Card>
         </div>
+
+        {data.findings.some((f) => f.items.length > 0) ? (
+          <div className="mt-4">
+            <Card title="조치가 필요한 항목" bodyClassName="p-5">
+              <div className="flex flex-col gap-5">
+                {data.findings
+                  .filter((f) => f.items.length > 0)
+                  .map((f) => {
+                    const assetName = data.assets.find((a) => a.id === f.assetId)?.displayName ?? f.assetId;
+                    return (
+                      <div key={f.assetId}>
+                        <div className="mb-2 text-[13px] font-semibold">{assetName}</div>
+                        <ul className="flex flex-col gap-3">
+                          {f.items.map((it) => (
+                            <li key={it.id} className="rounded-lg border border-border p-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-[13px] font-bold">{it.id}</span>
+                                <StatusBadge status={it.status === "fail" ? "fail" : "review"}>
+                                  {it.status === "fail" ? "취약" : "검토"}
+                                </StatusBadge>
+                                {it.severity && (
+                                  <StatusBadge status={SEVERITY_BADGE[it.severity] ?? "neutral"}>
+                                    {it.severity}
+                                  </StatusBadge>
+                                )}
+                                <span className="text-[13px]">{it.title}</span>
+                              </div>
+                              {it.mitigation ? (
+                                <div className="mt-2 text-[13px] leading-relaxed text-muted">
+                                  <p>
+                                    <span className="font-semibold text-text">위험 · </span>
+                                    {it.mitigation.risk}
+                                  </p>
+                                  <p className="mt-1">
+                                    <span className="font-semibold text-text">조치 · </span>
+                                    {it.mitigation.fix}
+                                  </p>
+                                  {it.mitigation.example && (
+                                    <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface p-3 font-mono text-xs whitespace-pre-wrap text-text">
+                                      {it.mitigation.example}
+                                    </pre>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-[13px] italic text-muted">조치 가이드 준비 중입니다.</p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <Card title="조치가 필요한 항목" bodyClassName="p-5">
+              <p className="text-[13px] italic text-muted">조치 필요 항목 없음</p>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }

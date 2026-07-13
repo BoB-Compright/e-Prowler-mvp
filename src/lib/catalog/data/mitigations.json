@@ -1,0 +1,692 @@
+{
+  "C-01": {
+    "risk": "컨테이너가 root 권한(UID 0)으로 실행되면 컨테이너 탈출 시 호스트 시스템 전체를 제어할 수 있으므로 보안 위협이 극대화됩니다. 또한 컨테이너 내 악의적 프로세스가 무제한의 권한으로 동작하여 시스템 손상을 초래할 수 있습니다.",
+    "fix": "Dockerfile에서 USER 지시어로 non-root 사용자를 생성하여 컨테이너가 해당 사용자로 실행되도록 설정합니다. 또한 docker run 시 --user 옵션으로 실행 사용자를 지정하거나, Kubernetes 환경에서는 securityContext.runAsNonRoot를 true로 설정하고 runAsUser에 non-root UID를 명시합니다.",
+    "example": "Dockerfile: RUN useradd -m -u 1000 appuser\nUSER appuser\n\nDocker 실행: docker run --user 1000:1000 image_name\n\nKubernetes: securityContext:\n  runAsNonRoot: true\n  runAsUser: 1000"
+  },
+  "C-02": {
+    "risk": "코드나 설정 파일에 하드코딩된 API 키, 데이터베이스 비밀번호, 토큰 등이 버전 관리 시스템에 노출되면 악의적 사용자가 민감한 리소스에 무단 접근할 수 있습니다. 특히 공개 저장소에 푸시되면 대규모 보안 침해가 발생할 수 있습니다.",
+    "fix": "1) 환경 변수(.env 파일)나 시크릿 관리 도구(Kubernetes Secrets, HashiCorp Vault, AWS Secrets Manager 등)를 사용하여 민감 정보를 외부화합니다. 2) .gitignore에 .env, config.local 등 민감 파일을 추가하여 실수로 커밋되는 것을 방지합니다. 3) 이미 커밋된 시크릿이 있다면 git-filter-branch 또는 BFG Repo-Cleaner로 히스토리에서 제거합니다. 4) 컨테이너 실행 시 환경 변수나 시크릿 볼륨으로 주입합니다. 5) 정기적으로 코드베이스를 스캔하여 노출된 시크릿을 탐지합니다.",
+    "example": ".env 파일: DB_PASSWORD=secure_password\\nAPI_KEY=your_api_key\\n\\n.gitignore 설정: .env\\n.env.local\\nconfig.local.yml\\n\\nDocker 실행: docker run --env-file .env myapp:latest\\n\\nKubernetes Secret 적용: kubectl create secret generic app-secret --from-literal=db-password=secure_password\\nkubectl set env deployment/myapp --from=secret/app-secret"
+  },
+  "C-03": {
+    "risk": "컨테이너에서 불필요한 포트가 노출되면 공격 벡터가 증가하며, 예상치 못한 서비스 접근으로 인한 정보 유출, 악성 접근, 또는 취약점 악용의 위험이 높아집니다.",
+    "fix": "Dockerfile에서 EXPOSE 명령어로 명시된 포트를 검토하고, 실제 필요한 포트만 남기며, docker run 실행 시 필요한 포트만 -p 옵션으로 매핑합니다. 쿠버네티스 환경에서는 Service 정의에서 필요한 포트만 지정하고, NetworkPolicy를 통해 포트 접근을 제한합니다.",
+    "example": "Dockerfile: EXPOSE 8080만 명시 / docker run -p 8080:8080 --name app container_image / kubectl apply -f service.yaml (필요한 port만 정의) / NetworkPolicy로 트래픽 제한"
+  },
+  "C-04": {
+    "risk": "base 이미지 태그가 'latest'나 버전 명시 없이 사용되면 빌드할 때마다 예측 불가능한 최신 이미지가 당겨져 보안 패치가 미적용된 취약한 버전이 포함될 수 있습니다. 이는 일관성 있는 보안 관리와 재현 가능한 빌드를 방해합니다.",
+    "fix": "Dockerfile의 모든 base 이미지를 구체적인 버전 태그 또는 digest(SHA256 해시)로 고정하세요. 'latest' 사용을 금지하고, 정기적으로 보안 패치가 적용된 최신 안정 버전으로 업데이트하는 정책을 수립하세요.",
+    "example": "FROM node:18.17.1-alpine3.18\nFROM ubuntu:22.04\nFROM python:3.11.6-slim@sha256:abc123def456..."
+  },
+  "C-05": {
+    "risk": "컨테이너 이미지에 불필요한 패키지가 남아있으면 공격 표면이 증가하고, 알려진 취약점을 통한 침투 경로가 생깁니다. 악의적 행위자가 이들 패키지의 취약점을 악용하여 컨테이너를 손상시킬 수 있습니다.",
+    "fix": "1) Dockerfile에서 불필요한 패키지 설치 제거 2) 다단계 빌드(multi-stage build) 사용하여 빌드 도구 제거 3) apt clean, yum clean 등으로 패키지 캐시 정리 4) 정기적으로 `docker inspect` 또는 `trivy` 같은 스캔 도구로 이미지 내 패키지 점검 5) 최소 기본 이미지(alpine, distroless) 사용",
+    "example": "# Dockerfile 예시 (다단계 빌드)\nFROM ubuntu:22.04 AS builder\nRUN apt-get update && apt-get install -y build-essential curl\nRUN curl http://example.com/app.tar.gz | tar xz && make\n\nFROM ubuntu:22.04\nCOPY --from=builder /app/binary /usr/local/bin/\nRUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \\\n    && apt-get clean && rm -rf /var/lib/apt/lists/*\nCMD [\"binary\"]\n\n# 또는 distroless 이미지 사용\nFROM gcr.io/distroless/base\nCOPY --from=builder /app/binary /usr/local/bin/"
+  },
+  "C-06": {
+    "risk": "setuid/setgid 바이너리는 실행 시 파일 소유자의 권한으로 실행되어 권한 상승 공격에 악용될 수 있으며, 컨테이너 환경에서는 root 권한 탈취의 주요 경로가 됩니다.",
+    "fix": "컨테이너 이미지 빌드 시 불필요한 setuid/setgid 바이너리를 제거하고, 필요한 경우에만 선택적으로 유지합니다. Dockerfile에서 find 명령으로 setuid/setgid 비트를 제거하거나, 보안 정책으로 제한합니다. 또한 컨테이너 런타임에서 --security-opt=no-new-privileges 옵션으로 새로운 권한 상승을 차단합니다.",
+    "example": "# Dockerfile에서 setuid/setgid 바이너리 제거\nRUN find / -perm /6000 -type f -exec chmod a-s {} \\; 2>/dev/null || true\n\n# 또는 컨테이너 실행 시\ndocker run --security-opt=no-new-privileges:true <image_name>\n\n# Kubernetes Pod 보안 정책\nsecurityContext:\n  allowPrivilegeEscalation: false\n  readOnlyRootFilesystem: true"
+  },
+  "C-07": {
+    "risk": "컨테이너의 루트 파일시스템이 쓰기 가능하면 공격자가 시스템 파일을 수정하여 컨테이너 탈출, 권한 상승, 악성코드 설치 등을 시도할 수 있습니다. 루트 FS를 읽기 전용으로 설정하여 공격 표면을 최소화해야 합니다.",
+    "fix": "Docker 컨테이너 실행 시 --read-only 플래그를 추가하거나 docker-compose.yml에서 read_only: true를 설정하세요. 필요한 쓰기 권한이 필요한 경로는 tmpfs 또는 쓰기 가능한 볼륨으로 별도 마운트하세요. Kubernetes 환경에서는 securityContext의 readOnlyRootFilesystem: true를 적용하세요.",
+    "example": "docker run --read-only --tmpfs /tmp --tmpfs /var/tmp -v /data:/data:rw image:tag\n\ndocker-compose.yml:\nservices:\n  app:\n    image: image:tag\n    read_only: true\n    tmpfs:\n      - /tmp\n      - /var/tmp\n    volumes:\n      - /data:/data:rw\n\nKubernetes Pod 정의:\nsecurityContext:\n  readOnlyRootFilesystem: true\nvolumeMounts:\n  - name: tmp\n    mountPath: /tmp\nvolumes:\n  - name: tmp\n    emptyDir: {}"
+  },
+  "C-08": {
+    "risk": "HEALTHCHECK가 없으면 컨테이너가 정상 작동하지 않아도 계속 실행 상태로 인식되어 서비스 장애가 지속될 수 있습니다. 이는 자동 재시작이나 로드밸런싱 실패로 이어져 가용성을 심각하게 저하시킵니다.",
+    "fix": "Dockerfile에 HEALTHCHECK 명령어를 추가하여 컨테이너의 헬스 상태를 주기적으로 점검하도록 설정합니다. HTTP, TCP, 또는 커스텀 스크립트를 통해 애플리케이션의 정상 작동 여부를 확인하고, 오케스트레이션 도구(Kubernetes, Docker Compose)가 자동으로 비정상 컨테이너를 재시작하도록 구성합니다.",
+    "example": "Dockerfile:\nHEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD curl -f http://localhost:8080/health || exit 1\n\nKubernetes Pod 설정:\nlivenessProbe:\n  httpGet:\n    path: /health\n    port: 8080\n  initialDelaySeconds: 10\n  periodSeconds: 30\nreadinessProbe:\n  httpGet:\n    path: /ready\n    port: 8080\n  initialDelaySeconds: 5\n  periodSeconds: 10"
+  },
+  "C-09": {
+    "risk": "컨테이너 빌드 중 ADD 명령어로 원격 URL에서 파일을 직접 다운로드하면 중간자 공격, 악성 파일 삽입, 공급망 공격에 노출될 수 있습니다. 이는 컨테이너 이미지의 무결성과 보안을 심각하게 훼손합니다.",
+    "fix": "1. Dockerfile에서 ADD 명령어의 원격 URL 사용을 제거하고 COPY를 사용하여 로컬 파일만 추가하기\n2. 필요시 외부 파일 다운로드는 빌드 외부에서 검증 후 진행\n3. RUN wget/curl 사용 시 체크섬 검증 추가\n4. 신뢰할 수 있는 공식 저장소에서만 파일 획득\n5. 컨테이너 이미지 스캔 도구(Trivy 등)로 취약성 검사",
+    "example": "# 취약한 방식 (제거 필요)\nFROM ubuntu:20.04\nADD https://example.com/file.tar.gz /app/\n\n# 안전한 방식\nFROM ubuntu:20.04\nCOPY file.tar.gz /app/\n\n# 필요시 다운로드 + 검증\nRUN curl -fsSL https://example.com/file.tar.gz -o file.tar.gz && \\\n    echo 'expected_checksum file.tar.gz' | sha256sum -c - && \\\n    tar -xzf file.tar.gz && \\\n    rm file.tar.gz"
+  },
+  "DB-01": {
+    "risk": "데이터베이스 데이터 디렉터리의 접근 권한이 느슨하면 권한 없는 사용자가 민감한 데이터에 직접 접근하거나 변조할 수 있으며, 데이터베이스 무결성이 훼손될 수 있습니다.",
+    "fix": "MySQL 데이터 디렉터리의 소유자를 mysql 사용자로 설정하고, 접근 권한을 700(소유자만 읽기/쓰기/실행)으로 제한합니다. 1) 데이터 디렉터리 확인: SHOW VARIABLES LIKE 'datadir'; 2) 권한 변경: chown -R mysql:mysql /var/lib/mysql 3) 권한 설정: chmod -R 700 /var/lib/mysql 4) 설정 확인: ls -ld /var/lib/mysql (결과: drwx------)를 확인하고 MySQL 서비스를 재시작합니다.",
+    "example": "chown -R mysql:mysql /var/lib/mysql\nchmod -R 700 /var/lib/mysql\nls -ld /var/lib/mysql\n결과: drwx------ 10 mysql mysql 4096 ... /var/lib/mysql"
+  },
+  "DB-02": {
+    "risk": "데이터베이스를 root나 admin 같은 고권한 계정으로 구동하면 DB 서비스 침해 시 공격자가 시스템 전체를 제어할 수 있습니다. 전용 비특권 계정 사용으로 피해 범위를 최소화해야 합니다.",
+    "fix": "1. DB 전용 비특권 사용자 계정 생성(예: mysql, postgres)\n2. 데이터 디렉토리와 설정 파일에 대한 소유권과 권한을 해당 계정으로 변경\n3. DB 서비스 시작 스크립트에서 해당 계정으로 실행하도록 설정\n4. root 계정으로의 원격 접속 차단\n5. 정기적으로 실행 권한을 검토하고 필요한 최소 권한만 부여",
+    "example": "# MySQL 사용자 생성 및 권한 설정\nuseradd -r -s /bin/false mysql\nchown -R mysql:mysql /var/lib/mysql\nchmod 750 /var/lib/mysql\n\n# MySQL 시작 시 사용자 지정 (my.cnf)\n[mysqld]\nuser=mysql\n\n# 서비스 파일에서 사용자 지정 (/etc/systemd/system/mysql.service)\n[Service]\nUser=mysql\nGroup=mysql"
+  },
+  "DB-03": {
+    "risk": "데이터베이스 설정 파일에 저장된 데이터베이스 사용자 비밀번호, 포트, 경로 등 민감한 정보가 권한이 없는 사용자에게 노출되어 무단 접근 및 데이터 유출이 가능합니다.",
+    "fix": "MySQL 설정 파일(my.cnf, my.ini 등)의 파일 권한을 600(소유자만 읽기/쓰기 가능)으로 설정하고, 파일 소유자를 MySQL 전용 사용자(예: mysql)로 변경합니다. 디렉토리 권한은 최소 750으로 제한합니다.",
+    "example": "chmod 600 /etc/mysql/my.cnf\nchown mysql:mysql /etc/mysql/my.cnf\nchmod 750 /etc/mysql\n\nls -l /etc/mysql/my.cnf 로 확인 시 '-rw-------' 또는 '-rw-r-----' 권한 확인"
+  },
+  "DB-04": {
+    "risk": "에러 로그가 설정되지 않으면 데이터베이스 오류, 보안 사건, 성능 문제 등을 추적할 수 없어 사고 대응 및 감시가 불가능합니다. 또한 SQL 인젝션 등의 공격 시도를 감지하지 못하게 됩니다.",
+    "fix": "MySQL 설정 파일(my.cnf 또는 my.ini)에서 log_error 매개변수를 활성화하고 로그 파일 경로를 지정합니다. 로그 파일의 권한을 mysql 사용자만 접근 가능하도록 제한(600)하고, 로그 로테이션을 설정하여 디스크 공간을 관리합니다. MySQL 8.0 이상에서는 기본값으로 활성화되어 있으므로 버전 확인 후 설정합니다.",
+    "example": "[mysqld]\nlog_error = /var/log/mysql/error.log\nlog_error_verbosity = 3\n\n# 권한 설정\nchmod 600 /var/log/mysql/error.log\nchown mysql:mysql /var/log/mysql/error.log\n\n# MySQL 8.0+ 기본 설정 확인\nMYSQL> SHOW VARIABLES LIKE 'log_error';"
+  },
+  "DB-05": {
+    "risk": "심볼릭 링크가 활성화되면 데이터베이스 파일에 대한 디렉토리 트래버설 공격이 가능하여 권한 없는 파일 접근, 데이터 유출, 또는 데이터베이스 손상이 발생할 수 있습니다.",
+    "fix": "MySQL 설정 파일(my.cnf 또는 my.ini)의 [mysqld] 섹션에서 symbolic-links=0으로 설정하고 MySQL 서비스를 재시작합니다. 1. 설정 파일 편집: vi /etc/mysql/my.cnf 또는 /etc/my.cnf 2. [mysqld] 섹션 찾기 3. symbolic-links=0 추가 또는 확인 4. MySQL 서비스 재시작: systemctl restart mysql 또는 service mysql restart 5. 설정 적용 확인: mysql -u root -p -e \"SHOW VARIABLES LIKE 'symbolic_links';\"",
+    "example": "[mysqld]\nsymbolic-links=0\nskip-symbolic-links\n\n확인 명령어:\nmysql> SHOW VARIABLES WHERE variable_name = 'symbolic_links';\n결과: symbolic_links | OFF (0은 OFF를 의미)"
+  },
+  "DB-06": {
+    "risk": "LOAD DATA LOCAL INFILE 기능이 활성화되어 있으면 공격자가 서버의 로컬 파일을 읽어 데이터베이스로 로드할 수 있어 민감한 정보 유출 및 시스템 파일 접근이 가능합니다.",
+    "fix": "MySQL 설정 파일(my.cnf 또는 my.ini)에서 local_infile 파라미터를 0으로 설정하여 비활성화하고, 데이터베이스 서비스를 재시작합니다. 클라이언트 측에서도 연결 시 로컬 파일 로드 옵션을 제거합니다.",
+    "example": "[mysqld]\nlocal_infile=0\n\n--- 설정 적용 후 서비스 재시작 ---\nsudo systemctl restart mysql\n\n--- 현재 설정 확인 ---\nSHOW VARIABLES LIKE 'local_infile';\n\n--- 결과 확인: local_infile | OFF"
+  },
+  "DB-07": {
+    "risk": "SSL/TLS를 사용하지 않으면 데이터베이스와 클라이언트 간 통신이 평문으로 전송되어 중간자 공격으로 인한 패스워드, 쿼리 데이터 탈취 및 변조 위험이 높습니다.",
+    "fix": "MySQL 서버에서 SSL/TLS를 활성화하고 클라이언트 연결을 암호화된 통신만 허용하도록 설정합니다. (1) MySQL 설정 파일(my.cnf)에서 require_secure_transport를 ON으로 설정하고 SSL 인증서 경로를 지정합니다. (2) 기존 사용자의 연결 방식을 REQUIRE SSL로 변경합니다. (3) 애플리케이션 연결 문자열에 ssl-mode=REQUIRED 파라미터를 추가합니다. (4) 방화벽에서 3306 포트 접근을 제한하고 SSL 포트 사용을 우선합니다.",
+    "example": "[mysqld]\nrequire_secure_transport=ON\nssl-ca=/path/to/ca.pem\nssl-cert=/path/to/server-cert.pem\nssl-key=/path/to/server-key.pem\n\nMySQL 사용자 수정:\nALTER USER 'username'@'host' REQUIRE SSL;\n\n애플리케이션 연결 예:\nmysql -u user -p --ssl-mode=REQUIRED -h hostname"
+  },
+  "DB-08": {
+    "risk": "데이터베이스 서버가 모든 네트워크 인터페이스에 바인드되어 있으면 인터넷을 통한 직접 접근 및 무단 접속 시도에 노출되어 데이터 유출, 암호 공격, 서비스 거부 공격의 위험이 증가합니다.",
+    "fix": "MySQL 설정 파일(my.cnf 또는 my.ini)의 bind-address를 localhost(127.0.0.1) 또는 필요한 특정 IP 주소로 제한하거나, skip-networking 옵션을 활성화하여 TCP/IP 연결을 차단하고 소켓 통신만 허용하세요. 원격 접속이 필요한 경우 응용 계층 방화벽(iptables, Windows Firewall 등)으로 데이터베이스 포트(기본값 3306)를 제한하세요.",
+    "example": "[mysqld]\nbind-address=127.0.0.1\nport=3306\n\n또는\n\n[mysqld]\nbind-address=192.168.1.100\nport=3306\n\n또는\n\n[mysqld]\nskip-networking\n\niptables 예시: iptables -A INPUT -i lo -p tcp --dport 3306 -j ACCEPT\niptables -A INPUT -p tcp --dport 3306 -j DROP"
+  },
+  "DB-09": {
+    "risk": "secure_file_priv가 설정되지 않으면 MySQL 사용자가 서버의 임의의 디렉토리에 파일을 읽거나 쓸 수 있어 악의적인 데이터 유출, 시스템 파일 접근, 원격 코드 실행으로 이어질 수 있습니다.",
+    "fix": "MySQL 설정 파일(my.cnf 또는 my.ini)의 [mysqld] 섹션에 secure_file_priv를 특정 안전한 디렉토리로 설정하고, 해당 디렉토리의 권한을 제한하며, MySQL을 재시작합니다. 완전히 차단하려면 빈 문자열로 설정할 수 있습니다.",
+    "example": "[mysqld]\nsecure_file_priv=\"/var/lib/mysql-files/\"\n\n설정 후 MySQL 재시작:\nsudo systemctl restart mysql\n\n설정 확인:\nSHOW VARIABLES LIKE 'secure_file_priv';\n\n디렉토리 권한 설정:\nsudo mkdir -p /var/lib/mysql-files/\nsudo chown mysql:mysql /var/lib/mysql-files/\nsudo chmod 750 /var/lib/mysql-files/\n\n완전 차단 설정:\nsecure_file_priv=\"\""
+  },
+  "DB-10": {
+    "risk": "validate_password 플러그인이 비활성화되어 있으면 약한 비밀번호 설정이 가능하여 데이터베이스 무단 접근의 위험이 높아집니다. 이는 사전 공격, 브루트 포스 공격 등에 취약해집니다.",
+    "fix": "1. MySQL 서버에 validate_password 플러그인을 설치합니다. 2. my.cnf(또는 my.ini) 설정 파일에 plugin을 로드하는 설정을 추가합니다. 3. 비밀번호 정책 변수(validate_password_policy, validate_password_length 등)를 적절히 설정합니다. 4. MySQL 서버를 재시작하여 설정을 반영합니다. 5. 플러그인 설치 상태와 설정값을 확인합니다.",
+    "example": "# my.cnf 설정 파일에 추가\n[mysqld]\nplugin-load-add=validate_password.so\nvalidate_password_policy=STRONG\nvalidate_password_length=12\nvalidate_password_mixed_case_count=1\nvalidate_password_number_count=1\nvalidate_password_special_char_count=1\n\n# MySQL 재시작 후 확인 명령어\nSHOW PLUGINS;\nSHOW VARIABLES LIKE 'validate_password%';"
+  },
+  "DB-11": {
+    "risk": "익명/테스트 계정은 기본 설치 시 생성되며, 인증 없이 데이터베이스 접근이 가능해 무단 접근 및 데이터 탈취 위험이 매우 높습니다. 공격자가 이를 이용해 권한 상승이나 악의적인 쿼리 실행이 가능합니다.",
+    "fix": "MySQL에 root 계정으로 접속한 후 다음 단계를 실행합니다: (1) SELECT User, Host FROM mysql.user; 명령으로 익명 계정(User가 빈 값) 및 'test' 데이터베이스 확인 (2) DROP USER ''@'localhost'; DROP USER ''@'hostname'; 으로 익명 계정 삭제 (3) DROP DATABASE test; 로 test 데이터베이스 삭제 (4) FLUSH PRIVILEGES; 명령으로 권한 테이블 새로고침 (5) mysql -u root -p 로 재접속하여 익명 계정 없이 접속되는지 확인",
+    "example": "-- MySQL 접속\nmysql -u root -p\n\n-- 현재 사용자 계정 확인\nSELECT User, Host FROM mysql.user;\n\n-- 익명 계정 삭제\nDROP USER ''@'localhost';\nDROP USER ''@'hostname';\n\n-- test 데이터베이스 삭제\nDROP DATABASE IF EXISTS test;\n\n-- 권한 테이블 새로고침\nFLUSH PRIVILEGES;\n\n-- 삭제 확인\nSELECT User, Host FROM mysql.user;"
+  },
+  "DB-12": {
+    "risk": "데이터베이스의 보안 패치가 적용되지 않으면 공개된 취약점을 통해 공격자가 시스템에 침입하거나 데이터를 탈취할 수 있습니다. 구버전 운영은 알려진 보안 결함에 노출되어 심각한 침해 사고로 이어질 수 있습니다.",
+    "fix": "1) 현재 MySQL 버전 확인(SELECT VERSION;)하고 공식 보안 공지를 모니터링하세요. 2) 테스트 환경에서 최신 보안 패치를 먼저 검증하세요. 3) 정기적인 패치 관리 일정을 수립하고(월 1회 이상) 계획된 유지보수 시간에 적용하세요. 4) 자동 패치 적용 도구(예: unattended-upgrades) 설정을 고려하세요. 5) 패치 적용 전후 데이터베이스 백업을 필수 수행하세요. 6) 버전 관리 정책을 문서화하고 팀과 공유하세요.",
+    "example": "SELECT VERSION();\n\n# Linux에서 자동 보안 업데이트 설정\nsudo apt-get install unattended-upgrades\nsudo dpkg-reconfigure -plow unattended-upgrades\n\n# MySQL 수동 업그레이드\nmysql_upgrade -u root -p\nSHOW VARIABLES LIKE 'version%';"
+  },
+  "PG-01": {
+    "risk": "PostgreSQL 데이터 디렉터리의 접근 권한이 과도하게 개방되면 인가되지 않은 사용자가 데이터베이스 파일에 직접 접근하여 데이터 유출, 변조, 삭제가 가능하며 시스템 보안이 심각하게 침해될 수 있습니다.",
+    "fix": "PostgreSQL 데이터 디렉터리($PGDATA)의 소유권을 postgres 사용자로 설정하고 권한을 700(rwx------)으로 제한합니다. 1) 데이터 디렉터리의 소유권 변경: chown -R postgres:postgres /var/lib/postgresql/data 2) 디렉터리 권한 설정: chmod 700 /var/lib/postgresql/data 3) 하위 모든 파일·디렉터리에 동일 권한 적용: chmod -R 700 /var/lib/postgresql/data 4) 설정 후 ls -ld 명령어로 권한 확인(d rwx------) 5) 필요시 pg_data_directory 관련 설정값 재확인 후 PostgreSQL 서비스 재시작",
+    "example": "# 권한 확인\nls -ld /var/lib/postgresql/data\n# 예상 결과: drwx------ 16 postgres postgres 4096 ... /var/lib/postgresql/data\n\n# 소유권 변경\nsudo chown -R postgres:postgres /var/lib/postgresql/data\n\n# 권한 변경\nsudo chmod 700 /var/lib/postgresql/data\nsudo chmod -R go-rwx /var/lib/postgresql/data\n\n# PostgreSQL 재시작\nsudo systemctl restart postgresql"
+  },
+  "PG-02": {
+    "risk": "PostgreSQL이 root나 일반 사용자 계정으로 실행되면 데이터베이스 취약점 악용 시 시스템 전체가 침해될 수 있습니다. 전용 비특권 계정 사용으로 권한을 최소화하여 피해 범위를 제한해야 합니다.",
+    "fix": "PostgreSQL 전용의 비특권 OS 계정(예: postgres)을 생성하고, 해당 계정으로만 PostgreSQL 서비스를 구동하며, 파일 및 디렉토리 소유권을 이 계정으로 설정하세요. 1) 전용 계정 생성: useradd -r -s /bin/bash postgres 2) PostgreSQL 데이터 디렉토리 소유권 변경: chown -R postgres:postgres /var/lib/postgresql 3) 서비스 파일에서 User 설정 확인: systemctl edit postgresql 또는 /etc/systemd/system/postgresql.service 수정 4) postgresql.conf에서 필요한 권한만 설정 5) 정기적으로 프로세스 실행 계정 확인: ps aux | grep postgres",
+    "example": "/etc/systemd/system/postgresql.service 파일 예시:\n[Service]\nType=notify\nUser=postgres\nGroup=postgres\nExecStart=/usr/lib/postgresql/bin/postgres -D /var/lib/postgresql/data\nExecReload=/bin/kill -HUP $MAINPID\n\n또는 su 명령으로 postgres 계정 전환 확인:\nsu - postgres -c 'psql -V'\n\n디렉토리 권한 설정:\nchmod 700 /var/lib/postgresql\nchmod 700 /var/lib/postgresql/data"
+  },
+  "PG-03": {
+    "risk": "PostgreSQL 설정 파일(postgresql.conf, pg_hba.conf)의 권한이 과도하게 설정되면 권한 없는 사용자가 민감한 데이터베이스 설정이나 접근 제어 규칙을 변조하여 보안이 침해될 수 있습니다.",
+    "fix": "PostgreSQL 설정 파일의 소유자를 postgres 사용자로 설정하고 파일 권한을 600(소유자만 읽기/쓰기)으로 제한합니다. postgresql.conf, pg_hba.conf, pg_ident.conf 파일에 대해 다음 명령어를 실행하세요.",
+    "example": "chmod 600 /var/lib/pgsql/data/postgresql.conf\nchmod 600 /var/lib/pgsql/data/pg_hba.conf\nchmod 600 /var/lib/pgsql/data/pg_ident.conf\nchown postgres:postgres /var/lib/pgsql/data/postgresql.conf\nchown postgres:postgres /var/lib/pgsql/data/pg_hba.conf\nchown postgres:postgres /var/lib/pgsql/data/pg_ident.conf\n\n권한 확인: ls -l /var/lib/pgsql/data/postgresql.conf\n출력 예시: -rw------- 1 postgres postgres"
+  },
+  "PG-04": {
+    "risk": "로깅 수집이 비활성화되면 데이터베이스의 오류, 접근 시도, 의심 활동 등이 기록되지 않아 보안 사건 추적과 감시가 불가능해집니다. 이는 침해 사실 발견 지연 및 법적 증거 수집 실패로 이어질 수 있습니다.",
+    "fix": "postgresql.conf 파일에서 logging_collector 파라미터를 on으로 설정하고, log_directory에 로그 저장 경로를 지정한 후 PostgreSQL 서비스를 재시작합니다. 최소한 에러 및 접속 관련 로그는 기록되도록 log_statement, log_connections, log_disconnections도 함께 활성화합니다.",
+    "example": "postgresql.conf 파일 수정:\nlogging_collector = on\nlog_directory = 'pg_log'\nlog_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'\nlog_statement = 'all'\nlog_connections = on\nlog_disconnections = on\nlog_min_duration_statement = 0\n\n재시작: sudo systemctl restart postgresql"
+  },
+  "PG-05": {
+    "risk": "PostgreSQL이 모든 네트워크 인터페이스(0.0.0.0)에서 수신하도록 설정되어 있으면 외부 공격자가 데이터베이스에 직접 접근할 수 있어 무단 접근, 데이터 탈취, 랜섬웨어 공격 등의 위험이 증가합니다.",
+    "fix": "postgresql.conf 파일의 listen_addresses 파라미터를 필요한 특정 IP 주소(예: localhost 또는 내부 네트워크 주소)로만 제한하세요. 설정 변경 후 PostgreSQL 서비스를 재시작하여 적용하세요. 필요시 방화벽 규칙과 함께 조합하여 추가 보안을 강화하세요.",
+    "example": "postgresql.conf에서 listen_addresses = 'localhost' 또는 listen_addresses = '192.168.1.10' 또는 listen_addresses = 'localhost,192.168.1.10' 으로 설정하고 'sudo systemctl restart postgresql' 명령어로 서비스 재시작"
+  },
+  "PG-06": {
+    "risk": "SSL/TLS가 비활성화되면 PostgreSQL 클라이언트와 서버 간 통신이 평문으로 전송되어 중간자 공격(MITM)으로 데이터베이스 인증 정보 및 민감 데이터가 탈취될 수 있습니다.",
+    "fix": "1. PostgreSQL 설정 파일(postgresql.conf)에서 ssl 파라미터를 'on'으로 설정하고 2. SSL 인증서 파일(server.crt, server.key)이 $PGDATA 디렉터리에 있는지 확인하며 3. 클라이언트 연결 설정에서 sslmode를 'require' 또는 'verify-full'로 지정하고 4. PostgreSQL 서비스를 재시작합니다.",
+    "example": "# postgresql.conf에서\nssl = on\nssl_cert_file = 'server.crt'\nssl_key_file = 'server.key'\n\n# 클라이언트 연결 예시 (psql)\npsql -h 192.168.1.100 -U postgres -d dbname sslmode=require\n\n# 또는 pg_hba.conf에 hostssl 규칙 추가\nhostssl all all 0.0.0.0/0 md5"
+  },
+  "PG-07": {
+    "risk": "pg_hba.conf의 trust 인증은 암호 검증 없이 접속을 허용하여 누구나 데이터베이스에 접근할 수 있으며, 이는 데이터 유출, 변조, 삭제 등 심각한 보안 사고로 이어질 수 있습니다.",
+    "fix": "1. pg_hba.conf 파일(주로 /etc/postgresql/버전/main/ 또는 PGDATA 디렉토리)을 열고 'trust' 항목을 찾습니다. 2. trust 항목을 제거하거나 md5, scram-sha-256 등 암호 기반 인증(password, md5, scram-sha-256)으로 변경합니다. 3. 로컬 유닉스 소켓 접속도 필요시 peer(OS 사용자 기반) 또는 암호 인증으로 변경합니다. 4. PostgreSQL 서비스를 재시작하여 설정을 적용합니다(systemctl restart postgresql).",
+    "example": "변경 전: local all all trust\n변경 후: local all all peer\n또는\nhost all all 127.0.0.1/32 scram-sha-256\nhost all all ::1/128 scram-sha-256"
+  },
+  "PG-08": {
+    "risk": "PostgreSQL에서 암호화되지 않은 비밀번호나 약한 암호화 방식(md5, 구형 sha)을 사용하면 데이터베이스 침해 시 사용자 비밀번호가 쉽게 노출되며, 레인보우 테이블 공격에 취약합니다.",
+    "fix": "PostgreSQL 설정 파일(postgresql.conf)에서 password_encryption 파라미터를 'scram-sha-256'으로 설정하고 PostgreSQL 서비스를 재시작한 후, 기존 사용자의 비밀번호를 재설정하여 새로운 암호화 방식을 적용합니다.",
+    "example": "postgresql.conf에서: password_encryption = 'scram-sha-256'\n\n기존 사용자 비밀번호 재설정 명령어:\nALTER USER username WITH PASSWORD 'new_password';\n\n또는 모든 사용자 비밀번호 일괄 재설정 스크립트:\nSELECT 'ALTER USER ' || usename || ' WITH PASSWORD ''' || usename || '_newpass' || ''';' FROM pg_user WHERE usename NOT IN ('postgres');"
+  },
+  "PG-09": {
+    "risk": "접속 로깅이 비활성화되면 데이터베이스에 누가, 언제 접속했는지 기록되지 않아 보안 침해 시 원인 파악과 감시가 불가능합니다. 또한 불정상 접속 시도를 탐지하기 어려워 보안 위협에 대응할 수 없습니다.",
+    "fix": "PostgreSQL 설정 파일(postgresql.conf)에서 log_connections 파라미터를 on으로 설정한 후 데이터베이스 서비스를 재시작합니다. 변경 후 pg_ctl reload 또는 SELECT pg_reload_conf() 함수로 설정을 즉시 반영할 수 있습니다.",
+    "example": "postgresql.conf 파일에서: log_connections = on\n\n또는 SQL 명령어로 즉시 반영:\nALTER SYSTEM SET log_connections = on;\nSELECT pg_reload_conf();\n\n설정 확인:\nSHOW log_connections;"
+  },
+  "PG-10": {
+    "risk": "접속 종료 로깅이 비활성화되면 사용자의 비정상 접속 해제, 세션 탈취, 비정상 종료 등의 보안 사건을 감지할 수 없어 보안 감시 및 사고 대응이 불가능합니다.",
+    "fix": "postgresql.conf 파일에서 log_disconnections 파라미터를 'on'으로 설정하고 PostgreSQL 서비스를 재시작합니다. 변경 후 pg_ctl reload 명령으로 설정을 적용하거나 데이터베이스를 재시작하면 모든 접속 종료 이벤트가 로그 파일에 기록됩니다.",
+    "example": "postgresql.conf 파일 수정:\nlog_disconnections = on\n\n또는 SQL로 직접 설정:\nALTER SYSTEM SET log_disconnections = on;\nSELECT pg_ctl_reload();\n\n설정 확인:\nSHOW log_disconnections;"
+  },
+  "PG-11": {
+    "risk": "슈퍼유저 권한을 과도하게 부여하거나 불필요한 관리자 역할을 보유한 사용자가 많으면 권한 남용, 데이터 무단 접근, 악의적 변조 등의 보안 위협이 증가합니다. 최소 권한 원칙 위반으로 인해 보안 사고 파급 범위가 확대됩니다.",
+    "fix": "1) 슈퍼유저 권한이 필요하지 않은 사용자의 superuser 속성 제거: ALTER USER username WITH NOSUPERUSER 2) 각 역할(role)에 필요한 최소 권한만 부여: GRANT 권한을 분류(SELECT, INSERT, UPDATE, DELETE, EXECUTE 등)하여 역할별로 명확히 설정 3) 정기적으로 슈퍼유저 및 고권한 역할 목록 검토 및 감시 4) 필요시 별도의 관리자 역할(admin role)을 생성하여 단계적 권한 위임 5) 사용하지 않는 기본 역할 제거(postgres, pg_database_owner 등)",
+    "example": "ALTER USER app_user WITH NOSUPERUSER; GRANT SELECT, INSERT, UPDATE ON schema.table TO app_user; REVOKE ALL ON database FROM public; CREATE ROLE limited_admin CREATEDB CREATEROLE; SELECT * FROM pg_roles WHERE usesuper = true;"
+  },
+  "PG-12": {
+    "risk": "패치가 적용되지 않은 PostgreSQL은 공개된 보안 취약점(CVE)에 노출되어 SQL 인젝션, 권한 상승, 서비스 거부 공격의 대상이 될 수 있습니다. 정기적 버전 관리 부재는 보안 위협에 대한 대응 시간을 놓치게 합니다.",
+    "fix": "1) 현재 PostgreSQL 버전 확인(SELECT version;) 후 공식 보안 권고 모니터링 시작 2) 월 1회 이상 보안 패치 릴리스 확인 및 테스트 환경에서 먼저 적용 3) 프로덕션 환경 패치는 정기 점검 일정(예: 매월 둘째 일요일)에 따라 계획 적용 4) pg_upgrade 또는 데이터 덤프/복구로 메이저 버전 업그레이드 수행 5) 패치 적용 이력을 문서화하고 모니터링 시스템 구성(로그 레벨 설정, 알림 구성) 6) 보안 메일링 리스트(pgsql-announce) 구독 및 정기 보안 감사 일정 수립",
+    "example": "SELECT version(); -- 현재 버전 확인\n\n# 패치 적용 전 백업\npg_dump -Fc dbname > backup.sql\n\n# Linux 패치 업데이트(예시)\nsudo apt update && sudo apt upgrade postgresql-15\n\n# 서비스 재시작\nsudo systemctl restart postgresql\n\n# postgresql.conf 보안 옵션 예시\nlog_statement = 'all'\nlog_min_duration_statement = 1000\nssl = on"
+  },
+  "U-01": {
+    "risk": "root 계정의 원격 접속이 허용되면 무차별 대입 공격의 직접 표적이 되고, 탈취 시 시스템 전체가 즉시 장악됩니다.",
+    "fix": "SSH에서 root 직접 로그인을 금지하고, 일반 계정으로 접속 후 su/sudo로 권한을 상승하도록 구성합니다.",
+    "example": "# /etc/ssh/sshd_config\nPermitRootLogin no\n\n# 적용\nsystemctl restart sshd"
+  },
+  "U-02": {
+    "risk": "약한 비밀번호 정책은 무작위 대입 공격과 사전 공격에 취약하며, 공격자가 쉽게 계정을 탈취하여 시스템 침해로 이어질 수 있습니다.",
+    "fix": "Unix 서버의 /etc/login.defs 파일과 PAM(Pluggable Authentication Modules) 설정을 통해 비밀번호 최소 길이 12자 이상, 대소문자·숫자·특수문자 포함, 비밀번호 유효기간 90일 이하, 비밀번호 변경 후 재사용 제한 5회 이상으로 설정합니다. shadow 파일의 권한을 600으로 제한하고, 계정 잠금 정책(5회 실패 시 15분 잠금)을 적용합니다.",
+    "example": "# /etc/login.defs 설정\nPASS_MAX_DAYS 90\nPASS_MIN_DAYS 1\nPASS_MIN_LEN 12\nPASS_WARN_AGE 14\n\n# /etc/security/pwquality.conf 설정\nminlen=12\ndcredit=-1\nucredit=-1\nocredit=-1\nlcredit=-1\ndicredit=-1\nretry=3\n\n# /etc/pam.d/common-password (Debian/Ubuntu)\npassword [success=1 default=ignore] pam_unix.so obscure use_authtok try_first_pass yescrypt shadow minlen=12\n\n# 계정 잠금 설정 (/etc/pam.d/common-auth)\nauth required pam_faillock.so preauth silent audit deny=5 unlock_time=900"
+  },
+  "U-03": {
+    "risk": "계정 잠금 임계값이 설정되지 않으면 무차별 대입 공격(Brute Force Attack)에 의해 시스템 계정이 침탈될 수 있습니다. 공격자가 여러 번의 잘못된 로그인 시도를 통해 비밀번호를 추측할 수 있게 되어 시스템 보안이 심각하게 위협받습니다.",
+    "fix": "1. /etc/pam.d/common-auth 또는 /etc/pam.d/system-auth 파일을 편집하여 pam_tally2 또는 pam_faillock 모듈 설정 추가\n2. 연속 실패 횟수 제한(권장: 5회)과 잠금 시간(권장: 15분) 설정\n3. 설정 후 SSH 데몬 재시작(systemctl restart sshd)\n4. /var/log/faillog 또는 /var/run/faillock/ 디렉토리 권한 확인\n5. 잠금된 계정 해제는 'pam_tally2 --user 계정명 --reset' 또는 'faillock --user 계정명 --reset' 명령으로 수행",
+    "example": "# /etc/pam.d/common-auth 예시\nauth required pam_faillock.so preauth silent audit deny=5 unlock_time=900\nauth [default=die] pam_unix.so obscure sha512\nauth optional pam_permit.so\nauth required pam_permit.so\nauth required pam_env.so\nauth required pam_faillock.so authfail audit deny=5 unlock_time=900\n\n# 또는 pam_tally2 사용\nauth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900"
+  },
+  "U-04": {
+    "risk": "shadow 파일, passwd 파일, sudoers 파일 등 비밀번호 정보가 포함된 파일이 적절히 보호되지 않으면 unauthorized 사용자가 접근하여 계정 탈취 및 권한 상승 공격에 악용될 수 있습니다.",
+    "fix": "1. /etc/shadow 파일 권한을 600으로 설정 (root만 읽기/쓰기 가능): chmod 600 /etc/shadow\n2. /etc/passwd 파일 권한을 644로 설정 (모든 사용자 읽기, root만 쓰기): chmod 644 /etc/passwd\n3. /etc/sudoers 파일 권한을 440으로 설정: chmod 440 /etc/sudoers\n4. /etc/sudoers.d/ 디렉토리의 모든 파일 권한을 440으로 설정: chmod 440 /etc/sudoers.d/*\n5. 소유자를 root로 확인: chown root:root /etc/shadow /etc/sudoers\n6. 정기적으로 파일 권한 감시 및 백업 구성",
+    "example": "chmod 600 /etc/shadow\nchmod 644 /etc/passwd\nchmod 440 /etc/sudoers\nchown root:root /etc/shadow\nls -la /etc/shadow /etc/passwd /etc/sudoers"
+  },
+  "U-05": {
+    "risk": "root(UID 0)와 동일한 UID를 가진 계정이 있으면 그 계정이 root와 동일한 전권을 갖게 되어 권한 통제가 무너집니다.",
+    "fix": "root 외에 UID가 0인 계정이 없는지 확인하고, 있으면 해당 계정의 UID를 고유한 비-0 값으로 변경하거나 제거합니다.",
+    "example": "# UID 0 계정 확인\nawk -F: '($3==0){print $1}' /etc/passwd\n# root 하나만 출력되어야 함"
+  },
+  "U-06": {
+    "risk": "su 명령어가 제한되지 않으면 일반 사용자가 root 권한을 획득할 수 있어 시스템 전체가 침해될 수 있습니다. 특히 약한 root 비밀번호나 무단 접근 시 권한 상승 공격의 주요 진입점이 됩니다.",
+    "fix": "su 명령어 사용을 허가된 사용자 그룹으로만 제한하기 위해 PAM(Pluggable Authentication Modules) 설정을 변경하고, wheel 그룹에만 su 사용을 허용하도록 구성합니다. 또한 필요한 경우 sudo를 활용하여 세분화된 권한 위임을 설정합니다.",
+    "example": "1) /etc/pam.d/su 파일 수정 - 'auth required pam_wheel.so use_uid' 라인을 활성화하여 wheel 그룹 사용자만 su 실행 가능하게 설정\n2) wheel 그룹에 허가된 사용자만 추가: usermod -aG wheel username\n3) 또는 /etc/login.defs에서 'SU_WHEEL_ONLY yes' 설정\n4) /etc/sudoers에서 'Cmnd_Alias SU = /bin/su' 정의 후 특정 사용자에만 권한 부여: username ALL=(ALL) NOPASSWD: SU"
+  },
+  "U-07": {
+    "risk": "불필요한 계정은 공격자의 침입 통로가 될 수 있으며, 권한 상승 공격이나 무단 접근에 악용될 수 있습니다. 또한 미사용 계정으로 인한 권한 관리의 혼란과 감시 사각지대가 발생합니다.",
+    "fix": "1. 현재 서버의 모든 계정을 파악하고 각 계정의 사용 여부를 확인합니다. 2. 시스템 계정 중 불필요한 것들(게스트, 테스트 계정 등)을 식별합니다. 3. 사용하지 않는 사용자 계정은 userdel 명령어로 삭제하고, 시스템 계정은 /etc/passwd에서 로그인 셸을 /sbin/nologin으로 변경하거나 계정을 비활성화합니다. 4. 삭제 전 해당 계정의 소유 파일과 크론 작업을 확인하여 사전에 조치합니다.",
+    "example": "# 불필요한 사용자 계정 삭제\nuserdelgames\n\n# 시스템 계정 비활성화 (로그인 불가 설정)\nusermod -s /sbin/nologin bin\nusermod -s /sbin/nologin sys\n\n# 비활성 계정 확인\nawk -F: '($7 != \"/sbin/nologin\" && $7 != \"/sbin/false\") {print}' /etc/passwd\n\n# 90일 이상 로그인하지 않은 계정 찾기\nlastlog -b 90"
+  },
+  "U-08": {
+    "risk": "관리자 그룹에 불필요한 계정이 포함되면 권한 유출 시 피해 범위가 확대되며, 관리자 권한 남용 감시가 어려워져 보안 사고 위험이 증가합니다.",
+    "fix": "1) sudo 그룹(또는 wheel) 멤버 확인: getent group sudo / getent group wheel\n2) 불필요한 계정 제거: gpasswd -d [사용자명] sudo\n3) 관리자 권한이 필요한 경우 sudo 설정(/etc/sudoers)으로 최소 권한 부여\n4) visudo 편집기로 필요한 명령어만 명시적 허용\n5) 월 1회 이상 그룹 멤버 검토하여 퇴직자/이동 직원 정리\n6) root 그룹도 동일 기준 적용(getent group root)",
+    "example": "gpasswd -d testuser sudo\n\n/etc/sudoers 예시:\ntestuser ALL=(ALL) /usr/bin/systemctl restart apache2\ntestuser ALL=(ALL) NOPASSWD: /usr/sbin/reboot (암호 없이 재부팅만 허용)\n\n검토 스크립트:\ngetent group sudo | cut -d: -f4 | tr ',' '\\n'"
+  },
+  "U-09": {
+    "risk": "계정이 존재하지 않는 GID(그룹 ID)를 가진 파일이 있으면 권한 관리가 불명확해지고, 의도하지 않은 접근 권한 부여로 인한 보안 위험이 발생할 수 있습니다.",
+    "fix": "1. 유효하지 않은 GID를 가진 파일을 찾아 정리합니다(find / -nogroup 2>/dev/null). 2. 해당 파일의 소유자를 유효한 그룹으로 변경합니다(chgrp 명령어 사용). 3. 필요 없는 파일은 삭제하거나 /etc/group 파일에 해당 GID를 등록합니다. 4. 정기적으로 모니터링하는 스크립트를 cron에 등록합니다.",
+    "example": "find / -nogroup 2>/dev/null | head -10\nchgrp wheel /path/to/file\necho 'groupname:x:gid:' >> /etc/group"
+  },
+  "U-10": {
+    "risk": "동일한 UID를 가진 여러 계정이 존재하면 파일 소유권과 권한 관리가 혼란스러워져 접근 제어가 우회될 수 있으며, 감사 추적 및 책임 추적이 불가능해집니다.",
+    "fix": "1. 시스템의 모든 UID를 검토하여 중복된 UID 확인\n2. /etc/passwd 파일에서 중복 UID를 가진 계정 식별\n3. 중복 UID 중 하나를 새로운 고유 UID로 변경(usermod 명령 사용)\n4. 해당 사용자가 소유한 파일의 UID를 함께 변경(chown 명령 사용)\n5. 변경 후 재검증하여 모든 UID가 고유함을 확인",
+    "example": "# 중복 UID 확인\nawk -F: '{print $3}' /etc/passwd | sort | uniq -d\n\n# 특정 계정의 UID 변경 (예: testuser의 UID를 1005로 변경)\nusermod -u 1005 testuser\n\n# 해당 사용자 소유 파일의 UID 변경\nfind / -user 1004 -exec chown 1005 {} \\; 2>/dev/null\n\n# 변경 확인\ngrep testuser /etc/passwd"
+  },
+  "U-11": {
+    "risk": "사용자에게 불필요한 shell이 할당되면 시스템 접근 권한이 증대되어 권한 상승 공격이나 악의적 활동에 악용될 수 있습니다. 특히 시스템 계정이나 서비스 계정에 /bin/bash 같은 로그인 shell이 할당되면 보안 위험이 크게 증가합니다.",
+    "fix": "1. /etc/passwd 파일을 확인하여 불필요한 shell이 할당된 사용자를 식별합니다. 2. 로그인이 필요 없는 시스템 계정(daemon, www-data, mysql 등)은 /sbin/nologin 또는 /bin/false로 변경합니다. 3. 필요한 사용자만 /bin/bash, /bin/sh 등의 로그인 shell을 유지합니다. 4. usermod 명령어로 변경 후 재확인합니다.",
+    "example": "# 현재 상태 확인\ngrep 'nologin\\|false' /etc/passwd\n\n# 불필요한 로그인 shell 변경 예시\nusermod -s /sbin/nologin daemon\nusermod -s /sbin/nologin www-data\nusermod -s /sbin/nologin mysql\n\n# 변경 확인\ngrep 'daemon\\|www-data\\|mysql' /etc/passwd"
+  },
+  "U-12": {
+    "risk": "세션 종료 시간이 설정되지 않으면 사용자가 로그아웃하지 않은 상태에서 장시간 유휴 세션이 유지되어, 공격자가 세션 탈취를 통해 계정을 불법으로 접근할 수 있습니다.",
+    "fix": "1. /etc/profile, ~/.bashrc, ~/.bash_profile 파일에서 TMOUT 변수를 설정하여 셸 세션 타임아웃을 구성하고, 2. 웹 애플리케이션의 세션 설정 파일에서 session.gc_maxlifetime 또는 유사한 세션 만료 시간을 설정합니다(권장: 15~30분). 3. SSH 데몬 설정(/etc/ssh/sshd_config)의 ClientAliveInterval과 ClientAliveCountMax를 조정하여 원격 접속 세션 타임아웃을 구성합니다.",
+    "example": "# /etc/profile 또는 ~/.bashrc에 추가\nexport TMOUT=900\n\n# /etc/ssh/sshd_config\nClientAliveInterval 300\nClientAliveCountMax 2\n\n# PHP 설정 (/etc/php.ini 또는 애플리케이션 설정)\nsession.gc_maxlifetime = 1800\n\n# Apache (.htaccess 또는 httpd.conf)\nSetEnv SESSION_TIMEOUT 1800"
+  },
+  "U-13": {
+    "risk": "취약한 해시(예: DES/MD5)로 비밀번호를 저장하면 유출 시 오프라인 크래킹으로 쉽게 복원됩니다.",
+    "fix": "SHA-512 등 강한 알고리즘으로 비밀번호를 저장하도록 설정합니다.",
+    "example": "# /etc/login.defs\nENCRYPT_METHOD SHA512"
+  },
+  "U-14": {
+    "risk": "root 홈 디렉터리와 PATH 디렉터리의 권한이 부적절하면 일반 사용자가 악의적인 스크립트를 삽입하여 권한 상승(privilege escalation) 공격을 수행할 수 있습니다. 특히 root가 실행하는 명령어가 변조된 프로그램을 로드하게 되어 시스템 전체가 침해될 수 있습니다.",
+    "fix": "1. root 홈 디렉터리(/root) 권한을 700으로 설정: chmod 700 /root\n2. PATH 경로의 모든 디렉터리 권한을 755 이상으로 설정하되, 쓰기 권한은 소유자에게만 부여: chmod 755 /usr/local/bin /usr/bin /bin /usr/sbin /sbin 등\n3. root의 PATH 환경변수에서 현재 디렉터리(.)를 제거: echo $PATH 확인 후 제거\n4. 상위 디렉터리들의 권한도 검증(예: /usr, /usr/local)하여 다른 사용자가 수정할 수 없도록 확인",
+    "example": "# root 홈 디렉터리 권한 설정\nchmod 700 /root\nls -ld /root\n# 결과: drwx------ root root /root\n\n# PATH 디렉터리 권한 검증\necho $PATH\nls -ld /bin /usr/bin /usr/local/bin /sbin /usr/sbin\n# 결과: dr-xr-xr-x (755) 또는 그 이상 제한적 권한\n\n# root의 PATH에서 현재 디렉터리 제거\necho $PATH | grep -E '^:|:$|::'\n# 결과가 없어야 함"
+  },
+  "U-15": {
+    "risk": "파일 및 디렉터리 소유자가 부적절하게 설정되면 권한이 없는 사용자가 중요 파일에 접근하거나 변조할 수 있으며, 시스템 보안이 심각하게 손상될 수 있습니다.",
+    "fix": "1. 현재 파일 및 디렉터리의 소유자를 확인합니다(ls -l). 2. chown 명령어로 소유자를 올바르게 변경합니다. 3. 시스템 파일은 root 소유, 애플리케이션 파일은 해당 서비스 계정 소유로 설정합니다. 4. 웹 루트 디렉터리는 웹 서버 계정 소유로, 설정 파일은 root 소유로 설정합니다. 5. 변경 후 권한 설정(chmod)도 함께 검토합니다.",
+    "example": "# 웹 루트 디렉터리를 apache 사용자 소유로 변경\nchown -R apache:apache /var/www/html\n\n# 시스템 설정 파일을 root 소유로 변경\nchown root:root /etc/passwd /etc/shadow\nchmod 600 /etc/shadow\n\n# 데이터베이스 디렉터리를 mysql 사용자 소유로 변경\nchown -R mysql:mysql /var/lib/mysql\nchmod 700 /var/lib/mysql\n\n# 소유자 확인\nls -ld /var/www/html /var/lib/mysql"
+  },
+  "U-16": {
+    "risk": "/etc/passwd의 소유자·권한이 부적절하면 계정 정보가 변조되어 권한 상승이나 계정 위조로 이어질 수 있습니다.",
+    "fix": "/etc/passwd의 소유자를 root로, 권한을 644 이하로 설정합니다.",
+    "example": "chown root:root /etc/passwd\nchmod 644 /etc/passwd"
+  },
+  "U-17": {
+    "risk": "시스템 시작 스크립트의 권한이 부적절하면 일반 사용자가 시스템 시작 프로세스를 조작하여 권한 상승 공격이나 악성 코드 주입이 가능해집니다.",
+    "fix": "시스템 시작 스크립트(/etc/init.d, /etc/rc.d, /usr/lib/systemd/system 등)의 소유자를 root로 설정하고 권한을 755 이하로 제한합니다. 스크립트 내용 수정은 root만 가능하도록 하고, 정기적으로 권한 설정을 감사합니다.",
+    "example": "chmod 755 /etc/init.d/*\nchown root:root /etc/init.d/*\nchmod 644 /usr/lib/systemd/system/*.service\nfind /etc/init.d -type f ! -user root -exec ls -l {} \\;\nfind /etc/rc.d -type f -perm /022 -exec chmod 755 {} \\;"
+  },
+  "U-18": {
+    "risk": "/etc/shadow가 과도한 권한을 가지면 비밀번호 해시가 노출되어 크래킹의 대상이 됩니다.",
+    "fix": "/etc/shadow의 소유자를 root로, 권한을 400(또는 600) 이하로 제한합니다.",
+    "example": "chown root:root /etc/shadow\nchmod 400 /etc/shadow"
+  },
+  "U-19": {
+    "risk": "/etc/hosts 파일의 소유자 및 권한이 부적절하면 공격자가 파일을 수정하여 DNS 스푸핑 공격을 수행하거나 서비스 거부 공격을 유발할 수 있습니다. 이는 시스템 보안 및 네트워크 통신의 무결성을 심각하게 훼손할 수 있습니다.",
+    "fix": "1) /etc/hosts 파일의 소유자를 root로 설정: chown root:root /etc/hosts\n2) 파일 권한을 644로 설정: chmod 644 /etc/hosts (읽기 가능, 쓰기는 root만 가능)\n3) 권한 변경 후 ls -l /etc/hosts 명령으로 설정 확인\n4) 정기적으로 파일 소유자 및 권한 상태를 점검하는 자동화 스크립트 구성 권장",
+    "example": "# 현재 상태 확인\nls -l /etc/hosts\n# 예상 결과: -rw-r--r-- 1 root root [크기] [날짜] /etc/hosts\n\n# 조치 명령\nchown root:root /etc/hosts\nchmod 644 /etc/hosts\n\n# 조치 확인\nls -l /etc/hosts"
+  },
+  "U-20": {
+    "risk": "/etc/inetd.conf 또는 /etc/xinetd.conf 파일의 소유자가 root가 아니거나 권한이 644 이상으로 설정되어 있으면, 일반 사용자가 파일을 수정하여 서비스 설정을 변조하거나 악의적인 명령을 삽입할 수 있습니다.",
+    "fix": "1) /etc/xinetd.conf(또는 /etc/inetd.conf) 파일의 소유자를 root로 변경: chown root:root /etc/xinetd.conf\n2) 파일 권한을 600으로 제한(root만 읽고 쓰기 가능): chmod 600 /etc/xinetd.conf\n3) 변경 사항 확인: ls -l /etc/xinetd.conf\n4) xinetd 서비스 재시작(필요 시): service xinetd restart 또는 systemctl restart xinetd",
+    "example": "# 현재 상태 확인\nls -l /etc/xinetd.conf\n# 출력 예: -rw------- 1 root root 1234 Jan 1 12:00 /etc/xinetd.conf\n\n# 소유자 변경\nchown root:root /etc/xinetd.conf\n\n# 권한 변경\nchmod 600 /etc/xinetd.conf\n\n# 적용 확인\nls -l /etc/xinetd.conf"
+  },
+  "U-21": {
+    "risk": "syslog 설정 파일의 소유자와 권한이 부적절하면 일반 사용자가 로그 기록을 위조하거나 삭제할 수 있으며, 공격자가 시스템 감시를 우회하여 악의적 활동을 은폐할 수 있습니다.",
+    "fix": "1. /etc/rsyslog.conf 및 /etc/syslog.conf 파일의 소유자를 root로, 그룹을 root 또는 wheel로 변경합니다. 2. 파일 권한을 640 이하로 설정하여 소유자(root)는 읽기·쓰기, 그룹은 읽기만, 그 외 사용자는 접근 불가로 제한합니다. 3. 로그 디렉토리(/var/log)도 동일하게 소유자를 root, 권한을 755 이상으로 설정합니다.",
+    "example": "chown root:root /etc/rsyslog.conf\nchmod 640 /etc/rsyslog.conf\nchown root:root /var/log\nchmod 755 /var/log\nls -l /etc/rsyslog.conf (확인: -rw-r----- 1 root root)"
+  },
+  "U-22": {
+    "risk": "/etc/services 파일의 소유자 및 권한이 부적절하면 일반 사용자가 서비스 포트 정보를 수정하여 시스템 보안을 우회하거나 서비스 가용성을 침해할 수 있습니다.",
+    "fix": "1) /etc/services 파일의 소유자를 root로 설정: chown root:root /etc/services\n2) 파일 권한을 644로 설정: chmod 644 /etc/services\n3) 설정 후 ls -l /etc/services 명령으로 소유자가 root이고 권한이 -rw-r--r--인지 확인",
+    "example": "# 현재 권한 확인\nls -l /etc/services\n\n# 소유자 변경\nchown root:root /etc/services\n\n# 권한 설정\nchmod 644 /etc/services\n\n# 결과 확인 (root root -rw-r--r-- 이어야 함)\nls -l /etc/services"
+  },
+  "U-23": {
+    "risk": "SUID/SGID/Sticky bit가 부적절하게 설정된 파일은 권한 상승 공격에 악용될 수 있으며, 예상치 못한 권한으로 코드 실행이 가능해져 시스템 보안을 침해할 수 있습니다.",
+    "fix": "1. 주기적으로 SUID/SGID 설정 파일을 점검하고, 필요하지 않은 파일은 권한을 제거합니다. 2. find 명령으로 의심 파일을 식별한 후 chmod로 권한을 정정합니다. 3. 필요한 파일만 최소 권한으로 유지하고, 변경 사항을 모니터링합니다. 4. /etc/security/limits.conf, /etc/security/pam_limits.so 등으로 추가 제한을 설정합니다.",
+    "example": "find / -perm /4000 -o -perm /2000 -o -perm /1000 2>/dev/null | head -20\nchmod u-s /path/to/file\nchmod g-s /path/to/file\nchmod o-t /path/to/directory\nls -la /usr/bin/sudo"
+  },
+  "U-24": {
+    "risk": "환경변수 파일의 소유자와 권한이 부적절하면 권한 없는 사용자가 민감한 설정 정보(DB 연결 정보, API 키 등)를 열람하거나 조작하여 시스템 보안이 침해될 수 있습니다.",
+    "fix": "1) 사용자 환경변수 파일(.bashrc, .bash_profile, .profile 등)의 소유자를 해당 사용자로, 권한을 600(rw-------)으로 설정합니다. 2) 시스템 환경변수 파일(/etc/environment, /etc/profile 등)의 소유자를 root로, 권한을 644(rw-r--r--)로 설정합니다. 3) 기타 설정 파일(/etc/profile.d/ 내 파일들)은 644 권한으로 설정합니다.",
+    "example": "# 사용자 환경변수 파일 권한 수정\nchown username:username /home/username/.bashrc\nchmod 600 /home/username/.bashrc\n\n# 시스템 환경변수 파일 권한 수정\nchown root:root /etc/environment\nchmod 644 /etc/environment\n\n# 권한 확인\nls -l ~/.bashrc\nls -l /etc/environment"
+  },
+  "U-25": {
+    "risk": "world writable(777) 권한의 파일은 모든 사용자가 읽기, 쓰기, 실행이 가능하여 악의적 수정, 삭제, 권한 상승 공격에 노출됩니다. 특히 시스템 파일, 설정 파일, 실행 파일이 이 권한을 가지면 시스템 전체가 침해될 수 있습니다.",
+    "fix": "1) world writable 파일 찾기: find / -type f -perm -002 2>/dev/null | 2) 각 파일별로 필요한 최소 권한으로 변경: chmod 644 [파일명] (일반 파일) 또는 chmod 755 [파일명] (실행 파일) | 3) 디렉토리는 chmod 755로 설정 | 4) 소유자 확인 후 불필요한 권한 제거 | 5) 정기적으로 권한 감시 스크립트 실행하여 모니터링",
+    "example": "# World writable 파일 찾기\nfind / -type f -perm -002 2>/dev/null\n\n# 파일 권한 변경\nchmod 644 /etc/myconfig.conf\nchmod 755 /usr/local/bin/script.sh\n\n# 디렉토리 권한 변경\nchmod 755 /var/www/uploads\n\n# 현재 권한 확인\nls -l [파일명]\n\n# 정기 모니터링 (cron)\n0 2 * * * find / -type f -perm -002 -exec chmod 644 {} \\; 2>/dev/null"
+  },
+  "U-26": {
+    "risk": "/dev에 존재하지 않는 device 파일은 시스템 부팅 실패, 하드웨어 접근 오류, 또는 보안 위협으로 이어질 수 있습니다. 불필요한 또는 손상된 device 파일은 시스템 안정성을 저해하고 악의적 접근의 진입점이 될 수 있습니다.",
+    "fix": "1) 먼저 ls -la /dev 명령으로 현재 device 파일 목록을 확인합니다. 2) 각 device 파일에 대해 ls -l 명령으로 inode 번호와 메이저/마이너 번호를 확인하고, cat /proc/devices로 실제 등록된 device와 비교합니다. 3) 존재하지 않는 device에 대응하는 파일은 rm 명령으로 삭제합니다. 4) 필요한 device 파일이 누락된 경우 mknod 명령으로 재생성합니다(예: mknod /dev/null c 1 3). 5) 변경 후 시스템을 재부팅하여 정상 작동 여부를 확인합니다.",
+    "example": "ls -la /dev | grep -E '^[bc]' | head -20\ncat /proc/devices\nmknod /dev/null c 1 3\nchmod 666 /dev/null\nrm /dev/nonexistent_device"
+  },
+  "U-27": {
+    "risk": ".rhosts와 hosts.equiv 파일은 호스트 기반 인증을 사용하여 암호 없이 원격 접근을 허용하므로, 스푸핑 공격에 취약하고 무단 접근의 위험이 매우 높습니다.",
+    "fix": "1) .rhosts 파일 제거: 각 사용자의 홈 디렉토리에서 .rhosts 파일을 삭제합니다. 2) hosts.equiv 파일 제거: /etc/hosts.equiv 파일을 삭제합니다. 3) r-command 비활성화: /etc/inetd.conf 또는 /etc/xinetd.d/ 에서 rsh, rlogin, rcp 서비스를 주석 처리하고 xinetd/inetd를 재시작합니다. 4) SSH 활성화: 대신 암호화된 SSH를 사용하도록 설정합니다.",
+    "example": "# .rhosts 및 hosts.equiv 파일 찾아 제거\nfind / -name '.rhosts' -exec rm {} \\;\nrm -f /etc/hosts.equiv\n\n# inetd.conf에서 r-command 비활성화 (예시)\n# /etc/inetd.conf 또는 /etc/xinetd.d/rsh, rlogin, rcp\n# 다음 라인을 주석 처리:\n# shell stream tcp nowait root /usr/sbin/in.rshd in.rshd\n# login stream tcp nowait root /usr/sbin/in.rlogind in.rlogind\n\n# 변경 후 inetd 또는 xinetd 재시작\nsudo systemctl restart xinetd\n또는\nsudo systemctl restart inetd"
+  },
+  "U-28": {
+    "risk": "접속 IP 및 포트 제한이 없으면 누구나 서버의 서비스에 접근할 수 있어 무단 접근, 해킹 시도, DDoS 공격 등에 노출됩니다. 특히 관리 서비스(SSH, 원격 데스크톱 등)가 인터넷에 직접 노출되면 심각한 보안 위협입니다.",
+    "fix": "1) 방화벽(iptables/firewalld)에서 필요한 포트만 허가된 IP에서 접근하도록 설정합니다. 2) 원격 접속(SSH 등)은 특정 관리자 IP만 허용합니다. 3) 웹 서비스는 필요시 WAF나 보안 그룹으로 IP 제한을 추가합니다. 4) 불필요한 서비스 포트는 닫습니다. 5) 정기적으로 오픈 포트를 점검하고 최소 권한 원칙을 적용합니다.",
+    "example": "iptables -A INPUT -p tcp --dport 22 -s 203.0.113.10 -j ACCEPT\niptables -A INPUT -p tcp --dport 22 -j DROP\niptables -A INPUT -p tcp --dport 80 -s 0.0.0.0/0 -j ACCEPT\nsudo firewall-cmd --permanent --add-rich-rule='rule family=\"ipv4\" source address=\"203.0.113.0/24\" port protocol=\"tcp\" port=\"22\" accept'\nsudo firewall-cmd --reload"
+  },
+  "U-29": {
+    "risk": "hosts.lpd 파일의 부적절한 소유자 및 권한 설정은 권한 없는 사용자가 프린터 접근 제어 정책을 변조하여 프린팅 서비스를 악용하거나 시스템 보안을 침해할 수 있습니다.",
+    "fix": "hosts.lpd 파일의 소유자를 root로 설정하고 권한을 640 또는 600으로 제한하세요. 터미널에서 'chown root:lp /etc/hosts.lpd' 및 'chmod 640 /etc/hosts.lpd' 명령을 실행하여 조치합니다.",
+    "example": "chown root:lp /etc/hosts.lpd\nchmod 640 /etc/hosts.lpd\nls -l /etc/hosts.lpd\n(예상 결과: -rw-r----- 1 root lp)"
+  },
+  "U-30": {
+    "risk": "UMASK 설정이 부적절하면 새로 생성되는 파일과 디렉터리의 기본 권한이 과도하게 개방되어 미인가 사용자의 접근을 허용하고 정보 유출 및 시스템 무결성 침해 위험이 증가합니다.",
+    "fix": "1) /etc/profile, /etc/bashrc, /etc/login.defs 파일에서 UMASK 값을 확인하고 안전한 값으로 설정합니다. 2) 일반 사용자는 umask 0022 (파일 644, 디렉터리 755), 루트는 umask 0077 (파일 600, 디렉터리 700)로 설정합니다. 3) 설정 후 현재 세션에 적용하려면 umask 명령어를 실행하고, 영구 적용을 위해 쉘 초기화 파일을 수정합니다. 4) 설정 변경 후 새로 생성되는 파일의 권한을 검증합니다.",
+    "example": "# /etc/profile 또는 ~/.bashrc에 추가\numask 0022\n\n# /etc/login.defs에서 UMASK 설정 (일반 사용자)\nUMASK 022\nUMASK_COMPAT no\n\n# 루트 사용자의 경우\necho 'umask 0077' >> /root/.bashrc\n\n# 현재 세션에 즉시 적용\numask 0022\n\n# 설정 확인\numask"
+  },
+  "U-31": {
+    "risk": "홈 디렉토리의 소유자가 올바르지 않거나 권한이 과도하게 설정되면 비인가 사용자가 중요 파일에 접근하거나 수정할 수 있으며, 시스템 보안이 침해될 수 있습니다.",
+    "fix": "1. 홈 디렉토리 소유자 확인: ls -ld /home/username으로 현재 소유권 확인\n2. 소유자 변경(필요시): chown username:groupname /home/username\n3. 권한 설정: chmod 700 /home/username으로 소유자만 접근 가능하게 설정\n4. 모든 사용자 홈 디렉토리 일괄 점검: for user in $(cut -f1 -d: /etc/passwd); do ls -ld /home/$user 2>/dev/null; done\n5. root 소유의 홈 디렉토리는 사용자 정보와 일치하도록 수정",
+    "example": "# 현재 홈 디렉토리 권한 확인\nls -ld /home/testuser\n# 출력 예: drwxr-xr-x 10 testuser testuser 4096 Jan 1 10:00 /home/testuser\n\n# 소유자 수정 (root 소유인 경우)\nsudo chown testuser:testuser /home/testuser\n\n# 권한을 700으로 설정 (소유자만 접근)\nsudo chmod 700 /home/testuser\n\n# 수정 후 확인\nls -ld /home/testuser\n# 출력 예: drwx------ 10 testuser testuser 4096 Jan 1 10:00 /home/testuser"
+  },
+  "U-32": {
+    "risk": "홈 디렉토리가 존재하지 않으면 사용자가 로그인할 때 시스템 오류가 발생하거나 예기치 않은 동작을 할 수 있으며, 권한 관리 체계가 무너져 보안 위협이 증대됩니다.",
+    "fix": "1. 존재하지 않는 홈 디렉토리를 확인합니다: getent passwd | awk -F: '{print $6}' | while read dir; do [ ! -d \"$dir\" ] && echo \"Missing: $dir\"; done\n2. 필요한 홈 디렉토리를 생성합니다: mkdir -p /home/username\n3. 올바른 소유권과 권한을 설정합니다: chown username:groupname /home/username && chmod 700 /home/username\n4. 불필요한 사용자 계정의 홈 디렉토리가 삭제되었다면 해당 계정을 비활성화하거나 삭제합니다: userdel username 또는 usermod -L username",
+    "example": "# 홈 디렉토리 확인\ngetent passwd testuser | cut -d: -f1,6\n\n# 홈 디렉토리 생성\nmkdir -p /home/testuser\nchown testuser:testuser /home/testuser\nchmod 700 /home/testuser\n\n# 확인\nls -ld /home/testuser"
+  },
+  "U-33": {
+    "risk": "숨겨진 파일 및 디렉토리는 악의적인 목적으로 악성 코드, 백도어, 설정 파일 등을 은폐하는 데 사용될 수 있으며, 시스템 관리자의 감시를 피해 보안 위협이 증가합니다.",
+    "fix": "1. 정기적으로 숨겨진 파일 검색(find 명령어 사용)\n2. 예상치 못한 파일 존재 여부 확인\n3. 불필요한 숨겨진 파일 삭제\n4. 시스템 파일 백업 후 진행\n5. 자동화된 모니터링 스크립트 구성\n6. 접근 권한 및 파일 무결성 검증",
+    "example": "find / -name '.*' -type f 2>/dev/null | grep -v '/\\.' | head -20\nfind / -name '.*' -type d 2>/dev/null\nls -la /root\nls -la /home/*\nls -la /tmp\nls -la /var/tmp\nfind / -perm -002 -type f 2>/dev/null"
+  },
+  "U-34": {
+    "risk": "Finger 서비스는 시스템 사용자 정보를 원격으로 조회할 수 있게 하여 공격자가 유효한 계정명을 수집하고 소셜 엔지니어링 또는 무차별 대입 공격을 수행할 수 있는 정보를 제공합니다.",
+    "fix": "Finger 서비스를 완전히 비활성화합니다. (1) inetd 또는 xinetd 설정 파일에서 finger 서비스 항목을 주석 처리하거나 비활성화합니다. (2) Finger 데몬 프로세스를 중지합니다. (3) 부팅 시 자동 시작되지 않도록 서비스를 비활성화합니다.",
+    "example": "# xinetd 기반 시스템\nsudo vi /etc/xinetd.d/finger\n# 파일 내용: disable = yes 로 변경\n\n# 또는 inetd 기반 시스템\nsudo vi /etc/inetd.conf\n# finger 라인을 주석 처리: #finger  stream  tcp  nowait  nobody  /usr/sbin/fingerd  fingerd\n\n# Finger 데몬 중지\nsudo systemctl stop fingerd\nsudo systemctl disable fingerd\n\n# 또는 xinetd 재시작\nsudo systemctl restart xinetd\n\n# 확인: 다음 명령 실행 시 응답 없음을 확인\nfinger @hostname"
+  },
+  "U-35": {
+    "risk": "공유 서비스에 대한 익명 접근이 제한되지 않으면 인증되지 않은 사용자가 민감한 데이터에 무단으로 접근하거나 시스템 리소스를 악용할 수 있습니다.",
+    "fix": "1. NFS 공유: /etc/exports 파일에서 all_squash, anonuid, anongid 옵션 설정하여 익명 사용자 권한 제한\n2. Samba 공유: smb.conf에서 guest account 비활성화 또는 제한, map to guest = Never 설정\n3. FTP 서비스: vsftpd.conf에서 anonymous_enable=NO 설정\n4. HTTP 공유: 웹 서버의 디렉토리별 접근 제어 설정으로 인증 요구\n5. 불필요한 공유 서비스는 즉시 비활성화",
+    "example": "/etc/exports 예시:\n/shared 192.168.1.0/24(rw,all_squash,anonuid=65534,anongid=65534)\n\nsmb.conf 예시:\n[global]\n map to guest = Never\n guest account = nobody\n\n[shares]\n path = /var/shared\n public = no\n writable = no\n\nvsftpd.conf 예시:\nanonymous_enable=NO"
+  },
+  "U-36": {
+    "risk": "r계열 서비스(rsh, rlogin, rexec 등)는 평문으로 인증 정보를 전송하여 네트워크 도청 공격에 매우 취약합니다. 이를 통해 공격자가 원격으로 시스템에 무단 접근하거나 세션을 가로챌 수 있습니다.",
+    "fix": "inetd 또는 xinetd 설정 파일에서 r계열 서비스(shell, login, exec, rexec 등)를 비활성화하고, SSH(포트 22)로 모든 원격 접속을 통일합니다. 그 후 서비스를 재시작합니다.",
+    "example": "# /etc/inetd.conf 수정\nshell stream tcp nowait root /usr/sbin/in.rshd in.rshd → 주석처리(#)\nlogin stream tcp nowait root /usr/sbin/in.rlogind in.rlogind → 주석처리(#)\nexec stream tcp nowait root /usr/sbin/in.rexecd in.rexecd → 주석처리(#)\n\n# 또는 xinetd 사용 시\nchkconfig rsh off\nchkconfig rlogin off\nchkconfig rexec off\nservice xinetd restart\n\n# 또는 systemd 환경\nsystemctl disable rsh.socket\nsystemctl disable rlogin.socket\nsystemctl disable rexec.socket\nsystemctl stop rsh.socket rlogin.socket rexec.socket"
+  },
+  "U-37": {
+    "risk": "crontab 설정파일의 권한이 불충분하면 일반 사용자가 무단으로 스케줄된 작업을 수정하거나 악의적인 명령을 주입하여 시스템 침해 및 데이터 유출을 야기할 수 있습니다.",
+    "fix": "crontab 설정파일의 소유권을 root로 변경하고 권한을 600 또는 644로 설정하여 root와 관련 서비스만 접근 가능하도록 제한합니다. /etc/cron* 디렉토리와 /var/spool/cron 디렉토리의 권한도 700 또는 755로 설정합니다. crontab 명령 실행 권한을 /etc/cron.allow와 /etc/cron.deny를 이용하여 관리합니다.",
+    "example": "chmod 600 /etc/crontab\nchown root:root /etc/crontab\nchmod 700 /etc/cron.d\nchmod 700 /var/spool/cron\nls -l /etc/crontab (드: -rw------- 1 root root)\necho 'root' > /etc/cron.allow\nrm /etc/cron.deny"
+  },
+  "U-38": {
+    "risk": "불필요한 서비스가 활성화되어 있으면 DoS 공격의 진입점이 되어 서버 리소스를 악용당하고 정상 서비스 운영을 방해받을 수 있습니다.",
+    "fix": "1) 현재 실행 중인 모든 서비스 목록 확인: systemctl list-unit-files --type=service 또는 service --status-all 2) 불필요한 서비스 중지: systemctl stop [service_name] 3) 부팅 시 자동 시작 비활성화: systemctl disable [service_name] 4) 주요 비활성화 대상: discard, daytime, echo, chargen, time 등의 TCP/UDP 서비스와 NFS, RPC 관련 서비스 5) xinetd 사용 환경: /etc/xinetd.d/ 디렉토리의 불필요한 서비스 파일 수정 후 xinetd 재시작",
+    "example": "systemctl stop discard\nsystemctl disable discard\nsystemctl stop daytime\nsystemctl disable daytime\n\nxinetd 환경에서:\nvi /etc/xinetd.d/echo\ndisable = yes\n\nxinetd 재시작:\nsystemctl restart xinetd"
+  },
+  "U-39": {
+    "risk": "활성화된 NFS 서비스는 네트워크를 통해 원격 파일시스템 접근을 제공하므로, 필요하지 않을 경우 공격자의 진입점이 되어 파일 탈취 및 시스템 침해로 이어질 수 있습니다.",
+    "fix": "1. NFS 서비스 상태 확인: systemctl status nfs-server 또는 service nfs status\n2. NFS 데몬 비활성화: systemctl disable nfs-server && systemctl stop nfs-server\n3. 부팅 시 자동 시작 방지: chkconfig nfs off (RHEL/CentOS 6 이하)\n4. 재부팅 후 nfsstat 명령으로 확인하여 NFS 데몬이 종료되었는지 검증",
+    "example": "systemctl disable nfs-server\nsystemctl stop nfs-server\nsystemctl status nfs-server\n\n또는\n\nservice nfs stop\nchkconfig nfs off\nservice nfs status"
+  },
+  "U-40": {
+    "risk": "NFS 공유가 부적절하게 설정되면 인가되지 않은 사용자가 시스템 파일에 접근하거나 데이터를 탈취·변조할 수 있으며, 권한 상승 공격으로 이어질 수 있습니다.",
+    "fix": "/etc/exports 파일에서 NFS 공유 디렉토리의 접근 권한을 제한하고, 특정 IP나 호스트로만 마운트를 허용하도록 설정하세요. root_squash, all_squash 등의 옵션을 활용하여 권한 매핑을 강화하고, 정기적으로 공유 목록을 검토하여 불필요한 공유는 제거하세요. 방화벽 규칙으로 NFS 포트(111, 2049)에 대한 접근을 제한하세요.",
+    "example": "/etc/exports 설정 예시:\n/data 192.168.1.0/24(ro,root_squash,all_squash,sync)\n/home 192.168.1.10(rw,root_squash,sync)\n\n설정 적용 명령어: exportfs -ra\nNFS 서비스 재시작: systemctl restart nfs-server\n공유 목록 확인: showmount -e localhost"
+  },
+  "U-41": {
+    "risk": "automountd는 자동 마운트 서비스로 불필요한 경우 공격 표면을 증가시키며, 원격 공격자가 NFS 마운트 포인트를 통해 시스템에 접근하거나 권한 상승을 시도할 수 있는 경로가 됩니다.",
+    "fix": "1. automountd 서비스 비활성화: systemctl disable autofs, systemctl stop autofs (또는 service autofs stop)\n2. 패키지 제거: apt-get remove autofs (Debian/Ubuntu) 또는 yum remove autofs (RHEL/CentOS)\n3. 시스템 재부팅 후 서비스 정지 확인: systemctl status autofs 또는 ps aux | grep automountd로 프로세스 미실행 확인\n4. /etc/auto.master 파일 제거 또는 백업 (필요시)",
+    "example": "systemctl disable autofs\nsystemctl stop autofs\napt-get remove autofs -y\nsystemctl status autofs\n# 또는 RHEL/CentOS의 경우:\nchkconfig autofs off\nservice autofs stop\nyum remove autofs -y"
+  },
+  "U-42": {
+    "risk": "불필요한 RPC 서비스는 공격자의 진입점이 되어 원격 코드 실행, 정보 유출 등 심각한 보안 침해를 야기할 수 있습니다.",
+    "fix": "1. 현재 활성화된 RPC 서비스 확인: rpcinfo -p 또는 netstat -tlnp | grep rpc\n2. 불필요한 RPC 서비스 목록 파악 (NFS, NIS, rstatd, rusersd, rwalld 등)\n3. systemctl disable [service명] && systemctl stop [service명]으로 비활성화\n4. /etc/inetd.conf 또는 /etc/xinetd.d/ 설정에서 RPC 서비스 주석 처리\n5. 방화벽 규칙에서 RPC 포트(111/tcp, 111/udp 등) 차단\n6. 변경 후 재부팅하여 서비스 비활성화 확인",
+    "example": "# RPC 서비스 비활성화 예시\nsudo systemctl disable nfs-server\nsudo systemctl stop nfs-server\nsudo systemctl disable rpcbind\nsudo systemctl stop rpcbind\n\n# 방화벽 차단 (firewalld 기준)\nsudo firewall-cmd --permanent --remove-service=nfs\nsudo firewall-cmd --permanent --remove-service=rpc-bind\nsudo firewall-cmd --reload\n\n# 확인\nrpcinfo -p"
+  },
+  "U-43": {
+    "risk": "NIS/NIS+는 오래된 네트워크 인증 서비스로 평문 전송, 약한 암호화, 다양한 보안 취약점이 존재하여 공격자에게 사용자 인증정보가 노출될 수 있습니다.",
+    "fix": "NIS/NIS+ 서비스를 완전히 비활성화하고 LDAP, Kerberos 등 현대적인 인증 메커니즘으로 마이그레이션합니다. 필요시 NIS+를 NIS로 다운그레이드하되, 최소한 Secure NIS 설정을 적용하여 암호화와 인증을 강화합니다.",
+    "example": "# NIS 서비스 비활성화\nsudo systemctl disable nis\nsudo systemctl stop nis\n\n# NIS 관련 데몬 비활성화 (Solaris)\nsudo svcadm disable svc:/network/nis/client:default\nsudo svcadm disable svc:/network/nis/server:default\n\n# /etc/nsswitch.conf에서 NIS 제거\n# passwd, group, hosts 항목에서 'nis' 제거, LDAP나 files로 변경\n# 예: passwd: files ldap (nis 제거)\n\n# Secure NIS 사용 시 /etc/default/nis 설정\nSECURE=1\nDES_CRYPT=1"
+  },
+  "U-44": {
+    "risk": "TFTP와 TALK는 평문 전송 기반의 오래된 프로토콜로 암호화가 없어 중간자 공격에 취약하며, 불필요한 네트워크 서비스 실행은 공격 표면을 증가시킵니다.",
+    "fix": "1. 현재 실행 중인 TFTP/TALK 서비스 확인 후 중지\n2. 시스템 부팅 시 자동 시작되지 않도록 비활성화\n3. xinetd 또는 inetd 설정에서 해당 서비스 주석 처리\n4. 필요시 SFTP 등 보안 강화된 대체 서비스 사용\n5. 방화벽에서 tftp(69/udp), talk(517/udp), ntalk(518/udp) 포트 차단 확인",
+    "example": "# TFTP/TALK 서비스 중지\nsudo systemctl stop tftp\nsudo systemctl stop talk\n\n# 부팅 시 자동 시작 비활성화\nsudo systemctl disable tftp\nsudo systemctl disable talk\n\n# xinetd 설정 파일에서 비활성화 (/etc/xinetd.d/tftp, /etc/xinetd.d/talk)\n# disable = yes로 변경\nsudo sed -i 's/disable = no/disable = yes/' /etc/xinetd.d/tftp\n\n# xinetd 서비스 재시작\nsudo systemctl restart xinetd\n\n# 포트 점검\nsudo netstat -tlnup | grep -E ':(69|517|518)'"
+  },
+  "U-45": {
+    "risk": "메일 서비스의 구버전 사용으로 인해 알려진 보안 취약점(CVE)이 존재하며, 공격자가 이를 악용하여 시스템 침투, 데이터 유출, 서비스 장애를 일으킬 수 있습니다.",
+    "fix": "1. 현재 메일 서비스 버전 확인 후 최신 안정화 버전으로 업그레이드 수행\n2. 보안 패치가 적용된 최신 버전 다운로드 및 테스트 환경에서 사전 검증\n3. 업그레이드 전 전체 메일 데이터 백업 수행\n4. 정기적인 보안 업데이트 일정을 수립하여 월 1회 이상 패치 점검\n5. 메일 서비스 벤더의 보안 공지사항을 구독하여 신규 취약점 모니터링",
+    "example": "sendmail 기준: sendmail -d0.1 -bv root (버전 확인)\nPostfix 기준: postfix -v (버전 확인)\nExim 기준: exim -bV (버전 확인)\n\n업그레이드 예시(Sendmail):\n# wget https://ftp.sendmail.org/sendmail.8.17.2.tar.gz\n# tar -xzf sendmail.8.17.2.tar.gz\n# cd sendmail-8.17.2\n# ./Build\n# ./Build install\n\n업그레이드 예시(Postfix):\n# apt update && apt upgrade postfix\n또는\n# yum update postfix"
+  },
+  "U-46": {
+    "risk": "일반 사용자가 메일 서비스를 실행할 수 있으면 시스템 리소스 악용, 스팸 메일 발송, 불필요한 네트워크 트래픽 생성 등 보안 위협이 발생할 수 있습니다.",
+    "fix": "sendmail, postfix 등 메일 서비스의 실행 권한을 root 또는 mail 사용자만으로 제한하고, 일반 사용자가 직접 메일 데몬을 시작하지 못하도록 파일 권한과 sudo 설정을 변경합니다. 메일 서비스 바이너리의 setuid 비트를 제거하고, 불필요한 메일 명령어(sendmail, postfix 등)에 대한 일반 사용자의 실행 권한을 차단합니다.",
+    "example": "chmod 755 /usr/sbin/sendmail\nchown root:mail /usr/sbin/sendmail\nchmod u+s /usr/sbin/sendmail\n\nsudo visudo에서 일반 사용자의 메일 관련 명령어 실행 제거:\n# 제거 대상: youruser ALL=(ALL) /usr/sbin/sendmail\n\n/etc/postfix/main.cf에서 권한 제한:\nsetgid_group = postdrop\nmail_owner = postfix"
+  },
+  "U-47": {
+    "risk": "메일 릴레이 제한이 없으면 악의적 사용자가 서버를 통해 대량의 스팸 메일을 발송할 수 있으며, 조직의 평판 훼손 및 법적 책임이 발생할 수 있습니다.",
+    "fix": "메일 서버(Postfix, Sendmail 등)의 설정 파일에서 relay 제한을 설정하여 신뢰할 수 있는 호스트/네트워크만 릴레이를 허용하도록 구성합니다. Postfix의 경우 main.cf 파일의 mynetworks와 relay_domains 설정을 검토하고, 인증되지 않은 클라이언트의 릴레이를 차단하며, SMTP 인증(SASL)을 활성화합니다.",
+    "example": "Postfix main.cf 예시:\nmynetworks = 127.0.0.0/8 [::1]/128 192.168.1.0/24\nrelay_domains = \nsmtp_sasl_auth_enable = yes\nsmtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination\n\nSendmail access db 예시:\nR$* $@$* RELAY → 신뢰 호스트만 추가\n127.0.0.1 RELAY\n192.168.1.0/24 RELAY"
+  },
+  "U-48": {
+    "risk": "SMTP의 EXPN(Expand)과 VRFY(Verify) 명령어는 메일 서버의 유효한 사용자 계정을 확인하는 데 악용될 수 있어 사용자 정보 누출 및 스팸/피싱 공격의 기반이 됩니다.",
+    "fix": "Postfix의 경우 main.cf 파일에서 'disable_vrfy_command = yes'를 설정하고, Sendmail의 경우 sendmail.cf에서 'O PrivacyOptions=goaway' 옵션을 추가하여 EXPN/VRFY 명령어를 비활성화합니다. 설정 후 메일 서비스를 재시작하여 적용합니다.",
+    "example": "Postfix - /etc/postfix/main.cf에 추가:\ndisable_vrfy_command = yes\ndisable_expn_command = yes\n\n이후 postfix reload 또는 systemctl restart postfix 실행\n\nSendmail - /etc/sendmail.cf 수정:\nO PrivacyOptions=goaway\n\n이후 systemctl restart sendmail 실행"
+  },
+  "U-49": {
+    "risk": "DNS 서비스에 알려진 보안 취약점이 존재하면 공격자가 DNS 스푸핑, 캐시 포이즈닝, 서비스 거부 공격 등을 통해 시스템을 침해하거나 사용자를 악의적 사이트로 유도할 수 있습니다.",
+    "fix": "1. 현재 DNS 서비스(BIND, PowerDNS 등) 버전 확인 후 최신 보안 패치가 적용된 버전으로 업그레이드합니다. 2. 패키지 관리자를 통해 정기적으로 보안 업데이트를 설치합니다. 3. DNS 서비스 재시작 후 버전 확인으로 패치 적용을 검증합니다. 4. 변경 전후 설정 백업 및 테스트 환경에서 사전 검증을 수행합니다.",
+    "example": "# BIND DNS 버전 확인\nnamed -v\n\n# Red Hat/CentOS 패치 업데이트\nsudo yum update bind bind-utils -y\n\n# Ubuntu/Debian 패치 업데이트\nsudo apt update && sudo apt upgrade bind9 -y\n\n# DNS 서비스 재시작\nsudo systemctl restart named\n또는\nsudo systemctl restart bind9\n\n# 패치 적용 확인\nnamed -v"
+  },
+  "U-50": {
+    "risk": "DNS Zone Transfer가 제한되지 않으면 누구나 DNS 영역 정보를 전송받아 내부 네트워크 구조, 서버 목록, IP 주소 등 민감한 정보가 노출될 수 있습니다. 이는 이후 표적 공격의 사전정보로 악용될 수 있습니다.",
+    "fix": "BIND 설정 파일(named.conf)에서 Zone Transfer를 특정 네임서버나 IP 주소로만 허용하도록 제한합니다. allow-transfer 옵션을 사용하여 승인된 호스트만 지정하고, 설정 후 named 서비스를 재시작합니다.",
+    "example": "# /etc/bind/named.conf 또는 /etc/named.conf\nzone \"example.com\" {\n  type master;\n  file \"/var/lib/bind/example.com.zone\";\n  allow-transfer { 192.168.1.10; 203.0.113.5; };\n};\n\n# 또는 모든 zone에 일괄 적용\noptions {\n  allow-transfer { none; };\n};\n\n# 서비스 재시작\nsudo systemctl restart bind9\n또는\nsudo service named restart"
+  },
+  "U-51": {
+    "risk": "DNS 동적 업데이트가 허용되면 인증되지 않은 사용자가 DNS 레코드를 변조하여 서비스 거부 또는 트래픽 탈취 공격을 수행할 수 있습니다.",
+    "fix": "BIND 설정 파일(named.conf)에서 allow-update 옵션을 제한하거나 DNSSEC을 활성화하여 동적 업데이트를 인증된 호스트에만 허용하도록 설정합니다. 불필요한 경우 동적 업데이트를 완전히 비활성화합니다.",
+    "example": "zone \"example.com\" {\n  type master;\n  file \"/etc/bind/db.example.com\";\n  allow-update { none; };\n};\n\n또는\n\nzone \"example.com\" {\n  type master;\n  file \"/etc/bind/db.example.com\";\n  allow-update { key mykey; };\n};"
+  },
+  "U-52": {
+    "risk": "Telnet은 평문으로 인증정보와 통신 내용을 전송하여 네트워크 스니핑으로 계정정보가 탈취될 수 있으며, 원격 공격자가 서버에 무단 접근할 수 있는 심각한 보안 취약점입니다.",
+    "fix": "1. Telnet 서비스 비활성화: systemctl disable telnetd && systemctl stop telnetd\n2. Telnet 패키지 제거(선택): rpm -e telnet-server telnet (RHEL/CentOS) 또는 apt-get remove telnetd (Debian/Ubuntu)\n3. 방화벽에서 23번 포트 차단: firewall-cmd --permanent --remove-service=telnet && firewall-cmd --reload\n4. SSH 서비스 대체 확인: systemctl status ssh 또는 systemctl status sshd\n5. 설정 파일 검증: /etc/xinetd.d/telnet 또는 /etc/inetd.conf에서 telnet 항목 제거 또는 disable 설정",
+    "example": "systemctl disable telnetd\nsystemctl stop telnetd\nfirewall-cmd --permanent --remove-service=telnet\nfirewall-cmd --reload\nss -tlnp | grep :23 (23번 포트 점청 확인 - 결과 없어야 함)\nssh -V (SSH 서비스 정상 작동 확인)"
+  },
+  "U-53": {
+    "risk": "FTP 서비스에서 배너, 버전 정보 등이 노출되면 공격자가 서버의 정확한 버전을 파악하여 알려진 취약점을 이용한 공격을 수행할 수 있습니다.",
+    "fix": "FTP 데몬 설정 파일(vsftpd.conf 또는 proftpd.conf)에서 배너 정보를 숨기거나 일반적인 메시지로 변경하고, FTP 서비스 재시작 후 접속 시 배너 정보가 노출되지 않는지 확인합니다.",
+    "example": "vsftpd.conf: ftpd_banner=Welcome / dmesg_banner=NO\nproftpd.conf: ServerIdent off \"FTP Server\"\n확인: ftp <IP> 접속 후 배너 확인"
+  },
+  "U-54": {
+    "risk": "FTP는 평문으로 통신하므로 계정 정보와 전송 데이터가 네트워크 상에서 도청될 수 있으며, 이를 악용한 대규모 보안 침해 사고가 증가하고 있습니다.",
+    "fix": "1. FTP 서비스 즉시 비활성화: systemctl disable vsftpd && systemctl stop vsftpd\n2. SFTP(SSH File Transfer Protocol) 또는 FTPS(Explicit/Implicit SSL/TLS) 등 암호화된 프로토콜 도입\n3. OpenSSH 설치 확인 및 SFTP 서브시스템 활성화 (22번 포트 사용)\n4. 필요 시 FTPS 구성: TLS 인증서 설정 후 ssl_enable=YES 설정\n5. 방화벽에서 FTP 포트(21번) 차단\n6. 주기적으로 불필요한 서비스 감시 및 제거 정책 수립",
+    "example": "# FTP 서비스 비활성화\nsudo systemctl disable vsftpd\nsudo systemctl stop vsftpd\nsudo systemctl status vsftpd\n\n# SSH/SFTP 활성화 확인\nsudo systemctl enable sshd\nsudo systemctl start sshd\ngrep -i \"Subsystem sftp\" /etc/ssh/sshd_config\n\n# 리스닝 포트 확인 (21번 FTP 미사용 확인)\nsudo netstat -tlnp | grep -E ':(21|22)'"
+  },
+  "U-55": {
+    "risk": "FTP 계정에 Shell 접근이 허용되면 공격자가 FTP 인증 후 시스템 명령을 실행하여 서버를 완전히 장악할 수 있습니다. 이는 파일 전송만 가능해야 하는 FTP의 목적을 벗어나 보안 위협을 심화시킵니다.",
+    "fix": "1. /etc/shells 파일에서 nologin 또는 false 셸을 확인합니다. 2. /etc/passwd 또는 사용자 정보에서 FTP 계정의 로그인 셸을 /usr/sbin/nologin 또는 /bin/false로 변경합니다. 3. useradd 또는 usermod 명령으로 셸을 제한합니다. 4. 설정 후 FTP 접속 및 SSH 접속 시도를 테스트하여 FTP만 동작하는지 확인합니다.",
+    "example": "usermod -s /usr/sbin/nologin ftpuser\nusermod -s /bin/false ftpuser\n\n/etc/passwd 에서 변경 전후:\n변경 전: ftpuser:x:1001:1001:FTP User:/home/ftpuser:/bin/bash\n변경 후: ftpuser:x:1001:1001:FTP User:/home/ftpuser:/usr/sbin/nologin"
+  },
+  "U-56": {
+    "risk": "FTP 서비스에 대한 접근 제어가 없으면 인가되지 않은 사용자가 시스템에 접근하여 민감한 정보를 탈취하거나 시스템을 손상시킬 수 있습니다. 특히 FTP는 평문으로 통신하므로 자격증명이 노출될 위험이 높습니다.",
+    "fix": "FTP 서비스에 대한 접근 제어를 다음과 같이 설정하세요: 1) FTP 데몬 설정 파일(/etc/vsftpd.conf 등)에서 특정 사용자만 접근 허용하도록 설정 2) ftpusers 파일에 접근 거부할 사용자 목록 추가 3) 방화벽 규칙으로 FTP 포트(21)에 대한 접근 제한 4) 가능하면 SFTP 또는 FTPS 사용으로 암호화된 연결 적용 5) FTP 접근 로그 모니터링 활성화",
+    "example": "/etc/vsftpd.conf 설정 예시:\nuserlist_enable=YES\nuserlist_file=/etc/vsftpd.user_list\nuserlist_deny=NO\nallow_writeable_chroot=YES\nssl_enable=YES\nssl_tlsv1=YES\nssl_sslv2=NO\n\nfirewall 규칙 예시:\nsudo ufw allow from 192.168.1.0/24 to any port 21\nsudo iptables -A INPUT -p tcp --dport 21 -s 허용_IP -j ACCEPT\nsudo iptables -A INPUT -p tcp --dport 21 -j DROP"
+  },
+  "U-57": {
+    "risk": "ftpusers 파일이 제대로 설정되지 않으면 권한 없는 사용자가 FTP를 통해 시스템에 접근할 수 있어 데이터 유출 및 시스템 침해의 위험이 증가합니다.",
+    "fix": "1. /etc/ftpusers 파일이 존재하는지 확인하고, 없으면 생성합니다. 2. FTP 접근을 제한할 사용자(root, bin, sys 등 시스템 계정)를 명시적으로 등록합니다. 3. 파일 권한을 600(rw-------)으로 설정하여 루트만 읽고 쓸 수 있도록 제한합니다. 4. FTP 데몬(vsftpd, proftpd 등)을 재시작하여 변경사항을 적용합니다.",
+    "example": "# /etc/ftpusers 파일 생성 및 편집\nvi /etc/ftpusers\n\n# 다음 내용 입력 (시스템 계정들)\nroot\nbin\nsys\nadm\nuucp\nnobody\nntp\nftp\n\n# 파일 권한 설정\nchmod 600 /etc/ftpusers\nchown root:root /etc/ftpusers\n\n# FTP 데몬 재시작\nsudo systemctl restart vsftpd\n또는\nsudo systemctl restart proftpd"
+  },
+  "U-58": {
+    "risk": "SNMP 서비스는 기본적으로 낮은 수준의 인증만 제공하며, 원격 코드 실행 및 정보 유출 취약점이 많아 공격자가 시스템 정보를 탈취하거나 악의적인 명령을 실행할 수 있습니다.",
+    "fix": "불필요한 SNMP 서비스를 비활성화하고, 필요한 경우 강화된 보안 설정으로 제한된 네트워크에서만 운영하세요. 1) 서비스 중지: systemctl stop snmpd (또는 service snmpd stop) 2) 자동시작 비활성화: systemctl disable snmpd 3) 포트 확인: netstat -tlnp | grep 161 또는 ss -tlnp | grep 161 로 161(UDP) 포트 리스닝 여부 확인 4) 필요시 방화벽 규칙으로 특정 IP만 접근 가능하도록 제한",
+    "example": "systemctl stop snmpd\nsystemctl disable snmpd\nnetstat -tlnp | grep 161\n\niptables -A INPUT -p udp --dport 161 -s 10.0.0.0/24 -j ACCEPT\niptables -A INPUT -p udp --dport 161 -j DROP"
+  },
+  "U-59": {
+    "risk": "SNMP v1/v2c는 평문으로 통신하여 스니핑 공격에 취약하며, 커뮤니티 스트링이 쉽게 노출될 수 있습니다. 공격자가 서버의 시스템 정보를 수집하거나 설정을 변조할 수 있습니다.",
+    "fix": "SNMP v3로 업그레이드하여 인증(Authentication)과 암호화(Encryption)를 적용하세요. 1) snmpd.conf 파일에서 v1/v2c 설정을 제거하고 v3 사용자 계정을 생성합니다. 2) SNMPv3 엔진ID를 설정하고 사용자에게 인증 및 프라이버시 암호를 지정합니다. 3) snmpd 서비스를 재시작하여 변경사항을 반영합니다.",
+    "example": "# /etc/snmp/snmpd.conf 수정\n# v1/v2c 설정 삭제 또는 주석처리\n# com2sec readonly default public\n\n# SNMPv3 사용자 생성\ncreateUser username MD5 \"auth_password\" DES \"priv_password\"\nrouser username\n\n# 또는 명령어로 생성\nnet-snmp-create-v3-user -ro -A MD5 -X DES -a \"auth_password\" -x \"priv_password\" username\n\n# snmpd 재시작\nsystemctl restart snmpd"
+  },
+  "U-60": {
+    "risk": "SNMP Community String이 단순하거나 기본값으로 설정되어 있으면 공격자가 쉽게 추측하여 서버 정보를 탈취하거나 원격으로 서버를 제어할 수 있습니다.",
+    "fix": "SNMP Community String을 복잡하고 예측 불가능한 문자열로 변경하세요. 최소 15자 이상의 영문 대소문자, 숫자, 특수문자를 혼합하여 설정하고, 정기적으로 변경하며, 읽기 전용(read-only) 권한만 필요한 경우 쓰기 권한을 제거하세요. SNMP v3 사용을 권장합니다.",
+    "example": "/etc/snmp/snmpd.conf에서 기존 설정 제거 후 다음과 같이 설정:\ncom2sec readonly default P@ssw0rd!#$%^&1234\nacl MyACL context \"\" compsec readonly\nview all included .1\naccess MyACL \"\" any noauth exact all none none\n\n또는 SNMP v3 설정:\nusmUser -e 0x8000000001020304 1 testuser MD5 'Auth@Pass123!#$%' DES 'Priv@Pass456!#$%'\naccessUser testuser usm v3 noauth exact all all all"
+  },
+  "U-61": {
+    "risk": "SNMP(Simple Network Management Protocol)에 대한 접근 제어가 미흡하면 인증되지 않은 사용자가 시스템 정보를 수집하거나 설정을 변경하여 서버를 악용할 수 있습니다.",
+    "fix": "1) SNMP 커뮤니티 스트링을 강력한 값으로 변경하고 public/private 기본값 제거\n2) SNMP v3 사용으로 업그레이드하여 인증(Authentication) 및 암호화(Encryption) 적용\n3) SNMP 접근을 신뢰할 수 있는 IP/네트워크로만 제한\n4) SNMP 쓰기(write) 권한은 최소한으로 제한\n5) SNMP 데몬(snmpd) 비활성화 또는 필요시에만 실행",
+    "example": "/etc/snmp/snmpd.conf 설정 예시:\n\n# 기본 커뮤니티 스트링 제거 후 강력한 스트링으로 변경\nrocommunity ComplexReadString123 192.168.1.0/24\nrwcommunity ComplexWriteString456 192.168.1.10\n\n# SNMPv3 설정 예시\nrouser authOnlyUser authNoPriv 1.3.6.1.2.1\nuserAuthPassword authOnlyUser SHA myAuthPassword\n\nrouser authPrivUser authPriv 1.3.6.1.2.1\nuserAuthPassword authPrivUser SHA myAuthPassword\nuserPrivPassword authPrivUser DES myPrivPassword\n\n# 또는 systemctl disable snmpd로 비활성화"
+  },
+  "U-62": {
+    "risk": "로그인 시 경고 메시지가 없으면 불법적인 로그인 시도를 사전에 인지하기 어렵고, 정상 사용자도 보안 주의를 기울이지 않아 사회공학 공격에 취약해집니다.",
+    "fix": "/etc/motd 파일에 보안 경고 메시지를 작성하고, /etc/banner 파일을 설정하여 SSH 로그인 전후 메시지를 표시하도록 구성합니다. 또한 /etc/ssh/sshd_config에서 Banner 옵션을 활성화합니다.",
+    "example": "1. echo '경고: 본 시스템은 인가된 사용자만 접근 가능합니다. 무단 접근 시 법적 책임을 질 수 있습니다.' > /etc/motd\n2. /etc/ssh/sshd_config에 'Banner /etc/banner' 추가\n3. systemctl restart sshd"
+  },
+  "U-63": {
+    "risk": "sudo 접근이 제대로 관리되지 않으면 일반 사용자가 관리자 권한으로 시스템을 변경하거나 민감한 파일에 접근할 수 있어 보안이 심각하게 손상됩니다.",
+    "fix": "1. /etc/sudoers 파일을 visudo 명령어로 편집하여 sudo 권한을 필요한 사용자와 명령어에만 제한합니다. 2. 특정 명령어에만 암호 없이 실행 권한을 부여하려면 NOPASSWD 옵션을 신중히 사용합니다. 3. sudo 로그를 /var/log/auth.log에서 정기적으로 검토합니다. 4. wheel 또는 sudo 그룹에 속한 사용자만 sudo 권한을 갖도록 제한합니다. 5. 불필요한 사용자를 sudo 그룹에서 제거합니다.",
+    "example": "visudo 명령어로 /etc/sudoers 편집 후 다음과 같이 설정:\n\n# 특정 사용자가 특정 명령어만 sudo 실행 가능\nuser1 ALL=(ALL) /usr/bin/systemctl, /usr/bin/service\n\n# 그룹 기반 권한 설정\n%admin ALL=(ALL) ALL\n\n# sudo 그룹 확인\ngroupmems -g sudo -l\n\n# sudo 로그 확인\nsudo grep sudo /var/log/auth.log | tail -20"
+  },
+  "U-64": {
+    "risk": "보안 패치가 적용되지 않으면 알려진 취약점을 통해 공격자가 시스템에 침입하거나 권한을 상승시킬 수 있습니다. 벤더 권고사항을 무시하면 보안 위협에 대한 대응이 지연되어 피해가 증가합니다.",
+    "fix": "1. 시스템 패키지 목록 업데이트: 'apt update' 또는 'yum check-update' 실행\n2. 보안 패치 적용: 'apt upgrade -y' 또는 'yum update -y' 실행\n3. 중요도 높은 커널 패치는 재부팅 필요 여부 확인\n4. 벤더 보안공지 구독(예: Red Hat Security Advisories, Ubuntu Security Notices)\n5. 자동 업데이트 설정: unattended-upgrades 또는 yum-cron 설치 및 활성화\n6. 월 1회 이상 정기적 패치 일정 수립 및 테스트 환경에서 사전 검증\n7. 패치 적용 현황을 기록하고 모니터링",
+    "example": "# Debian/Ubuntu 자동 보안 패치 설정\nsudo apt install unattended-upgrades apt-listchanges -y\nsudo dpkg-reconfigure unattended-upgrades\n\n# /etc/apt/apt.conf.d/50unattended-upgrades 파일 편집\nUnattended-Upgrade::Allowed-Origins {\n    \"${distro_id}:${distro_codename}-security\";\n};\nUnattended-Upgrade::AutoFixInterruptedDpkg \"true\";\nUnattended-Upgrade::SyslogReport \"on\";\n\n# RHEL/CentOS 자동 업데이트 설정\nsudo yum install yum-cron -y\nsudo systemctl enable yum-cron\nsudo systemctl start yum-cron\n\n# /etc/yum/yum-cron.conf 편집\napply_updates = yes\n\n# 현재 보안 패치 상태 확인\naptitude search '~U~Vpriority(required|important)' # Debian/Ubuntu\nyum check-update --security # CentOS/RHEL"
+  },
+  "U-65": {
+    "risk": "NTP 서비스가 미설정되거나 부정확한 시각 동기화는 로그 위변조, 인증서 검증 실패, 감사 추적 불가 등의 보안 문제를 초래하며, 공격자가 타임스탬프 기반 보안 메커니즘을 우회할 수 있습니다.",
+    "fix": "1. NTP 데몬(ntpd) 또는 chrony 설치 및 활성화 2. 신뢰할 수 있는 NTP 서버 설정(예: 조직 내부 NTP 또는 공인 NTP 풀) 3. 서비스 자동 시작 설정 4. 방화벽에서 NTP(UDP 123) 허용 5. timedatectl 또는 ntpq로 동기화 상태 검증 6. 시간 드리프트 모니터링 설정",
+    "example": "# chrony 설치 및 설정\nsudo apt-get install chrony\nsudo systemctl enable chronyd\nsudo systemctl start chronyd\n\n# /etc/chrony/chrony.conf 편집\nserver kr.pool.ntp.org iburst\nserver time.nist.gov iburst\n\n# 동기화 확인\nchronyc tracking\nchronyc sources\n\n# ntpd 사용 시\nsudo systemctl enable ntpd\nsudo systemctl start ntpd\nntpq -p"
+  },
+  "U-66": {
+    "risk": "시스템 로깅이 미흡하면 보안 사건 발생 시 원인 파악 및 사후 추적이 불가능하며, 공격자의 흔적을 남기지 않아 침입 탐지가 어려워집니다.",
+    "fix": "1. syslog 데몬(rsyslog 또는 syslog-ng) 활성화 및 시작 설정\n2. /etc/rsyslog.conf에서 로깅 정책 정의(auth, authpriv, kernel, cron 등 주요 시스템 이벤트 로깅)\n3. 로그 파일의 권한을 600 또는 640으로 제한하여 접근 통제\n4. logrotate를 통한 로그 순환 정책 설정으로 디스크 관리\n5. 원격 로그 수집(syslog 서버)을 통한 중앙 집중식 로깅 구성\n6. 로그 리텐션 기간을 조직 정책(최소 90일 권장)에 따라 설정\n7. 시스템 시간 동기화(NTP)로 로그 타임스탐프 정확성 보장",
+    "example": "# rsyslog 데몬 활성화\nsudo systemctl enable rsyslog\nsudo systemctl start rsyslog\n\n# /etc/rsyslog.conf 주요 설정\nauth,authpriv.*              /var/log/auth.log\nkern.*                       /var/log/kernel.log\ncron.*                       /var/log/cron.log\n*.*;auth,authpriv.none       -/var/log/syslog\n\n# 로그 파일 권한 설정\nchmod 640 /var/log/auth.log\nchmod 640 /var/log/syslog\n\n# logrotate 설정 (/etc/logrotate.d/rsyslog)\n/var/log/syslog /var/log/auth.log {\n    daily\n    rotate 90\n    compress\n    delaycompress\n    missingok\n    notifempty\n    create 640 syslog adm\n    sharedscripts\n}\n\n# 원격 로그 수집 설정\n*.* @@192.168.1.100:514"
+  },
+  "U-67": {
+    "risk": "로그 디렉터리의 소유자 및 권한이 부적절하면 일반 사용자가 로그를 삭제·변조하거나 민감한 정보를 열람할 수 있으며, 감시 증적이 손실되어 보안 사건 추적이 불가능해집니다.",
+    "fix": "로그 디렉터리를 root 소유로 변경하고 권한을 700(root만 접근) 또는 750(root와 특정 그룹만 접근)으로 설정합니다. 로그 파일 권한은 640 이상으로 설정하여 일반 사용자의 수정을 차단하되 필요시 로그 읽기 권한을 로그 수집 도구(fluentd, logstash 등)의 서비스 계정에만 제한합니다.",
+    "example": "chown root:root /var/log\nchmod 700 /var/log\nfind /var/log -type f -exec chown root:root {} \\;\nfind /var/log -type f -exec chmod 640 {} \\;\nfind /var/log -type d -exec chmod 755 {} \\;"
+  },
+  "WAS-01": {
+    "risk": "기본/샘플 웹 애플리케이션은 알려진 취약점을 포함하고 있어 공격자에게 쉬운 진입점을 제공합니다. 불필요한 기능 노출로 인한 정보 유출 및 권한 상승 공격의 위험이 증가합니다.",
+    "fix": "Tomcat 설치 디렉토리의 webapps 폴더에서 ROOT, examples, docs, manager, host-manager 디렉토리를 삭제하거나 비활성화합니다. server.xml에서 해당 Context를 주석 처리하여 재시작합니다.",
+    "example": "# Tomcat 기본 앱 제거\ncd $CATALINA_HOME/webapps\nrm -rf ROOT examples docs manager host-manager\n\n# 또는 server.xml에서 Context 비활성화\n<!-- <Context docBase=\"examples\" path=\"/examples\" reloadable=\"true\" /> -->\n<!-- <Context docBase=\"docs\" path=\"/docs\" reloadable=\"true\" /> -->"
+  },
+  "WAS-02": {
+    "risk": "Tomcat의 Shutdown 포트가 기본값으로 설정되어 있거나 약한 명령어를 사용하면 공격자가 원격에서 서버를 종료할 수 있어 가용성을 심각하게 훼손할 수 있습니다.",
+    "fix": "1) CATALINA_HOME/conf/server.xml 파일에서 Shutdown 포트를 기본값(8005)에서 임의의 높은 포트 번호(49152~65535 범위)로 변경하고, 2) shutdown 명령어를 복잡한 난수열로 변경하며(예: -Dcom.sun.akuma.Daemon=true 활용), 3) 방화벽을 통해 해당 포트를 localhost(127.0.0.1)에서만 접근 가능하도록 제한하고, 4) server.xml 파일의 권한을 600으로 설정(chmod 600 server.xml)하여 root와 Tomcat 운영자만 접근 가능하도록 제한합니다.",
+    "example": "<Server port=\"54321\" shutdown=\"aBcDeF9g8hIjKlMnOpQrStUvWxYz\"></Server>\n\n방화벽 설정 예시:\niptables -A INPUT -p tcp --dport 54321 -s 127.0.0.1 -j ACCEPT\niptables -A INPUT -p tcp --dport 54321 -j DROP\n\n또는 ufw 사용:\nufw allow from 127.0.0.1 to 127.0.0.1 port 54321"
+  },
+  "WAS-03": {
+    "risk": "Tomcat을 root 또는 관리자 권한으로 구동할 경우 보안 취약점이 발생하면 공격자가 전체 시스템을 장악할 수 있습니다. 비특권 계정으로 실행하면 권한 상승 공격으로부터 시스템을 보호할 수 있습니다.",
+    "fix": "1. 비특권 사용자 계정 생성: useradd -r -s /bin/nologin tomcat\n2. Tomcat 디렉토리 소유권 변경: chown -R tomcat:tomcat /opt/tomcat\n3. Tomcat 시작 스크립트(/opt/tomcat/bin/startup.sh)에서 사용자 지정 또는 systemd 서비스 파일에서 User=tomcat 설정\n4. Tomcat 프로세스 재시작 후 ps 명령어로 tomcat 계정으로 실행되는지 확인",
+    "example": "systemd 서비스 파일 예시(/etc/systemd/system/tomcat.service):\n[Service]\nUser=tomcat\nGroup=tomcat\nExecStart=/opt/tomcat/bin/startup.sh\nExecStop=/opt/tomcat/bin/shutdown.sh\n\n또는 CATALINA_USER 환경변수 설정(bin/catalina.sh):\nCATALINA_USER=tomcat\nCATALINA_GROUP=tomcat"
+  },
+  "WAS-04": {
+    "risk": "conf 디렉터리에 과도한 접근 권한이 설정되면 민감한 설정 파일(server.xml, context.xml 등)이 노출되어 데이터베이스 연결 정보, 패스워드, SSL 인증서 등이 유출될 수 있습니다. 또한 권한 있는 사용자가 설정을 변조하여 시스템이 침해될 수 있습니다.",
+    "fix": "Tomcat conf 디렉터리의 소유자를 tomcat 사용자로 설정하고, 권한을 550(소유자: 읽기/실행, 그룹: 읽기/실행, 기타: 없음)으로 제한합니다. 설정 파일은 440 이상으로 제한하여 소유자와 그룹만 읽기 권한을 갖도록 하고, 불필요한 사용자의 접근을 완전히 차단합니다.",
+    "example": "# conf 디렉터리 권한 설정\nchown -R tomcat:tomcat /usr/local/tomcat/conf\nchmod 550 /usr/local/tomcat/conf\nchmod 440 /usr/local/tomcat/conf/*.xml\nchmod 440 /usr/local/tomcat/conf/Catalina -R\n\n# 권한 확인\nls -ld /usr/local/tomcat/conf\nls -l /usr/local/tomcat/conf/server.xml"
+  },
+  "WAS-05": {
+    "risk": "기본 관리자 계정이 활성화되어 있으면 공격자가 기본 자격증명으로 관리 인터페이스에 접근하여 애플리케이션을 제어하거나 서버를 장악할 수 있습니다.",
+    "fix": "Tomcat의 conf/tomcat-users.xml 파일에서 기본 관리자 계정(manager, admin 등)을 삭제하거나 비활성화하고, 필요시 강력한 암호를 가진 새로운 관리자 계정을 생성하세요. 또한 Manager 애플리케이션 접근을 특정 IP로 제한하고 HTTPS를 강제하세요.",
+    "example": "1. tomcat-users.xml에서 기본 계정 제거:\n<tomcat-users>\n  <!-- 기본 manager, admin 계정 삭제 -->\n  <role rolename=\"manager-gui\"/>\n  <user username=\"newadmin\" password=\"StrongPassword123!\" roles=\"manager-gui\"/>\n</tomcat-users>\n\n2. context.xml에서 접근 제한:\n<Valve className=\"org.apache.catalina.valves.RemoteAddrValve\" allow=\"192.168.1.0/24\"/>\n\n3. 사용되지 않는 기본 애플리케이션 비활성화:\nrm -rf $CATALINA_HOME/webapps/manager\nrm -rf $CATALINA_HOME/webapps/host-manager"
+  },
+  "WAS-06": {
+    "risk": "AJP(Apache JServ Protocol) 커넥터는 Ghostcat 취약점(CVE-2020-1938)을 통해 원격 공격자가 임의 코드를 실행하거나 민감한 정보를 탈취할 수 있습니다. 네트워크 노출 시 서버 전체 침해로 이어질 수 있습니다.",
+    "fix": "Tomcat 설정 파일(server.xml)에서 AJP 커넥터를 비활성화하거나, 사용 중인 경우 다음 조치를 수행하세요: (1) 사용하지 않으면 AJP Connector 요소 전체 제거 또는 주석 처리, (2) 필수 사용 시 secretRequired 속성을 true로 설정하고 secret 속성에 강력한 비밀번호 지정, (3) address 속성으로 신뢰된 IP만 접근 허용, (4) Tomcat 최신 보안 패치(9.0.31 이상, 8.5.51 이상, 7.0.100 이상) 적용.",
+    "example": "# 제거 방법 - server.xml에서 다음 라인 삭제 또는 주석 처리:\n<!-- <Connector protocol=\"AJP/1.3\" port=\"8009\" redirectPort=\"8443\" secretRequired=\"true\" secret=\"SecureRandomPassword123!\" address=\"127.0.0.1\" /> -->\n\n# 필수 사용 시 보안 설정:\n<Connector protocol=\"AJP/1.3\" port=\"8009\" redirectPort=\"8443\" secretRequired=\"true\" secret=\"ComplexSecurePassword!@#$\" address=\"127.0.0.1\" />"
+  },
+  "WAS-07": {
+    "risk": "autoDeploy와 deployOnStartup이 활성화되면 예상치 못한 애플리케이션이 자동으로 배포되어 보안 위험이 증가하며, 관리자가 배포를 통제할 수 없게 됩니다.",
+    "fix": "Tomcat의 server.xml 파일에서 Host 엘리먼트의 autoDeploy와 deployOnStartup 속성을 false로 설정하여 자동 배포 기능을 비활성화합니다. 이후 필요한 애플리케이션만 명시적으로 배포합니다.",
+    "example": "<Host name=\"localhost\" appBase=\"webapps\" autoDeploy=\"false\" deployOnStartup=\"false\"></Host>"
+  },
+  "WAS-08": {
+    "risk": "서버 헤더에 Apache Tomcat 버전 정보가 노출되면 공격자가 알려진 취약점을 대상으로 한 공격을 수행할 수 있습니다. 에러 페이지의 상세한 오류 정보도 시스템 정보를 제공하여 보안 위협을 증가시킵니다.",
+    "fix": "Tomcat의 context.xml 또는 server.xml 파일에서 Server 헤더 정보를 숨기고, 커스텀 에러 페이지를 설정하여 기술 스택 정보 노출을 제한하세요. (1) server.xml의 Connector에 server 속성 추가 (2) 각 애플리케이션의 web.xml에서 에러 페이지 매핑 설정 (3) HTTP 응답 헤더에서 버전 정보 제거",
+    "example": "server.xml: <Connector port=\"8080\" server=\"Apache\" /> 또는 server=\"\" (완전 숨김). web.xml: <error-page><error-code>404</error-code><location>/error.jsp</location></error-page>. web.xml에 <security-constraint> 및 <init-param> 추가로 X-Powered-By, Server 헤더 제거 설정"
+  },
+  "WAS-09": {
+    "risk": "접근 로깅이 비활성화되면 누가 언제 어떤 요청을 했는지 추적할 수 없어 보안 사고 발생 시 원인 분석과 법적 증거 확보가 불가능하며, 비정상적인 접근 패턴을 탐지할 수 없습니다.",
+    "fix": "Tomcat의 server.xml 파일에서 Host 태그 내에 AccessLogValve를 설정하여 접근 로깅을 활성화합니다. 로그 디렉토리 접근 권한을 제한하고, 정기적인 로그 백업 및 모니터링 체계를 수립합니다.",
+    "example": "<Host name=\"localhost\" appBase=\"webapps\" unpackWARs=\"true\" autoDeploy=\"true\"><Valve className=\"org.apache.catalina.valves.AccessLogValve\" directory=\"logs\" prefix=\"localhost_access_log\" suffix=\".txt\" pattern=\"%h %l %u %t &quot;%r&quot; %s %b %D\" resolveHosts=\"false\" buffered=\"true\" /></Host>"
+  },
+  "WAS-10": {
+    "risk": "TRACE 메서드가 활성화되어 있으면 Cross-Site Tracing(XST) 공격에 취약하여 민감한 정보(쿠키, 인증 헤더 등)가 노출될 수 있습니다. TLS/SSL이 제대로 설정되지 않으면 통신이 암호화되지 않아 중간자 공격(MITM)의 위험이 증가합니다.",
+    "fix": "1. Tomcat의 $CATALINA_HOME/conf/server.xml 파일을 열어 Connector 요소에서 allowTrace='false'로 설정하고 scheme='https', secure='true', SSLEnabled='true'를 추가하여 TLS를 강제화합니다. 2. HTTP 커넥터에서 redirectPort 속성으로 HTTPS 포트(기본 443 또는 8443)를 지정합니다. 3. 변경 후 Tomcat을 재시작합니다.",
+    "example": "<Connector port=\"8080\" protocol=\"HTTP/1.1\" connectionTimeout=\"20000\" redirectPort=\"8443\" allowTrace=\"false\" scheme=\"https\" secure=\"true\" />\n<Connector port=\"8443\" protocol=\"org.apache.coyote.http11.Http11NioProtocol\" maxThreads=\"150\" SSLEnabled=\"true\" scheme=\"https\" secure=\"true\" keystoreFile=\"${catalina.home}/conf/keystore.jks\" keystorePass=\"changeit\" />"
+  },
+  "WAS-11": {
+    "risk": "SecurityManager를 사용하지 않으면 애플리케이션의 악의적인 코드나 라이브러리가 시스템 리소스에 무제한으로 접근할 수 있어 데이터 유출, 시스템 침해, 권한 상승 공격에 노출됩니다.",
+    "fix": "1. Tomcat 설정에서 SecurityManager를 활성화하고, 2. catalina.policy 파일에서 애플리케이션별 권한을 최소 권한 원칙에 따라 정의하고, 3. Tomcat을 -Djava.security.manager 옵션으로 재시작합니다.",
+    "example": "catalina.sh에서: CATALINA_OPTS=\"-Djava.security.manager -Djava.security.policy==$CATALINA_BASE/conf/catalina.policy\"\n\ncatalina.policy 예시:\ngrant codeBase \"file:${catalina.base}/webapps/myapp/-\" {\n  permission java.io.FilePermission \"${catalina.base}/webapps/myapp/-\", \"read,write\";\n  permission java.net.SocketPermission \"localhost:5432\", \"connect\";\n  permission java.lang.RuntimePermission \"getEnv.PATH\";\n};"
+  },
+  "WAS-12": {
+    "risk": "최신 보안 패치가 적용되지 않으면 알려진 취약점을 통한 해킹, 시스템 침입, 데이터 유출 등의 피해가 발생할 수 있습니다. 특히 Tomcat 같은 공개 소프트웨어는 취약점 정보가 공개되어 공격 위험이 높습니다.",
+    "fix": "1. 현재 Tomcat 버전 확인(catalina.sh version) 2. Apache Tomcat 공식 사이트에서 최신 안정 버전 확인 3. 테스트 환경에서 업그레이드 검증 4. 프로덕션 서버 백업 후 업그레이드 수행 5. 패치 적용 후 서비스 정상 작동 확인 6. 정기적 보안 패치 일정 수립(월 1회 이상 모니터링) 7. 보안 공지(CVE) 구독 설정 8. Tomcat 실행 사용자 권한 최소화 및 독립된 계정 사용",
+    "example": "# 현재 버전 확인\n/opt/tomcat/bin/catalina.sh version\n\n# 최신 버전 다운로드 및 백업\ncp -r /opt/tomcat /opt/tomcat_backup\ncd /opt\nwget https://archive.apache.org/dist/tomcat/tomcat-10/v10.1.x/bin/apache-tomcat-10.1.x.tar.gz\ntar xzf apache-tomcat-10.1.x.tar.gz\n\n# 기존 설정 파일 복사\ncp /opt/tomcat_backup/conf/* /opt/apache-tomcat-10.1.x/conf/\n\n# 심볼릭 링크 변경\nunlink /opt/tomcat\nln -s /opt/apache-tomcat-10.1.x /opt/tomcat\n\n# 서비스 재시작 및 검증\nstop.sh\nstart.sh\njps -l  # Tomcat 프로세스 확인"
+  },
+  "WEB-01": {
+    "risk": "기본 관리자 계정명(admin, administrator 등)은 널리 알려져 있어 공격자가 쉽게 계정을 특정할 수 있으며, 이를 통해 브루트포스 공격이나 무차별 대입 공격의 대상이 될 확률이 높습니다.",
+    "fix": "1) 웹 애플리케이션 관리 패널에 접속하여 기본 관리자 계정을 새로운 고유한 계정명으로 변경합니다. 2) 데이터베이스에서 직접 사용자 테이블을 수정하거나 애플리케이션의 사용자 관리 기능을 이용합니다. 3) 변경 후 기본 계정명으로는 로그인할 수 없음을 확인합니다. 4) 새 관리자 계정명과 강력한 비밀번호(최소 12자 이상, 대소문자·숫자·특수문자 포함)를 안전하게 보관합니다.",
+    "example": "-- MySQL 예시\nUPDATE users SET username='sec_admin_2024' WHERE username='admin' AND role='administrator';\n\n-- 또는 애플리케이션 UI에서:\n관리자 메뉴 > 사용자 관리 > admin 계정 선택 > 사용자명 변경 > sec_admin_2024로 수정 > 저장"
+  },
+  "WEB-02": {
+    "risk": "취약한 비밀번호는 사전 공격(dictionary attack)과 무차별 대입 공격(brute force)에 쉽게 노출되어 계정 탈취 및 시스템 침입을 초래할 수 있습니다.",
+    "fix": "1. 비밀번호 정책 수립: 최소 12자 이상, 대문자·소문자·숫자·특수문자 포함 필수 설정. 2. 비밀번호 검증 라이브러리 도입(예: zxcvbn, OWASP) 또는 정규식으로 강도 검사 구현. 3. 비밀번호 변경 주기(90일) 및 이전 사용 이력 관리 설정. 4. 로그인 실패 횟수 제한(5회 시 계정 잠금, 30분 잠금). 5. 관리자 계정에 대한 별도의 강화된 정책 적용. 6. LDAP/Active Directory 통합 시 정책 동기화 확인.",
+    "example": "Apache/.htaccess: <LimitExcept GET POST>\n  require valid-user\n</LimitExcept>\n\nNginx 설정 예시:\nserver {\n  auth_basic \"Restricted\";\n  auth_basic_user_file /etc/nginx/.htpasswd;\n}\n\nNode.js passport 예시:\nconst passwordValidator = require('password-validator');\nconst schema = new passwordValidator();\nschema.isLength({min:12}).hasUppercase().hasLowercase().hasNumbers().hasSymbols();\n\nMySQL 사용자 정책:\nALTER USER 'admin'@'localhost' PASSWORD EXPIRE INTERVAL 90 DAY;\nALTER USER 'admin'@'localhost' FAILED_LOGIN_ATTEMPTS 5 PASSWORD_LOCK_TIME 1800;"
+  },
+  "WEB-03": {
+    "risk": "비밀번호 파일의 권한이 부적절하면 권한 없는 사용자가 비밀번호 파일에 접근하여 민감한 인증 정보를 탈취할 수 있습니다. 이는 시스템 전체의 보안을 심각하게 훼손할 수 있습니다.",
+    "fix": "비밀번호 파일(.htpasswd, config 파일 등)의 접근 권한을 소유자만 읽을 수 있도록 제한하세요. 1) 파일 소유자를 웹서버 운영 사용자로 설정 2) 파일 권한을 600(소유자만 읽기/쓰기) 또는 400(소유자만 읽기)으로 설정 3) 상위 디렉토리 권한을 750 이상으로 설정하여 다른 사용자의 접근 차단 4) 정기적으로 파일 권한을 감시하는 모니터링 구성",
+    "example": "chmod 600 /etc/apache2/.htpasswd\nchown www-data:www-data /etc/apache2/.htpasswd\nls -l /etc/apache2/.htpasswd (결과: -rw------- 1 www-data www-data)\n\nfind /var/www -name '*.htpasswd' -o -name 'config.php' | xargs chmod 600\nfind /var/www -name '*.htpasswd' -o -name 'config.php' | xargs chown www-data:www-data"
+  },
+  "WEB-04": {
+    "risk": "디렉터리 리스팅이 활성화되면 공격자가 웹 서버의 디렉터리 구조와 파일 목록을 노출시켜 민감한 정보 유출 및 보안 취약점 발견에 악용될 수 있습니다.",
+    "fix": "Apache의 경우 .htaccess 또는 httpd.conf에서 Options -Indexes 설정을 추가하고, Nginx의 경우 autoindex off; 설정을 적용하며, IIS의 경우 디렉터리 찾아보기를 비활성화합니다. 모든 웹 서버에서 주요 디렉터리에 index 파일(index.html, index.php 등)을 배치하거나 명시적으로 디렉터리 접근을 제한하세요.",
+    "example": "Apache: <Directory /var/www/html>\nOptions -Indexes\n</Directory>\n\nNginx: location / {\nautoindex off;\n}\n\nIIS: 사이트 기능 > 디렉터리 찾아보기 > 비활성화"
+  },
+  "WEB-05": {
+    "risk": "지정하지 않은 CGI/ISAPI 확장자 실행을 허용하면 공격자가 웹셸 업로드 후 임의 코드를 실행하여 서버를 완전히 장악할 수 있습니다. 또한 불필요한 스크립트 실행으로 인한 정보 유출 및 시스템 침해 위험이 높아집니다.",
+    "fix": "웹 서버 설정에서 필요한 CGI/ISAPI 확장자만 명시적으로 허용하고 나머지는 모두 제한하세요. (1) IIS: 핸들러 매핑에서 필요한 확장자만 등록, 불필요한 확장자 제거 (2) Apache: httpd.conf에서 AddHandler/AddType으로 필요한 확장자만 지정, .htaccess에서 실행 금지 설정 (3) 업로드 디렉토리는 스크립트 실행 권한 완전 제거 (4) 정기적으로 허용된 확장자 목록 검토 및 최소화",
+    "example": "# Apache httpd.conf 예시\n<Directory \"/var/www/html\">\n  AddType text/html .html\n  AddHandler cgi-script .cgi .pl\n  # 다른 모든 확장자는 실행 금지\n</Directory>\n\n<Directory \"/var/www/html/uploads\">\n  # 업로드 디렉토리 스크립트 실행 완전 금지\n  <FilesMatch \"\\.(php|cgi|pl|asp|aspx|jsp)$\">\n    Deny from all\n  </FilesMatch>\n</Directory>\n\n# IIS web.config 예시\n<system.webServer>\n  <security>\n    <requestFiltering>\n      <fileExtensions>\n        <add fileExtension=\".php\" allowed=\"false\" />\n        <add fileExtension=\".jsp\" allowed=\"false\" />\n        <add fileExtension=\".exe\" allowed=\"false\" />\n      </fileExtensions>\n    </requestFiltering>\n  </security>\n</system.webServer>"
+  },
+  "WEB-06": {
+    "risk": "상위 디렉터리 접근 제한이 없으면 공격자가 웹 루트 외부의 민감한 파일(설정 파일, 소스 코드, 개인정보)에 접근할 수 있습니다. 이를 통해 시스템 정보 유출 및 추가 공격이 가능해집니다.",
+    "fix": "웹 서버 설정 파일(Apache: .htaccess 또는 httpd.conf, Nginx: nginx.conf)에서 상위 디렉터리 접근을 명시적으로 차단하고, 웹 애플리케이션에서 파일 경로 검증을 강화합니다. 경로 정규화(realpath) 함수를 사용하여 심볼릭 링크를 통한 우회를 방지하고, 접근 가능한 디렉터리 목록을 화이트리스트로 관리합니다.",
+    "example": "Apache .htaccess: <FilesMatch \"^\\.\">\n    Order allow,deny\n    Deny from all\n</FilesMatch>\nRewriteEngine On\nRewriteRule \"^\\.\\.\" - [F]\n\nNginx: location ~ /\\. { deny all; }\nlocation ~ /\\.\\. { deny all; }\n\nPHP: if (strpos(realpath($_GET['file']), realpath('./uploads')) !== 0) { die('Access denied'); }"
+  },
+  "WEB-07": {
+    "risk": "웹 서비스 경로에 남겨진 불필요한 파일(백업, 임시, 설정 파일 등)은 민감한 정보 노출, 소스코드 유출, 시스템 정보 탈취 등의 보안 위협을 초래할 수 있습니다.",
+    "fix": "1) 웹 서비스 루트 디렉토리 및 하위 폴더를 전수 점검하여 불필요한 파일 목록 작성(백업 파일: .bak, .backup, 임시 파일: .tmp, .temp, 에디터 임시 파일: .swp, ~, 설정 파일: web.config.bak, .env.example, 버전관리: .git, .svn, 빌드 산출물: node_modules, .gradle 등) 2) 확인된 불필요한 파일 삭제 3) 웹 서버 설정(Apache .htaccess, Nginx nginx.conf)에서 민감 파일/폴더 접근 차단 규칙 추가 4) 웹 서버 재시작 5) 정기적인 점검 프로세스 수립(월 1회 이상)",
+    "example": "Apache .htaccess: <FilesMatch \"\\.(bak|backup|tmp|swp|git|env)$\">\\n  Order allow,deny\\n  Deny from all\\n</FilesMatch>\\n\\nNginx nginx.conf: location ~ \\\\.(bak|backup|tmp|swp|git|env)$ { deny all; }\\n\\n삭제 명령: rm -f /var/www/html/*.bak /var/www/html/web.config.bak"
+  },
+  "WEB-08": {
+    "risk": "파일 업로드·다운로드 용량 제한이 없으면 악의적인 사용자가 대용량 파일을 반복 업로드하여 서버 디스크를 고갈시키거나 서비스 거부 공격(DoS)을 야기할 수 있습니다. 또한 메모리 부족으로 인한 서버 중단 위험이 증가합니다.",
+    "fix": "웹 애플리케이션 프레임워크 설정에서 업로드 파일 최대 크기를 제한하고, 다운로드 속도 제한(Rate Limiting)을 설정하며, 서버 스토리지 용량 모니터링을 구현하세요. 동시 업로드 수 제한, 파일 검증(확장자·MIME 타입), 격리된 스토리지 영역 할당도 병행하세요.",
+    "example": "Apache: LimitRequestBody 10485760(10MB) / Nginx: client_max_body_size 10M / PHP: php.ini upload_max_filesize=10M, post_max_size=10M / Node.js: app.use(express.json({limit: '10mb'})); app.use(express.urlencoded({limit: '10mb'})) / Java: maxUploadSize=10485760 in web.xml"
+  },
+  "WEB-09": {
+    "risk": "웹 서비스가 root 또는 관리자 권한으로 실행되면 보안 취약점 발생 시 공격자가 전체 시스템을 장악할 수 있습니다. 최소 권한 원칙에 따라 필요한 최소 권한만 부여해야 합니다.",
+    "fix": "웹 서비스 전용 사용자 계정을 생성하고, 해당 계정으로만 웹 서비스 프로세스를 실행하도록 설정합니다. 1) 웹 서비스 전용 사용자 생성 (예: useradd -r -s /bin/false apache) 2) 웹 서비스 실행 계정 변경 설정 3) 필요한 디렉토리·파일 소유권을 해당 사용자로 변경 4) sudo 권한 최소화 5) 정기적으로 프로세스 실행 권한 검증",
+    "example": "# Apache 웹 서버 예시\nApache 설정 파일 (/etc/apache2/apache2.conf 또는 /etc/httpd/conf/httpd.conf):\nUser www-data\nGroup www-data\n\n# Nginx 웹 서버 예시\nNginx 설정 파일 (/etc/nginx/nginx.conf):\nuser nginx;\n\n# 권한 확인 명령어\nps aux | grep httpd\nps aux | grep nginx\n\n# 전용 사용자 생성\nuseradd -r -s /bin/false webservice\nchown -R webservice:webservice /var/www/html\nchmod 755 /var/www/html"
+  },
+  "WEB-10": {
+    "risk": "불필요한 프록시 설정이 허용되면 공격자가 프록시를 통해 악의적인 요청을 중계하거나 트래픽을 탈취하여 중간자 공격(MITM), 캐시 포이즈닝, 요청 스머글링 등의 공격에 악용될 수 있습니다.",
+    "fix": "웹 서버 설정에서 필요한 프록시만 명시적으로 허용하고, 불필요한 프록시 헤더(X-Forwarded-For, X-Forwarded-Proto 등)는 제한하거나 무시하도록 구성합니다. 신뢰할 수 있는 프록시 서버의 IP를 화이트리스트로 등록하고, 그 외의 프록시 요청은 거부합니다. 프록시 체인(Proxy Chain) 검증을 활성화하여 프록시 홉 수를 제한합니다.",
+    "example": "Apache: <IfModule mod_remoteip.c> RemoteIPHeader X-Forwarded-For RemoteIPTrustedProxy 10.0.0.0/8 RemoteIPTrustedProxy 192.168.0.0/16 </IfModule> | Nginx: set_real_ip_from 10.0.0.0/8; set_real_ip_from 192.168.0.0/16; real_ip_header X-Forwarded-For; | 또는 프록시 헤더를 완전히 무시: proxy_ignore_headers X-Forwarded-For;"
+  },
+  "WEB-11": {
+    "risk": "웹 서비스 경로가 부적절하게 설정되면 불필요한 디렉토리 노출, 민감한 파일 접근, 디렉토리 리스팅 등을 통해 공격자가 시스템 정보를 수집하고 악의적 행위를 수행할 수 있습니다.",
+    "fix": "1. 웹 서비스의 루트 디렉토리를 문서 공개 경로로만 제한하고, 관리 파일/설정 파일은 웹 접근 불가능 영역에 배치하세요. 2. 디렉토리 리스팅을 비활성화하고, 불필요한 기본 디렉토리/파일을 삭제하세요. 3. 정확한 경로 매핑을 통해 예상되는 리소스만 접근 가능하도록 하고, 심볼릭 링크 사용을 제한하세요. 4. .htaccess, web.config, nginx 설정 등에서 접근 제어 규칙을 명시적으로 정의하세요.",
+    "example": "Apache: <Directory /var/www/html> Options -Indexes </Directory> | Nginx: location / { try_files $uri $uri/ =404; } | IIS web.config: <directoryBrowse enabled=\"false\" />"
+  },
+  "WEB-12": {
+    "risk": "웹 서비스 링크(예: http://)를 사용하면 중간자 공격(MITM)으로 통신이 도청되고 조작될 수 있으며, 민감한 데이터가 암호화되지 않은 상태로 전송되어 보안 침해 위험이 높아집니다.",
+    "fix": "모든 웹 서비스 통신을 HTTPS(TLS/SSL)로 강제하세요. 웹 서버 설정에서 HTTP를 HTTPS로 리다이렉트하고, HSTS 헤더를 설정하여 브라우저가 항상 HTTPS를 사용하도록 강제하며, SSL/TLS 인증서를 설치하고 정기적으로 갱신하세요.",
+    "example": "Apache: LoadModule ssl_module modules/mod_ssl.so / <VirtualHost *:80> ServerName example.com / Redirect permanent / https://example.com/ </VirtualHost> / <VirtualHost *:443> ServerName example.com / SSLEngine on / SSLCertificateFile /path/to/cert.pem / SSLCertificateKeyFile /path/to/key.pem / Header always set Strict-Transport-Security \"max-age=31536000; includeSubDomains\" </VirtualHost> / Nginx: server { listen 80; server_name example.com; return 301 https://$server_name$request_uri; } / server { listen 443 ssl; server_name example.com; ssl_certificate /path/to/cert.pem; ssl_certificate_key /path/to/key.pem; add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always; }"
+  },
+  "WEB-13": {
+    "risk": "설정 파일이 웹을 통해 접근 가능하면 데이터베이스 연결 정보, API 키, 암호 등 민감한 정보가 노출되어 시스템 전체가 침해될 수 있습니다.",
+    "fix": "1) 웹 루트 디렉토리 외부에 설정 파일 배치하기 2) 웹 서버 설정에서 .conf, .config, .env, web.config 등 확장자 차단 3) .htaccess 또는 nginx 설정으로 접근 제한 4) 디렉토리 리스팅 비활성화 5) 정기적으로 웹 루트의 불필요한 파일 정리",
+    "example": "Apache .htaccess:\n<FilesMatch \"\\.(env|conf|config|json)$\">\n  Order allow,deny\n  Deny from all\n</FilesMatch>\n\nNginx설정:\nlocation ~ \\.(env|conf|config|json)$ {\n  deny all;\n}\n\nPHP: $config = parse_ini_file('/var/www/config/db.conf'); // 웹루트 외부 경로"
+  },
+  "WEB-14": {
+    "risk": "웹 서비스 경로 내 파일에 대한 접근 통제가 부재하면, 인증되지 않은 사용자가 민감한 설정 파일, 백업 파일, 소스 코드 등 보호되어야 할 파일에 직접 접근하여 시스템 정보 유출 및 공격에 악용될 수 있습니다.",
+    "fix": "1. 웹 서버 설정에서 공개 불필요한 디렉토리(.git, .env, backup, config 등)에 대한 접근을 명시적으로 차단합니다. 2. 파일 및 디렉토리 권한을 최소 권한 원칙에 따라 설정하여 웹 서버 실행 계정만 필요한 파일에 접근 가능하도록 합니다. 3. 웹 응용프로그램에서 파일 다운로드 기능 구현 시 화이트리스트 기반의 경로 검증을 수행하고 경로 조작(Path Traversal) 공격을 방지합니다. 4. 민감한 파일은 웹 서비스 공개 디렉토리(DocumentRoot, webroot) 외부에 저장합니다. 5. 필요시 .htaccess(Apache) 또는 web.config(IIS)를 이용하여 특정 파일/폴더 접근을 제한합니다.",
+    "example": "Apache .htaccess 예시: <FilesMatch \"\\.(env|git|backup|conf)$\">\\n  Order allow,deny\\n  Deny from all\\n</FilesMatch>\\n\\nNginx 설정 예시: location ~ /\\.(git|env) {\\n  deny all;\\n}\\n\\n파일 권한 설정: chmod 600 config.php (소유자만 읽기/쓰기)\\nchmod 755 public_directory (디렉토리는 실행 권한 필요)"
+  },
+  "WEB-15": {
+    "risk": "불필요한 스크립트 매핑은 공격자가 예상치 못한 파일 타입을 실행하거나 웹셸을 업로드하여 서버를 장악할 수 있는 통로가 됩니다. 또한 불필요한 스크립트 엔진이 활성화되어 있으면 보안 취약점 노출 범위가 증가합니다.",
+    "fix": "1. 웹 서버 설정 파일(Apache httpd.conf, IIS web.config 등)에서 실제 필요하지 않은 파일 확장자에 대한 핸들러/매핑을 제거하세요. 2. IIS의 경우 관리자 도구에서 '핸들러 매핑' 메뉴로 이동하여 불필요한 매핑(예: .exe, .com, .bat, .cmd, .pl, .py, .jsp 등)을 삭제하세요. 3. Apache의 경우 httpd.conf에서 AddType, AddHandler 지시문을 검토하고 불필요한 항목을 주석 처리하세요. 4. 설정 변경 후 웹 서비스를 재시작하고 필요한 기능만 정상 동작하는지 확인하세요.",
+    "example": "Apache: AddType application/x-httpd-php .php만 유지하고 AddType application/x-perl .pl, AddHandler cgi-script .cgi 등 불필요한 라인 제거\nIIS: %windir%\\System32\\inetsrv\\appcmd list config \"Default Web Site\" /section:handlers 명령으로 현재 매핑 확인 후 appcmd delete config \"Default Web Site\" /section:handlers /@name:\"불필요한_핸들러명\" 으로 삭제"
+  },
+  "WEB-16": {
+    "risk": "웹 서비스가 반환하는 HTTP 헤더에서 서버 정보(Server, X-Powered-By 등)가 노출되면 공격자가 특정 버전의 취약점을 조사하여 표적 공격을 수행할 수 있습니다.",
+    "fix": "웹 서버 설정 파일에서 민감한 헤더 정보를 제거하고, 필요한 보안 헤더를 추가하여 상세 버전 정보 노출을 차단합니다. Apache는 httpd.conf에서 ServerTokens와 ServerSignature를 설정하고, Nginx는 nginx.conf에서 server_tokens를 비활성화하며, 애플리케이션 레벨에서도 X-Powered-By, X-AspNet-Version 등의 헤더를 제거합니다.",
+    "example": "Apache: ServerTokens Prod, ServerSignature Off / Nginx: server_tokens off; / IIS: web.config에서 <httpProtocol><customHeaders><remove name=\"X-Powered-By\"/></customHeaders></httpProtocol> / Java(Spring): spring.mvc.throw-exception-if-no-handler-found=true, server.servlet.jsp.init-parameters.development=false"
+  },
+  "WEB-17": {
+    "risk": "웹 서비스의 가상 디렉토리가 삭제되지 않으면 불필요한 리소스에 대한 접근이 가능하여 정보 유출, 시스템 정보 노출, 보안 취약점 악용 등의 위험이 증가합니다.",
+    "fix": "1. 웹 서버 관리 콘솔(IIS Manager 등)에 접속하여 사용하지 않는 가상 디렉토리 확인 2. 불필요한 가상 디렉토리 우클릭 후 '제거' 또는 '삭제' 선택 3. 관련 물리 디렉토리도 함께 삭제 여부 확인 후 필요시 삭제 4. 웹 서버 재시작 또는 설정 재로드 5. 정기적으로 가상 디렉토리 목록 검토하여 미사용 항목 제거",
+    "example": "IIS의 경우: Sites > Default Web Site에서 가상 디렉토리 확인 후 불필요한 항목(예: /test, /admin, /old) 선택 > 마우스 우클릭 > 'Remove' 클릭. Apache의 경우: httpd.conf 또는 virtual host 설정에서 미사용 Alias, Directory 지시어 삭제 후 apachectl restart 실행"
+  },
+  "WEB-18": {
+    "risk": "WebDAV가 활성화되어 있으면 원격 파일 업로드, 수정, 삭제 등의 작업이 가능하여 악의적인 사용자가 웹 서버에 악성 파일을 업로드하거나 중요 파일을 변조·삭제할 수 있습니다.",
+    "fix": "Apache 웹 서버의 경우 mod_dav 모듈을 비활성화하고, IIS의 경우 WebDAV 설치를 제거하거나 역할 서비스를 해제하세요. 필요시 특정 경로에만 제한적으로 활성화하고 강력한 인증을 적용하세요.",
+    "example": "Apache: a2dismod dav dav_fs (또는 httpd.conf에서 LoadModule dav_module modules/mod_dav.so 주석 처리)\n\nIIS: PowerShell에서 Uninstall-WindowsFeature WebDAV-Publishing\n\n또는 특정 디렉토리만 제한: <Directory /var/www/html> Order deny,allow Deny from all </Directory>"
+  },
+  "WEB-19": {
+    "risk": "SSI(Server Side Includes)가 활성화되면 공격자가 서버 명령 실행, 파일 읽기, 환경변수 노출 등의 공격을 통해 시스템을 제어하고 민감한 정보를 탈취할 수 있습니다.",
+    "fix": "웹 서버 설정에서 SSI 기능을 비활성화하고, 불가피하게 필요한 경우 .shtml 파일 확장자만 제한적으로 허용하며 exec 명령을 반드시 차단하세요. 또한 SSI 지원이 필요 없으면 관련 모듈을 완전히 제거하세요.",
+    "example": "Apache: httpd.conf에서 'Options -Includes' 설정 또는 mod_include 모듈 비활성화(a2dismod include). Nginx는 SSI를 기본 미지원하므로 ssi on 설정이 없는지 확인. IIS: IIS 관리자에서 웹 사이트의 SSI 기능 비활성화, 또는 web.config에서 <handlers>에서 SSI 제거."
+  },
+  "WEB-20": {
+    "risk": "SSL/TLS가 비활성화되면 클라이언트와 서버 간의 통신이 암호화되지 않아 중간자 공격(MITM)으로 민감한 데이터(인증정보, 개인정보 등)가 탈취될 수 있습니다.",
+    "fix": "1. 신뢰된 인증기관(CA)에서 SSL/TLS 인증서를 발급받아 설치하고, 웹 서버(Apache/Nginx 등)에서 HTTPS를 활성화합니다. 2. HTTP 요청은 모두 HTTPS로 리다이렉트하도록 설정합니다. 3. SSL/TLS 프로토콜 버전을 TLS 1.2 이상으로 설정하고 취약한 암호화 알고리즘은 제거합니다.",
+    "example": "# Nginx 설정 예시\nserver {\n  listen 443 ssl http2;\n  server_name example.com;\n  ssl_certificate /etc/ssl/certs/server.crt;\n  ssl_certificate_key /etc/ssl/private/server.key;\n  ssl_protocols TLSv1.2 TLSv1.3;\n  ssl_ciphers HIGH:!aNULL:!MD5;\n}\nserver {\n  listen 80;\n  server_name example.com;\n  return 301 https://$server_name$request_uri;\n}\n\n# Apache 설정 예시\n<VirtualHost *:443>\n  SSLEngine on\n  SSLCertificateFile /etc/ssl/certs/server.crt\n  SSLCertificateKeyFile /etc/ssl/private/server.key\n  SSLProtocol TLSv1.2 TLSv1.3\n</VirtualHost>\n<VirtualHost *:80>\n  Redirect permanent / https://example.com/\n</VirtualHost>"
+  },
+  "WEB-21": {
+    "risk": "적절하지 않은 HTTP 리디렉션은 사용자를 악의적인 사이트로 유도하는 오픈 리디렉트 공격에 악용될 수 있으며, 피싱 및 세션 탈취 등의 보안 위협을 초래합니다.",
+    "fix": "1. 리디렉션 대상을 화이트리스트로 관리하여 사전에 승인된 도메인으로만 리디렉션 허용\n2. 사용자 입력값을 직접 리디렉션 URL로 사용하지 않고 반드시 검증\n3. 절대 URL 대신 상대 경로 사용\n4. HTTPS를 통한 안전한 리디렉션 보장\n5. 리디렉션 로그 기록 및 모니터링 구현",
+    "example": "// Java Spring 예시\nList<String> allowedRedirects = Arrays.asList(\"https://example.com\", \"https://trusted.com\");\nString redirectUrl = request.getParameter(\"redirect\");\n\nif (allowedRedirects.contains(redirectUrl)) {\n  response.sendRedirect(redirectUrl);\n} else {\n  response.sendRedirect(\"/default\");\n}\n\n// Node.js 예시\nconst allowedDomains = ['example.com', 'trusted.com'];\nconst redirectUrl = req.query.redirect;\nconst url = new URL(redirectUrl);\n\nif (allowedDomains.includes(url.hostname)) {\n  res.redirect(redirectUrl);\n} else {\n  res.redirect('/');\n}"
+  },
+  "WEB-22": {
+    "risk": "에러 페이지에 시스템 정보, 스택 트레이스, 데이터베이스 쿼리 등 민감한 정보가 노출되면 공격자가 이를 악용하여 시스템 구조를 파악하고 정교한 공격을 수행할 수 있습니다.",
+    "fix": "1. 프로덕션 환경에서 디버그 모드 비활성화(debug=False)\n2. 커스텀 에러 페이지 구현(404, 500 등)\n3. 에러 로그는 서버 로그 파일에만 기록하고 사용자에게는 일반적인 메시지만 표시\n4. 웹 서버 설정에서 버전 정보 및 상세 에러 메시지 숨김\n5. WAF(웹 애플리케이션 방화벽) 규칙으로 에러 페이지 응답 모니터링",
+    "example": "Django: settings.py에서 DEBUG=False 설정, 커스텀 에러 핸들러 구현\nApache: ServerTokens=Prod, ServerSignature=Off 설정\nNginx: server_tokens off; 설정\nASP.NET: customErrors mode=\"On\" 설정\nPHP: display_errors=Off, error_reporting=E_ALL 설정"
+  },
+  "WEB-23": {
+    "risk": "LDAP 인증 시 적절하지 않은 알고리즘이나 암호화 설정을 사용하면 인증 정보가 탈취되거나 중간자 공격에 노출될 수 있습니다. 특히 평문 전송이나 약한 암호화를 사용하는 경우 공격자가 사용자 인증정보를 쉽게 획득할 수 있습니다.",
+    "fix": "1. LDAP over TLS(LDAPS, 포트 636) 사용을 강제하여 모든 통신을 암호화합니다. 2. 서버 인증서는 신뢰할 수 있는 CA로부터 발급받고 정기적으로 갱신합니다. 3. TLS 1.2 이상을 사용하고 약한 프로토콜(SSL 3.0, TLS 1.0/1.1)은 비활성화합니다. 4. LDAP 바인드 시 강력한 해싱 알고리즘(PBKDF2, bcrypt, scrypt)을 사용합니다. 5. 익명 바인드를 비활성화하고 관리자 계정의 강력한 비밀번호를 설정합니다. 6. LDAP 필터에 대한 입력값 검증을 철저히 하여 LDAP 인젝션을 방지합니다.",
+    "example": "# Apache Directory Server 설정 예시\n<Directory ldap://ldapserver.example.com:636>\n  # LDAPS(포트 636) 사용\n  TLS required\n  TLS ProtocolVersion TLSv1.2,TLSv1.3\n</Directory>\n\n# Java LDAP 설정 예시\nenv.put(Context.SECURITY_PROTOCOL, \"ssl\");\nenv.put(\"java.naming.ldap.factory.socket\", \"javax.net.ssl.SSLSocketFactory\");\nenv.put(Context.PROVIDER_URL, \"ldaps://ldapserver.example.com:636\");\n\n# OpenLDAP slapd.conf 예시\nTLSCipherSuite HIGH:!aNULL\nTLSCertificateFile /etc/ldap/certs/cert.pem\nTLSCertificateKeyFile /etc/ldap/certs/key.pem"
+  },
+  "WEB-24": {
+    "risk": "업로드 파일이 웹 서비스 루트 디렉토리에 저장되면 악의적인 파일(웹셸, 악성 스크립트)이 직접 실행될 수 있으며, 부적절한 권한 설정으로 인해 파일 변조 및 민감 정보 유출 위험이 발생합니다.",
+    "fix": "1. 웹 루트 외부 전용 업로드 디렉토리 생성 (/var/uploads 등)\n2. 업로드 디렉토리 권한을 755로 설정하고 소유자를 웹서버 계정으로 지정\n3. 웹 서버 설정에서 업로드 디렉토리의 스크립트 실행 권한 비활성화\n4. 업로드 파일 검증: MIME 타입, 파일 확장자 화이트리스트 검증\n5. 저장된 파일명을 무작위 값으로 변경하여 직접 접근 방지\n6. 업로드 폴더에 .htaccess (Apache) 또는 web.config (IIS)로 실행 방지 설정 추가",
+    "example": "# 디렉토리 생성 및 권한 설정\nmkdir -p /var/uploads\nchown www-data:www-data /var/uploads\nchmod 755 /var/uploads\n\n# Apache .htaccess 설정 (/var/uploads/.htaccess)\n<FilesMatch \"\\\\.php$\">\n  Deny from all\n</FilesMatch>\nAddType text/plain .php .php3 .php4 .php5 .phtml\n\n# Nginx 설정\nlocation /uploads/ {\n  location ~ \\\\.php$ {\n    return 403;\n  }\n}\n\n# PHP 파일 검증 예시\n$allowed = ['jpg', 'jpeg', 'png', 'gif'];\n$filename = $_FILES['file']['name'];\n$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));\nif (!in_array($ext, $allowed)) {\n  die('허용되지 않는 파일 형식');\n}\n$new_name = bin2hex(random_bytes(16)) . '.' . $ext;\nmove_uploaded_file($_FILES['file']['tmp_name'], '/var/uploads/' . $new_name);"
+  },
+  "WEB-25": {
+    "risk": "보안 패치 미적용으로 인해 공개된 취약점을 악용한 공격에 노출되며, 벤더 권고사항 미반영으로 인해 알려진 보안 위협에 대한 방어 능력이 떨어집니다.",
+    "fix": "1) 보안 패치 관리 정책 수립: 월 1회 이상 보안 업데이트 계획 수립 및 테스트 일정 작성 2) 자동 업데이트 활성화: OS, 웹서버, 애플리케이션 자동 보안 패치 설정 3) 벤더 보안 공지 구독: 웹서버(Apache, Nginx, IIS), 애플리케이션 개발사의 보안 뉴스레터 구독 4) 취약점 스캔 도구 운영: 정기적으로 취약점 스캐너(Nessus, OpenVAS 등) 실행 5) 패치 적용 기록 관리: 적용 일시, 버전, 변경사항을 문서화하여 추적성 확보 6) 테스트 환경 구성: 프로덕션 배포 전 동일한 환경에서 호환성 및 안정성 검증",
+    "example": "# Ubuntu 자동 보안 업데이트 설정\nsudo apt-get install unattended-upgrades\nsudo dpkg-reconfigure unattended-upgrades\n\n# 설정 파일: /etc/apt/apt.conf.d/50unattended-upgrades\nUnattended-Upgrade::Allowed-Origins {\n    \"${distro_id}:${distro_codename}-security\";\n};\nUnattended-Upgrade::AutoFixInterruptedDpkg \"true\";\n\n# Nginx 버전 확인 및 업데이트\nnginx -v\nsudo apt-get update && sudo apt-get upgrade nginx\n\n# 벤더 보안 공지 구독\n- Apache: https://httpd.apache.org/security/\n- Nginx: https://nginx.org/en/security_advisories.html\n- NIST NVD: https://nvd.nist.gov/ (CVE 검색)"
+  },
+  "WEB-26": {
+    "risk": "로그 디렉터리 및 파일의 권한이 부적절하면 권한 없는 사용자가 로그를 열람, 수정, 삭제하여 공격 흔적을 은폐하거나 민감한 정보를 유출할 수 있습니다.",
+    "fix": "1. 로그 디렉터리 권한을 700(rwx------)으로 설정하여 소유자만 접근 가능하게 하고, 2. 로그 파일 권한을 600(rw-------)으로 설정하며, 3. 로그 디렉터리/파일의 소유자를 웹서버 실행 계정(www-data, apache 등) 또는 전용 로그 계정으로 설정하고, 4. 정기적으로 권한 설정 상태를 점검하는 자동화 스크립트를 운영하세요.",
+    "example": "chmod 700 /var/log/webapp\nchmod 600 /var/log/webapp/*.log\nchown -R www-data:www-data /var/log/webapp\nfind /var/log/webapp -type d -exec chmod 700 {} \\;\nfind /var/log/webapp -type f -exec chmod 600 {} \\;"
+  }
+}

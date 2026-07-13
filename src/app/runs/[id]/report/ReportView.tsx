@@ -385,6 +385,25 @@ export function ReportView({ runId }: { runId: string }) {
                 </pre>
               </div>
 
+              {(selected.status === "fail" || selected.status === "review") && selected.mitigation && (
+                <div className="mt-4.5">
+                  <SectionLabel>조치 가이드</SectionLabel>
+                  <p className="mt-1.5 text-sm leading-relaxed">
+                    <span className="font-semibold">위험 · </span>
+                    <InlineCodeText text={selected.mitigation.risk} />
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed">
+                    <span className="font-semibold">조치 · </span>
+                    <InlineCodeText text={selected.mitigation.fix} />
+                  </p>
+                  {selected.mitigation.example && (
+                    <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface p-3 font-mono text-xs whitespace-pre-wrap">
+                      {selected.mitigation.example}
+                    </pre>
+                  )}
+                </div>
+              )}
+
               {selected.remediation && (
                 <div className="mt-4.5">
                   <SectionLabel>조치방안</SectionLabel>

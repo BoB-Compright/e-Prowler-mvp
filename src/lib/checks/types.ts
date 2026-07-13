@@ -1,4 +1,5 @@
 import type { Category, CheckStatus, Severity } from "@/lib/catalog/types";
+import type { Mitigation } from "@/lib/catalog";
 
 // Result of evaluating one catalog item against a specific run's evidence.
 // Distinct from catalog.AutomationStatus (design-time: "is there a rule at
@@ -42,4 +43,5 @@ export interface DecoratedCheckResult {
   reason: string | null;
   remediation: string | null;
   example: string | null;
+  mitigation: Mitigation | null;
 }

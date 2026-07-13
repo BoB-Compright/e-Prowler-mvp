@@ -94,4 +94,36 @@ describe("POST /api/share/[token]", () => {
       expect(run).not.toHaveProperty("riskSummary");
     }
   });
+
+  it("includes fail/review findings with mitigation for each asset's latest succeeded run (#mitigation)", async () => {
+    const { createProject } = await import("@/lib/projects/store");
+    const { createServerAsset } = await import("@/lib/assets/store");
+    const { createRun, updateRunStage } = await import("@/lib/pipeline/runs");
+    const { saveCheckResults } = await import("@/lib/checks/store");
+    const { POST } = await import("./route");
+
+    const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" });
+    const asset = createServerAsset({ displayName: "srv", hostIp: "10.0.0.1", hostname: "h", sshPort: 22, authType: "password", username: "u", secret: "p", projectId: project.id });
+    const run = createRun(asset.hostIp!, "server", asset.id);
+    saveCheckResults(run.id, [
+      { id: "U-01", status: "fail", evidence: "secret-evidence" },
+      { id: "U-13", status: "pass", evidence: "ok" },
+    ]);
+    updateRunStage(run.id, "done", "succeeded");
+
+    const res = await POST(
+      new Request(`http://localhost/api/share/${project.shareToken}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "pw" }),
+      }) as unknown as NextRequest,
+      { params: Promise.resolve({ token: project.shareToken }) },
+    );
+    const body = await res.json();
+    const finding = body.findings.find((f: { assetId: string }) => f.assetId === asset.id);
+    expect(finding.items.map((i: { id: string }) => i.id)).toEqual(["U-01"]); // fail만, pass 제외
+    expect(finding.items[0].mitigation.fix.length).toBeGreaterThan(0);
+    // evidence 원문은 공유에 절대 포함되지 않는다.
+    expect(JSON.stringify(body)).not.toContain("secret-evidence");
+  });
 });
