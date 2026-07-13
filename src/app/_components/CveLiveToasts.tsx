@@ -69,14 +69,28 @@ export function CveLiveToasts() {
     };
   }, []);
 
-  // 각 토스트 자동 소멸
+  // 각 토스트 자동 소멸: 토스트별로 타이머를 한 번만 걸고, 배열이 바뀌어도
+  // (다른 토스트의 추가/제거로) 기존 타이머는 리셋되지 않도록 key 기준으로 관리한다.
+  const dismissTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => {
-    if (toasts.length === 0) return;
-    const timers = toasts.map((t) =>
-      setTimeout(() => setToasts((prev) => prev.filter((x) => x.key !== t.key)), DISMISS_MS),
-    );
-    return () => timers.forEach(clearTimeout);
+    const timers = dismissTimersRef.current;
+    for (const t of toasts) {
+      if (timers.has(t.key)) continue;
+      const timer = setTimeout(() => {
+        timers.delete(t.key);
+        setToasts((prev) => prev.filter((x) => x.key !== t.key));
+      }, DISMISS_MS);
+      timers.set(t.key, timer);
+    }
   }, [toasts]);
+
+  useEffect(() => {
+    const timers = dismissTimersRef.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
 
   if (toasts.length === 0) return null;
 
