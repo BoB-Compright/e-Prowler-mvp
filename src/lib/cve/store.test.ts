@@ -15,6 +15,7 @@ import {
   upsertCveMatch,
   listRecentCriticalCveAlerts,
   countRecentCriticalCveAlertsByAsset,
+  listRecentMatchedCves,
 } from "./store";
 
 let db: Database;
@@ -142,5 +143,41 @@ describe("cve alerts (derived)", () => {
 
     expect(counts.get(a1.id)).toBe(2);
     expect(counts.get(a2.id)).toBeUndefined();
+  });
+});
+
+describe("listRecentMatchedCves", () => {
+  it("returns distinct matched CVEs newer than since, korean summary when cached, capped", () => {
+    const asset = server({ hostIp: "10.0.2.1", displayName: "웹서버" });
+    const before = new Date("2026-07-13T00:00:00Z");
+    const after = new Date("2026-07-13T01:00:00Z");
+    // since 이전 매칭 → 제외
+    upsertCveMatch({ assetId: asset.id, packageName: "a", packageVersion: "1", entry: cveEntry({ cveId: "CVE-OLD" }) }, before, db);
+    // since 이후 매칭 2건 + 한 건은 두 자산(distinct 카운트)
+    const asset2 = server({ hostIp: "10.0.2.2" });
+    upsertCveMatch({ assetId: asset.id, packageName: "b", packageVersion: "1", entry: cveEntry({ cveId: "CVE-NEW1", cvssScore: 9.8 }) }, after, db);
+    upsertCveMatch({ assetId: asset2.id, packageName: "b", packageVersion: "1", entry: cveEntry({ cveId: "CVE-NEW1", cvssScore: 9.8 }) }, after, db);
+    upsertCveMatch({ assetId: asset.id, packageName: "c", packageVersion: "1", entry: cveEntry({ cveId: "CVE-NEW2" }) }, after, db);
+    db.prepare(`INSERT INTO cve_translations (cve_id, summary_ko, translated_at) VALUES ('CVE-NEW1','한국어 요약','2026-07-13T00:00:00Z')`).run();
+
+    const rows = listRecentMatchedCves(before.toISOString(), 10, db);
+    const ids = rows.map((r) => r.cveId);
+    expect(ids).toContain("CVE-NEW1");
+    expect(ids).toContain("CVE-NEW2");
+    expect(ids).not.toContain("CVE-OLD");
+    const n1 = rows.find((r) => r.cveId === "CVE-NEW1")!;
+    expect(n1.assetMatches).toBe(2);
+    expect(n1.summary).toBe("한국어 요약"); // 캐시 있으면 한국어
+    const n2 = rows.find((r) => r.cveId === "CVE-NEW2")!;
+    expect(n2.summary).toBe("example"); // 캐시 없으면 영문 폴백(cveEntry 기본 summary)
+  });
+
+  it("respects the limit", () => {
+    const asset = server({ hostIp: "10.0.2.3" });
+    const t = new Date("2026-07-13T02:00:00Z");
+    for (let i = 0; i < 5; i++) {
+      upsertCveMatch({ assetId: asset.id, packageName: `p${i}`, packageVersion: "1", entry: cveEntry({ cveId: `CVE-X${i}` }) }, t, db);
+    }
+    expect(listRecentMatchedCves("2026-07-13T00:00:00Z", 3, db)).toHaveLength(3);
   });
 });
