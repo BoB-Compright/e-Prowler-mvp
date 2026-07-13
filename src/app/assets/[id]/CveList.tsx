@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CveMatch } from "@/lib/cve/store";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
@@ -56,6 +56,32 @@ export function CveList({
   const [matches, setMatches] = useState(initialMatches);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [error, setError] = useState<string | null>(null);
+
+  // cve_id → 한국어 설명. 마운트 후 활성 CVE의 설명을 번역 요청해 영문 위에 덮는다.
+  const [ko, setKo] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const activeItems = initialMatches.filter((m) => !m.dismissed).map((m) => ({ cveId: m.cveId, summary: m.summary }));
+    if (activeItems.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/cve/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: activeItems }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setKo(data.translations ?? {});
+      } catch {
+        // 영문 폴백
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialMatches]);
   // 선택된 심각도 필터. 비어 있으면 전체. 수천 건이 잡혀도 담당자가 심각/높음만
   // 좁혀 볼 수 있게 한다. 필터를 바꾸면 "더 보기" 카운트를 처음으로 되돌린다.
   const [severityFilter, setSeverityFilter] = useState<Set<CveMatch["severity"]>>(new Set());
@@ -185,7 +211,7 @@ export function CveList({
                       {m.packageName} {m.packageVersion}
                     </span>
                   </div>
-                  <p className="mt-2 text-[13px] text-muted">{m.summary}</p>
+                  <p className="mt-2 text-[13px] text-muted">{ko[m.cveId] ?? m.summary}</p>
                   {m.aiImpact && <p className="mt-1 text-[13px]">영향: {m.aiImpact}</p>}
                   {m.aiRemediation && <p className="mt-1 text-[13px]">조치: {m.aiRemediation}</p>}
                   <button

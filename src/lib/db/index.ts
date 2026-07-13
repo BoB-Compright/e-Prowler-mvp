@@ -116,6 +116,22 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS feed_cves (
+  cve_id TEXT PRIMARY KEY,
+  published_at TEXT,
+  severity TEXT NOT NULL,
+  cvss_score REAL,
+  summary TEXT NOT NULL,
+  first_collected_at TEXT NOT NULL,
+  collected_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cve_translations (
+  cve_id TEXT PRIMARY KEY,
+  summary_ko TEXT NOT NULL,
+  translated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS nvd_query_cache (
   package_name TEXT PRIMARY KEY,
   raw_response TEXT NOT NULL,

@@ -6,6 +6,7 @@ import { createServerAsset } from "@/lib/assets/store";
 import { listCveMatches, replaceInstalledPackages } from "./store";
 import type { DeltaCveEntry } from "./deltaClient";
 import { deltaIntervalMs, runDeltaCycle, type DeltaWatcherDeps } from "./deltaWatcher";
+import { listFeedForDisplay } from "./feedStore";
 
 let db: Database;
 
@@ -137,6 +138,43 @@ describe("runDeltaCycle", () => {
     await runDeltaCycle(now, d, db);
 
     expect(listCveMatches(a.id, db)).toHaveLength(1);
+  });
+
+  it("stores every fetched CVE in feed_cves (matched or not) and dedups per cve_id (#feed)", async () => {
+    const a = server("10.0.9.1");
+    const now = new Date("2026-07-13T02:00:00Z");
+    replaceInstalledPackages(a.id, [{ name: "openssl", version: "3.0.10" }], now, db);
+    // 매칭되는 openssl 1건 + 매칭 안 되는 nginx 1건 + 같은 cve_id가 product 전개로 2번 등장
+    const entries = [
+      entry({ cveId: "CVE-2026-9000", product: "openssl", versionRange: { versionStartIncluding: "3.0.0", versionEndExcluding: "3.0.14" } }),
+      entry({ cveId: "CVE-2026-9000", product: "openssl-libs", versionRange: { versionStartIncluding: "3.0.0", versionEndExcluding: "3.0.14" } }),
+      entry({ cveId: "CVE-2026-7777", product: "nginx", cvssScore: 8.2, severity: "high", versionRange: {} }),
+    ];
+    const d = deps({ fetchRecentCves: vi.fn().mockResolvedValue(entries) });
+
+    await runDeltaCycle(now, d, db);
+
+    const feed = listFeedForDisplay(now, db);
+    // 미매칭(nginx)도 저장되고, 중복 cve_id(CVE-2026-9000)는 1건으로.
+    expect(feed.map((f) => f.cveId).sort()).toEqual(["CVE-2026-7777", "CVE-2026-9000"]);
+    // 매칭 반영: openssl은 자산 1대 매칭, nginx는 0.
+    const byId = Object.fromEntries(feed.map((f) => [f.cveId, f]));
+    expect(byId["CVE-2026-9000"].assetMatches).toBe(1);
+    expect(byId["CVE-2026-7777"].assetMatches).toBe(0);
+  });
+
+  it("prunes feed entries older than 14 days at the end of a cycle (#feed)", async () => {
+    const now = new Date("2026-07-13T02:00:00Z");
+    // 사전에 오래된 피드 행을 심고, 이번 사이클이 prune 하는지 확인.
+    db.prepare(
+      `INSERT INTO feed_cves (cve_id, published_at, severity, cvss_score, summary, first_collected_at, collected_at)
+       VALUES ('CVE-STALE', null, 'high', 7.5, 's', '2026-06-01T00:00:00.000Z', '2026-06-20T00:00:00.000Z')`,
+    ).run();
+    const d = deps({ fetchRecentCves: vi.fn().mockResolvedValue([]) });
+
+    await runDeltaCycle(now, d, db);
+
+    expect(listFeedForDisplay(now, db).map((f) => f.cveId)).not.toContain("CVE-STALE");
   });
 });
 
