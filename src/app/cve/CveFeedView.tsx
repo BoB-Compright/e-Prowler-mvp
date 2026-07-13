@@ -120,19 +120,19 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <SectionLabel>수집된 CVE</SectionLabel>
+          <SectionLabel>수집 CVE</SectionLabel>
           <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">{collectedToday}</div>
-          <div className="mt-1 text-[13px] text-muted">최근 14일 피드 (노이즈 총량)</div>
+          <div className="mt-1 text-[13px] text-muted">최근 14일간 수집된 전체 CVE</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <SectionLabel>Critical</SectionLabel>
+          <SectionLabel>긴급(Critical)</SectionLabel>
           <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}>{newCritical}</div>
-          <div className="mt-1 text-[13px] text-muted">최고 위험 등급 (잠재적 큰불)</div>
+          <div className="mt-1 text-[13px] text-muted">CVSS 9.0 이상 최고 위험 등급</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <SectionLabel>자산 매칭</SectionLabel>
+          <SectionLabel>조치 대상</SectionLabel>
           <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}>{assetMatched}</div>
-          <div className="mt-1 text-[13px] text-muted">우리 자산에 실제로 걸린 = 지금 할 일</div>
+          <div className="mt-1 text-[13px] text-muted">보유 자산에서 영향이 확인된 CVE</div>
         </div>
       </div>
 
