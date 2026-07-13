@@ -33,7 +33,7 @@ export function BrandLogo({ subtext = false }: { subtext?: boolean }) {
         <span className="block truncate text-[17px] font-bold leading-tight tracking-tight text-primary">
           NH-Guardian
         </span>
-        {subtext && <span className="block font-mono text-[11px] text-muted">자산 보안 점검</span>}
+        {subtext && <span className="block font-mono text-[11px] text-muted">AI 상시 보안 점검 체계</span>}
       </span>
     </Link>
   );
