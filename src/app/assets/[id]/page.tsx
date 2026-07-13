@@ -9,16 +9,13 @@ import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { ScheduleForm } from "./ScheduleForm";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
+import { formatKst } from "@/lib/time/kst";
 import { StartScanButton } from "./StartScanButton";
 import { Card } from "../../_components/Card";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
 
 const OUTCOME_LABEL: Record<RunOutcome, string> = { fail: "취약", review: "검토", pass: "양호" };
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
-}
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -189,7 +186,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
                       className="flex flex-wrap items-center gap-3 px-5 py-3 text-sm hover:bg-bg"
                     >
                       <span className="font-mono text-[13px] text-muted">
-                        {formatTimestamp(run.createdAt)}
+                        {formatKst(run.createdAt)}
                       </span>
                       <span className="text-[13px] text-muted">
                         {run.triggerType === "scheduled" ? "예약" : "수동"}

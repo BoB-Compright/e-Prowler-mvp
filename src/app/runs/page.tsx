@@ -6,14 +6,11 @@ import { runDisplayIdentity } from "@/lib/pipeline/runIdentity";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
+import { formatKst } from "@/lib/time/kst";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
-}
 
 export default async function RunsPage({
   searchParams,
@@ -135,7 +132,7 @@ export default async function RunsPage({
                         )}
                       </td>
                       <td className="px-5 py-3 font-mono text-[13px] text-muted">
-                        {formatTimestamp(run.updatedAt)}
+                        {formatKst(run.updatedAt)}
                       </td>
                       <td
                         className={`px-3 py-3 text-center font-mono text-[13px] font-bold ${

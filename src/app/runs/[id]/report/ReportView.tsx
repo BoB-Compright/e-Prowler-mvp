@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Run } from "@/lib/pipeline/types";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import { getFrameworks } from "@/lib/catalog";
+import { formatKst } from "@/lib/time/kst";
 import {
   CHECK_STATUS_LABELS,
   type Category,
@@ -71,10 +72,6 @@ function chipStyle(active: boolean): string {
       ? "border-primary bg-surface font-semibold text-primary"
       : "border-border text-muted hover:bg-bg"
   }`;
-}
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
 }
 
 function InlineCodeText({ text }: { text: string }) {
@@ -155,7 +152,7 @@ export function ReportView({ runId }: { runId: string }) {
           <p className="mt-1 text-[13px] text-muted">
             <span className="font-mono">{getRepoDisplayName(run.repoUrl)}</span>
             <span className="mx-1.5">·</span>
-            <span className="font-mono">{formatTimestamp(run.updatedAt)}</span>
+            <span className="font-mono">{formatKst(run.updatedAt)}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">

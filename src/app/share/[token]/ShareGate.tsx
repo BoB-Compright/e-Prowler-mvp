@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatKst } from "@/lib/time/kst";
 import { Card } from "../../_components/Card";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
@@ -35,10 +36,6 @@ interface ShareData {
   assets: ShareAsset[];
   runs: ShareRun[];
   findings: { assetId: string; items: ShareFinding[] }[];
-}
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
 }
 
 // 공유 뷰는 파이프라인 실행 상태(running/succeeded/failed)만 이력 표시에 사용한다 —
@@ -172,7 +169,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                               {asset.type === "repo" ? "레포" : "서버"}
                             </td>
                             <td className="px-5 py-3 font-mono text-[13px] text-muted">
-                              {run ? formatTimestamp(run.createdAt) : "—"}
+                              {run ? formatKst(run.createdAt) : "—"}
                             </td>
                             <td className="px-5 py-3">
                               <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
@@ -236,7 +233,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                             return (
                               <li key={run.id} className="flex items-center gap-3 py-2 text-sm">
                                 <span className="font-mono text-[13px] text-muted">
-                                  {formatTimestamp(run.createdAt)}
+                                  {formatKst(run.createdAt)}
                                 </span>
                                 <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
                               </li>

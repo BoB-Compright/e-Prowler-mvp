@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Schedule, ScheduleFrequency } from "@/lib/scheduling/types";
+import { formatKst } from "@/lib/time/kst";
 import { Card } from "../../_components/Card";
 
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -136,8 +137,8 @@ export function ScheduleForm({
       {error && <p className="mt-2 text-[13px] text-fail">{error}</p>}
       {schedule && (
         <p className="mt-3 text-[13px] text-muted">
-          다음 실행: {schedule.nextRunAt.replace("T", " ").slice(0, 16)}
-          {schedule.lastRunAt && ` · 마지막 실행: ${schedule.lastRunAt.replace("T", " ").slice(0, 16)}`}
+          다음 실행: {formatKst(schedule.nextRunAt)}
+          {schedule.lastRunAt && ` · 마지막 실행: ${formatKst(schedule.lastRunAt)}`}
           {schedule.lastSkipReason && ` · 최근 건너뜀: ${schedule.lastSkipReason}`}
         </p>
       )}
