@@ -18,6 +18,7 @@ import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
 import { Card } from "@/app/_components/Card";
 import { SectionLabel } from "@/app/_components/SectionLabel";
 import { StatusBadge } from "@/app/_components/StatusBadge";
+import { CountUp } from "@/app/_components/CountUp";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
 import { RescanButton } from "./RescanButton";
 import type { CveMatch } from "@/lib/cve/store";
@@ -186,25 +187,25 @@ export function ReportView({ runId }: { runId: string }) {
             <div className="rounded-2xl border border-border bg-surface p-5">
               <SectionLabel>Total Checks</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                {summary.total}
+                <CountUp value={summary.total} />
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-surface p-5">
               <SectionLabel>Pass</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-pass">
-                {summary.statusCounts.pass}
+                <CountUp value={summary.statusCounts.pass} />
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-surface p-5">
               <SectionLabel>Fail</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-fail">
-                {summary.statusCounts.fail}
+                <CountUp value={summary.statusCounts.fail} />
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-surface p-5">
               <SectionLabel>Review</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-review">
-                {summary.statusCounts.review}
+                <CountUp value={summary.statusCounts.review} />
               </div>
             </div>
           </div>
