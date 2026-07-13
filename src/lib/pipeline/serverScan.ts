@@ -11,7 +11,7 @@ import { analyzeAndSaveChecks } from "@/lib/claude";
 import { createRun, isCancelled, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
-import { checkAssetForCves } from "@/lib/cve/poller";
+import { refreshAssetInventory } from "@/lib/cve/poller";
 import { createScanBatch } from "./scanBatches";
 
 const FLEET_SCAN_CONCURRENCY = 5;
@@ -36,7 +36,7 @@ export interface ServerScanDeps {
   saveCheckResults: typeof saveCheckResults;
   analyzeAndSaveChecks: typeof analyzeAndSaveChecks;
   runPipeline: typeof runPipeline;
-  checkAssetForCves: (asset: Asset) => Promise<void>;
+  refreshAssetInventory: (asset: Asset) => Promise<void>;
 }
 
 const defaultDeps: ServerScanDeps = {
@@ -47,7 +47,7 @@ const defaultDeps: ServerScanDeps = {
   saveCheckResults,
   analyzeAndSaveChecks,
   runPipeline,
-  checkAssetForCves,
+  refreshAssetInventory,
 };
 
 function errorMessage(err: unknown): string {
@@ -159,13 +159,14 @@ export async function runServerScanPipeline(
   updateRunStage(run.id, "claude_analysis", "succeeded", {}, db);
   updateRunStage(run.id, "done", "succeeded", {}, db);
 
-  // CVE 수집은 백그라운드로 트리거만 하고 기다리지 않는다 — 스캔 완료(run이 이미
-  // "done"/"succeeded"로 커밋된 뒤) 지연을 0으로 유지하기 위함. windows-only 플랜은
-  // SSH 자체가 불가능한 자산이므로 트리거하지 않는다(항상 실패만 하고 로그만 늘어남).
-  // 실패는 여기서 삼킨다 — CVE 수집 실패가 이미 끝난 스캔 run의 상태를 바꿔서는 안
-  // 되고, 실패한 자산은 기존 24시간 폴러(startCvePoller)가 다음 주기에 재시도한다.
+  // 스캔 후 인벤토리 갱신 — CVE 매칭은 델타워처가 담당. 백그라운드로 트리거만 하고
+  // 기다리지 않는다 — 스캔 완료(run이 이미 "done"/"succeeded"로 커밋된 뒤) 지연을
+  // 0으로 유지하기 위함. windows-only 플랜은 SSH 자체가 불가능한 자산이므로 트리거
+  // 하지 않는다(항상 실패만 하고 로그만 늘어남). 실패는 여기서 삼킨다 — 인벤토리
+  // 갱신 실패가 이미 끝난 스캔 run의 상태를 바꿔서는 안 되고, 실패한 자산은 기존
+  // 폴러(startInventoryPoller)가 다음 주기에 재시도한다.
   if (!windowsOnly) {
-    void deps.checkAssetForCves(asset).catch(() => {});
+    void deps.refreshAssetInventory(asset).catch(() => {});
   }
 }
 

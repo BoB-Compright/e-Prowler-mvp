@@ -62,7 +62,7 @@ function baseDeps(overrides: Partial<ServerScanDeps> = {}): ServerScanDeps {
     saveCheckResults,
     analyzeAndSaveChecks,
     runPipeline,
-    checkAssetForCves: vi.fn().mockResolvedValue(undefined),
+    refreshAssetInventory: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -241,41 +241,41 @@ describe("runServerScanPipeline", () => {
     );
   });
 
-  it("fires checkAssetForCves in the background after a successful non-windows scan (#cve)", async () => {
+  it("fires refreshAssetInventory in the background after a successful non-windows scan (#cve)", async () => {
     const asset = createServerAsset(serverAssetInput(), db);
     const { run } = createServerRun(asset.id, null, db);
-    const checkAssetForCves = vi.fn().mockResolvedValue(undefined);
-    const deps = baseDeps({ checkAssetForCves });
+    const refreshAssetInventory = vi.fn().mockResolvedValue(undefined);
+    const deps = baseDeps({ refreshAssetInventory });
 
     await runServerScanPipeline(run, asset, deps, db);
 
     expect(getRun(run.id, db)!.stage).toBe("done");
-    expect(checkAssetForCves).toHaveBeenCalledTimes(1);
-    expect(checkAssetForCves).toHaveBeenCalledWith(asset);
+    expect(refreshAssetInventory).toHaveBeenCalledTimes(1);
+    expect(refreshAssetInventory).toHaveBeenCalledWith(asset);
   });
 
-  it("does not fire checkAssetForCves for a windows-only plan (#cve)", async () => {
+  it("does not fire refreshAssetInventory for a windows-only plan (#cve)", async () => {
     const asset = createServerAsset(serverAssetInput({ displayName: "win-01", hostname: "win-01" }), db);
     const { run } = createServerRun(asset.id, null, db);
     const windowsPlan: CheckPlan = { packs: [osWindowsPack], evidenceTasks: [] };
-    const checkAssetForCves = vi.fn().mockResolvedValue(undefined);
+    const refreshAssetInventory = vi.fn().mockResolvedValue(undefined);
     const deps = baseDeps({
       resolveCheckPlan: () => windowsPlan,
       evaluatePlan: vi.fn().mockReturnValue([{ id: "W-01", status: "review" as const, evidence: "대기" }]),
-      checkAssetForCves,
+      refreshAssetInventory,
     });
 
     await runServerScanPipeline(run, asset, deps, db);
 
     expect(getRun(run.id, db)!.stage).toBe("done");
-    expect(checkAssetForCves).not.toHaveBeenCalled();
+    expect(refreshAssetInventory).not.toHaveBeenCalled();
   });
 
-  it("does not let a rejected checkAssetForCves affect the run's succeeded status (#cve)", async () => {
+  it("does not let a rejected refreshAssetInventory affect the run's succeeded status (#cve)", async () => {
     const asset = createServerAsset(serverAssetInput(), db);
     const { run } = createServerRun(asset.id, null, db);
-    const checkAssetForCves = vi.fn().mockRejectedValue(new Error("ssh timeout"));
-    const deps = baseDeps({ checkAssetForCves });
+    const refreshAssetInventory = vi.fn().mockRejectedValue(new Error("ssh timeout"));
+    const deps = baseDeps({ refreshAssetInventory });
 
     await runServerScanPipeline(run, asset, deps, db);
 
