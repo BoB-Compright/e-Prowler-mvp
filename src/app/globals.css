@@ -103,8 +103,9 @@ body {
   to { opacity: 1; transform: rotate(0deg) scale(1); }
 }
 .animate-donut-unfurl {
+  transform-box: fill-box; /* <g> 자신의 bbox 중심 기준으로 회전 */
   transform-origin: center;
-  animation: donut-unfurl 0.7s ease-out forwards;
+  animation: donut-unfurl 0.45s cubic-bezier(0.2, 0.85, 0.25, 1) forwards; /* 빠르고 촥 펼쳐지게 */
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-gauge-draw { stroke-dasharray: none; animation: none; }

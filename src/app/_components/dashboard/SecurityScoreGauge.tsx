@@ -1,5 +1,8 @@
+"use client";
+
 import { gaugeArcPath } from "@/lib/dashboard/donutGeometry";
 import type { ScoreGrade } from "@/lib/dashboard/securityScore";
+import { useCountUp } from "../CountUp";
 
 const TAU = Math.PI * 2;
 const START = -TAU / 3; // -120° (8시 방향)
@@ -16,6 +19,8 @@ const GRADE_META: Record<ScoreGrade, { label: string; color: string }> = {
 export function SecurityScoreGauge({ score, grade }: { score: number; grade: ScoreGrade }) {
   const meta = GRADE_META[grade];
   const fraction = Math.max(0, Math.min(1, score / 100));
+  // 점수 숫자는 0→score 카운트업(아크 draw-on과 함께). 접근성 라벨은 최종값 유지.
+  const animatedScore = useCountUp(score);
   return (
     <div className="flex flex-col items-center gap-2">
       <svg
@@ -37,7 +42,7 @@ export function SecurityScoreGauge({ score, grade }: { score: number; grade: Sco
           />
         )}
         <text x={100} y={92} textAnchor="middle" className="fill-text" fontSize={40} fontWeight={700}>
-          {score}
+          {animatedScore}
         </text>
         <text x={100} y={114} textAnchor="middle" className="fill-muted" fontSize={13}>
           /100
