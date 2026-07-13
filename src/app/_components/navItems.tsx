@@ -39,6 +39,15 @@ function AssetIcon() {
   );
 }
 
+function CveIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z" />
+      <path d="M12 8v4M12 16h.01" />
+    </svg>
+  );
+}
+
 function ProjectIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -51,6 +60,7 @@ export const NAV_ITEMS: Array<{ href: string; label: string; icon: ReactNode }> 
   { href: "/", label: "대시보드", icon: <DashboardIcon /> },
   { href: "/assets", label: "자산 관리", icon: <AssetIcon /> },
   { href: "/projects", label: "프로젝트", icon: <ProjectIcon /> },
+  { href: "/cve", label: "CVE 피드", icon: <CveIcon /> },
   { href: "/runs", label: "점검 이력", icon: <HistoryIcon /> },
   { href: "/catalog", label: "카탈로그", icon: <CatalogIcon /> },
 ];
