@@ -89,3 +89,24 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-toast-in { animation: none; }
 }
+
+@keyframes gauge-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-gauge-draw {
+  stroke-dasharray: 1;
+  animation: gauge-draw 0.9s ease-out forwards;
+}
+@keyframes donut-unfurl {
+  from { opacity: 0; transform: rotate(-90deg) scale(0.85); }
+  to { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+.animate-donut-unfurl {
+  transform-origin: center;
+  animation: donut-unfurl 0.7s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-gauge-draw { stroke-dasharray: none; animation: none; }
+  .animate-donut-unfurl { animation: none; }
+}

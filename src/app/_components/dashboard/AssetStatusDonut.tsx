@@ -19,7 +19,7 @@ export function AssetStatusDonut({ buckets, total }: { buckets: DonutBucket[]; t
   const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
   return (
     <div className="flex flex-wrap items-center gap-6">
-      <svg viewBox="0 0 160 160" className="h-[140px] w-[140px] shrink-0" role="img" aria-label="자산 상태 분포">
+      <svg viewBox="0 0 160 160" className="h-[140px] w-[140px] shrink-0 animate-donut-unfurl" role="img" aria-label="자산 상태 분포">
         {arcs.map((arc) => {
           const bucket = bucketByKey.get(arc.key as DonutBucketKey)!;
           return (
