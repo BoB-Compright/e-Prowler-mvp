@@ -45,7 +45,7 @@ export function OnboardingTour({ assetCount }: { assetCount: number }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIndex(0);
       setActive(true);
-    } else if (shouldAutoStart(assetCount, seen)) {
+    } else if (shouldAutoStart(seen)) {
       setActive(true);
     }
   }, [assetCount]);

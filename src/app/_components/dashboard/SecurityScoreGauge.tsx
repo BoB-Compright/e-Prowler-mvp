@@ -32,6 +32,8 @@ export function SecurityScoreGauge({ score, grade }: { score: number; grade: Sco
           <path
             d={gaugeArcPath(100, 90, 78, START, START + SWEEP * fraction)}
             fill="none" stroke={meta.color} strokeWidth={14} strokeLinecap="round"
+            pathLength={1}
+            className="animate-gauge-draw"
           />
         )}
         <text x={100} y={92} textAnchor="middle" className="fill-text" fontSize={40} fontWeight={700}>
