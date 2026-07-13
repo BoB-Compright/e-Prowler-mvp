@@ -184,30 +184,46 @@ export function ReportView({ runId }: { runId: string }) {
       {checks.length > 0 && (
         <>
           <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "all" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Total Checks</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
                 <CountUp value={summary.total} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("pass")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "pass" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Pass</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-pass">
                 <CountUp value={summary.statusCounts.pass} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("fail")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "fail" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Fail</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-fail">
                 <CountUp value={summary.statusCounts.fail} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("review")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "review" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Review</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-review">
                 <CountUp value={summary.statusCounts.review} />
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="mt-4">
