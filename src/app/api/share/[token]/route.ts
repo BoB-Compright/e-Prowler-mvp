@@ -28,9 +28,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const assetIds = new Set(assets.map((asset) => asset.id));
   const runs = listRuns().filter((run) => run.assetId && assetIds.has(run.assetId));
 
-  // 공유 뷰는 자산별 "판정 배지"까지만 노출한다 (#72 제품 결정) — 건수·항목별
-  // 상세·CVE 내역 등 그 외 필드는 계속 비노출. getAssetStatusMap()은 내부
-  // 대시보드(자산 관리 화면)와 동일한 판정 규칙을 사용하므로 재사용한다.
+  // 공유 뷰 노출 정책: 자산별 판정 배지 + (조치 가이드용) 취약·검토 항목의
+  // id·제목·심각도·조치 가이드까지 노출한다(PM이 조치 판단할 수 있도록 — findings).
+  // evidence 원문·CVE 내역은 계속 비노출. getAssetStatusMap()은 내부 대시보드와
+  // 동일한 판정 규칙을 사용하므로 재사용한다.
   const statusMap = getAssetStatusMap();
 
   const publicProject = { name: result.project.name, pmName: result.project.pmName };

@@ -65,6 +65,14 @@ const VERDICT_BADGE: Record<AssetVerdict, { status: BadgeStatus; label: string }
   none: { status: "neutral", label: "미점검" },
 };
 
+// 조치 항목 심각도 배지: Critical/High→취약색, Medium→검토색, Low→중립.
+const SEVERITY_BADGE: Record<string, BadgeStatus> = {
+  Critical: "fail",
+  High: "fail",
+  Medium: "review",
+  Low: "neutral",
+};
+
 type ShareLinkStatus = { ok: true } | { ok: false; reason: "not_found" | "disabled" | "revoked" };
 
 const REJECTION_MESSAGES: Record<"not_found" | "disabled" | "revoked", string> = {
@@ -263,6 +271,11 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                                 <StatusBadge status={it.status === "fail" ? "fail" : "review"}>
                                   {it.status === "fail" ? "취약" : "검토"}
                                 </StatusBadge>
+                                {it.severity && (
+                                  <StatusBadge status={SEVERITY_BADGE[it.severity] ?? "neutral"}>
+                                    {it.severity}
+                                  </StatusBadge>
+                                )}
                                 <span className="text-[13px]">{it.title}</span>
                               </div>
                               {it.mitigation ? (
