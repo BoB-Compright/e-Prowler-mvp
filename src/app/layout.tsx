@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeScript } from "./_components/ThemeScript";
 import { AppHeader } from "./_components/AppHeader";
 import { AppSidebar } from "./_components/AppSidebar";
+import { CveLiveToasts } from "./_components/CveLiveToasts";
 import { PUBLIC_ROUTE_HEADER } from "@/lib/auth/constants";
 import { getSessionUserFromCookies, requireSessionUserOrRedirect } from "@/lib/auth/serverSession";
 
@@ -43,6 +44,7 @@ export default async function RootLayout({
         <div className="flex min-h-screen flex-col md:pl-64">
           <AppHeader user={session ? { username: session.username } : null} />
           {children}
+          {session && !isPublicRoute && <CveLiveToasts />}
         </div>
       </body>
     </html>
