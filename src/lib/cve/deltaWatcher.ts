@@ -4,6 +4,7 @@ import { analyzeCveImpact as realAnalyzeCveImpact } from "./aiAnalysis";
 import { fetchRecentCves as realFetchRecentCves, type DeltaCveEntry } from "./deltaClient";
 import { isVersionInRange } from "./versionRange";
 import { setCveAiAnalysis, upsertCveMatch, type CveMatch } from "./store";
+import { upsertFeedCve, pruneFeedCves } from "./feedStore";
 
 const KEYED_INTERVAL_MS = 30 * 60 * 1000; // NVD_API_KEY 있을 때
 const NO_KEY_INTERVAL_MS = 2 * 60 * 60 * 1000; // 무키
@@ -57,6 +58,17 @@ export async function runDeltaCycle(
 
   const entries = await deps.fetchRecentCves(windowStart, now);
 
+  // 수집한 전체 피드를 cve_id 단위로 저장한다(매칭 여부와 무관 — "영향 없음" 행도
+  // 화면에 보여야 하므로). DeltaCveEntry는 (cve, product)로 전개돼 같은 cve_id가
+  // 여러 번 나오지만 upsertFeedCve가 멱등이라 마지막 값으로 수렴한다.
+  for (const entry of entries) {
+    upsertFeedCve(
+      { cveId: entry.cveId, publishedAt: entry.publishedAt, severity: entry.severity, cvssScore: entry.cvssScore, summary: entry.summary },
+      now,
+      db,
+    );
+  }
+
   const packages = db
     .prepare(`SELECT DISTINCT asset_id, name, version FROM installed_packages WHERE name != ''`)
     .all() as { asset_id: string; name: string; version: string }[];
@@ -86,6 +98,9 @@ export async function runDeltaCycle(
       }
     }
   }
+
+  // 14일 지난 피드 행 정리(cve_matches는 유지).
+  pruneFeedCves(now, db);
 
   setWatermark(now.toISOString(), db);
 }
