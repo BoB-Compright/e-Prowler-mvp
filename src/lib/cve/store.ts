@@ -215,3 +215,45 @@ export function countRecentCriticalCveAlertsByAsset(
     .all(alertCutoffIso(now)) as { asset_id: string; cnt: number }[];
   return new Map(rows.map((row) => [row.asset_id, row.cnt]));
 }
+
+// ── 라이브 토스트용 최근 매칭 조회 ──────────────────────────────────────
+export interface RecentMatch {
+  cveId: string;
+  severity: CveSeverity;
+  summary: string;
+  assetMatches: number;
+  firstSeenAt: string;
+}
+
+// since 이후 처음 발견된 미해제 매칭 CVE를, cve_id 단위로 묶어 최신순 상한 limit건.
+// 요약은 번역 캐시가 있으면 한국어, 없으면 저장된 영문. assetMatches는 distinct 자산 수.
+export function listRecentMatchedCves(since: string, limit: number, db: Database = getDb()): RecentMatch[] {
+  const rows = db
+    .prepare(
+      `SELECT m.cve_id,
+              MAX(m.severity) AS severity,
+              COALESCE(t.summary_ko, MIN(m.summary)) AS summary,
+              COUNT(DISTINCT m.asset_id) AS asset_matches,
+              MAX(m.first_seen_at) AS first_seen_at
+       FROM cve_matches m
+       LEFT JOIN cve_translations t ON t.cve_id = m.cve_id
+       WHERE m.dismissed = 0 AND m.first_seen_at > ?
+       GROUP BY m.cve_id
+       ORDER BY first_seen_at DESC
+       LIMIT ?`,
+    )
+    .all(since, limit) as {
+    cve_id: string;
+    severity: CveSeverity;
+    summary: string;
+    asset_matches: number;
+    first_seen_at: string;
+  }[];
+  return rows.map((r) => ({
+    cveId: r.cve_id,
+    severity: r.severity,
+    summary: r.summary,
+    assetMatches: r.asset_matches,
+    firstSeenAt: r.first_seen_at,
+  }));
+}
