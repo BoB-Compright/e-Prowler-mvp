@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { RiskSummary } from "@/lib/checks/riskSummary";
+import { CountUp } from "./CountUp";
 
 const SEVERITY_CARDS: {
   key: "Critical" | "High" | "Medium" | "Low";
@@ -30,13 +34,18 @@ export function RiskSummaryBar({ summary }: { summary: RiskSummary }) {
     summary.statusCounts.review +
     summary.statusCounts.skip;
 
+  // 막대 세그먼트를 마운트 후 0→목표%로 그로우(빠르게 펼쳐지는 형태).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return (
     <div className="rounded-lg border border-border bg-surface p-3.5">
       <div className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-text">
         보안 위험 요약
-        <span className="font-mono text-xs font-normal text-muted">
-          · 총 {summary.total}개 항목
-        </span>
+        <span className="font-mono text-xs font-normal text-muted">· 총 {summary.total}개 항목</span>
       </div>
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex gap-2">
@@ -45,9 +54,10 @@ export function RiskSummaryBar({ summary }: { summary: RiskSummary }) {
               key={card.key}
               className={`min-w-[84px] rounded-lg border border-l-[3px] border-border bg-bg py-1.5 pr-3 pl-2.5 ${card.borderClass}`}
             >
-              <div className={`font-mono text-[20px] leading-none font-extrabold ${card.textClass}`}>
-                {summary.severityCounts[card.key]}
-              </div>
+              <CountUp
+                value={summary.severityCounts[card.key]}
+                className={`block font-mono text-[20px] leading-none font-extrabold ${card.textClass}`}
+              />
               <div className="text-[11px] text-muted">
                 {card.key} · {card.ko}
               </div>
@@ -59,22 +69,22 @@ export function RiskSummaryBar({ summary }: { summary: RiskSummary }) {
             {STATUS_SEGMENTS.map((seg) => (
               <div
                 key={seg.key}
-                className={seg.bgClass}
+                className={`${seg.bgClass} transition-[width] duration-500 ease-out motion-reduce:transition-none`}
                 style={{
-                  width: shownTotal ? `${(summary.statusCounts[seg.key] / shownTotal) * 100}%` : 0,
+                  width:
+                    mounted && shownTotal
+                      ? `${(summary.statusCounts[seg.key] / shownTotal) * 100}%`
+                      : 0,
                 }}
               />
             ))}
           </div>
           <div className="flex flex-wrap gap-4">
             {STATUS_SEGMENTS.map((seg) => (
-              <span
-                key={seg.key}
-                className="inline-flex items-center gap-1.5 text-xs text-muted"
-              >
+              <span key={seg.key} className="inline-flex items-center gap-1.5 text-xs text-muted">
                 <span className={`h-[9px] w-[9px] rounded-sm ${seg.bgClass}`} />
                 <span className="font-mono tracking-wide">{seg.label}</span>
-                <b className="text-text">{summary.statusCounts[seg.key]}</b>
+                <CountUp value={summary.statusCounts[seg.key]} className="font-bold text-text" />
               </span>
             ))}
           </div>

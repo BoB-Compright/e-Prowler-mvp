@@ -1,5 +1,6 @@
 import { listFeedForDisplay } from "@/lib/cve/feedStore";
 import { getDb } from "@/lib/db";
+import { formatKst } from "@/lib/time/kst";
 import { CveFeedView } from "./CveFeedView";
 
 // CVE 피드: NVD 피드에서 수집한 실제 CVE(feed_cves)를 우리 자산과 대조해 표시한다.
@@ -15,6 +16,6 @@ function getWatermark(): string | null {
 export default function CveFeedPage() {
   const feed = listFeedForDisplay(new Date());
   const watermark = getWatermark();
-  const lastScan = watermark ? watermark.replace("T", " ").slice(0, 16) : "아직 없음";
+  const lastScan = watermark ? formatKst(watermark) : "아직 없음";
   return <CveFeedView feed={feed} initialLastScan={lastScan} />;
 }

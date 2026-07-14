@@ -22,7 +22,7 @@ export function AppHeader({ user }: { user: HeaderUser | null }) {
         <div className="min-w-0 md:hidden">
           <BrandLogo />
         </div>
-        <div className="hidden text-[13px] text-muted md:block">
+        <div className="hidden text-[13px] font-semibold text-text md:block">
           {current ? current.label : "NH-Guardian"}
         </div>
         <div className="flex-1" />

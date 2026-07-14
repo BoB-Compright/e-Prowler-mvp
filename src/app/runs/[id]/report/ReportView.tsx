@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Run } from "@/lib/pipeline/types";
 import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import { getFrameworks } from "@/lib/catalog";
+import { formatKst } from "@/lib/time/kst";
 import {
   CHECK_STATUS_LABELS,
   type Category,
@@ -17,6 +18,7 @@ import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
 import { Card } from "@/app/_components/Card";
 import { SectionLabel } from "@/app/_components/SectionLabel";
 import { StatusBadge } from "@/app/_components/StatusBadge";
+import { CountUp } from "@/app/_components/CountUp";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
 import { RescanButton } from "./RescanButton";
 import type { CveMatch } from "@/lib/cve/store";
@@ -71,10 +73,6 @@ function chipStyle(active: boolean): string {
       ? "border-primary bg-surface font-semibold text-primary"
       : "border-border text-muted hover:bg-bg"
   }`;
-}
-
-function formatTimestamp(iso: string): string {
-  return iso.replace("T", " ").slice(0, 16);
 }
 
 function InlineCodeText({ text }: { text: string }) {
@@ -155,7 +153,7 @@ export function ReportView({ runId }: { runId: string }) {
           <p className="mt-1 text-[13px] text-muted">
             <span className="font-mono">{getRepoDisplayName(run.repoUrl)}</span>
             <span className="mx-1.5">·</span>
-            <span className="font-mono">{formatTimestamp(run.updatedAt)}</span>
+            <span className="font-mono">{formatKst(run.updatedAt)}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -186,30 +184,46 @@ export function ReportView({ runId }: { runId: string }) {
       {checks.length > 0 && (
         <>
           <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "all" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Total Checks</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">
-                {summary.total}
+                <CountUp value={summary.total} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("pass")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "pass" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Pass</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-pass">
-                {summary.statusCounts.pass}
+                <CountUp value={summary.statusCounts.pass} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("fail")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "fail" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Fail</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-fail">
-                {summary.statusCounts.fail}
+                <CountUp value={summary.statusCounts.fail} />
               </div>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("review")}
+              className={`rounded-2xl border bg-surface p-5 text-left transition-colors hover:border-primary/50 ${statusFilter === "review" ? "border-primary" : "border-border"}`}
+            >
               <SectionLabel>Review</SectionLabel>
               <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] text-review">
-                {summary.statusCounts.review}
+                <CountUp value={summary.statusCounts.review} />
               </div>
-            </div>
+            </button>
           </div>
 
           <div className="mt-4">

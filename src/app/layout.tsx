@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "./_components/ThemeScript";
+import { NavCollapseScript } from "./_components/NavCollapseScript";
 import { AppHeader } from "./_components/AppHeader";
 import { AppSidebar } from "./_components/AppSidebar";
 import { CveLiveToasts } from "./_components/CveLiveToasts";
@@ -38,10 +39,11 @@ export default async function RootLayout({
     <html lang="ko" data-theme="light" className={`h-full antialiased ${inter.variable} ${jbMono.variable}`}>
       <head>
         <ThemeScript />
+        <NavCollapseScript />
       </head>
       <body className="min-h-full">
         <AppSidebar />
-        <div className="flex min-h-screen flex-col md:pl-64">
+        <div className="app-main flex min-h-screen flex-col">
           <AppHeader user={session ? { username: session.username } : null} />
           {children}
           {session && !isPublicRoute && <CveLiveToasts />}

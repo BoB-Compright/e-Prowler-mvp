@@ -8,6 +8,7 @@ import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
+import { CountUp } from "../_components/CountUp";
 
 const SEVERITY_LABEL: Record<CveSeverity, string> = {
   critical: "심각", high: "높음", medium: "중간", low: "낮음", unknown: "미상",
@@ -121,17 +122,17 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-surface p-5">
           <SectionLabel>수집 CVE</SectionLabel>
-          <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]">{collectedToday}</div>
+          <div className="mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em]"><CountUp value={collectedToday} /></div>
           <div className="mt-1 text-[13px] text-muted">최근 14일간 수집된 전체 CVE</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
           <SectionLabel>긴급(Critical)</SectionLabel>
-          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}>{newCritical}</div>
+          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}><CountUp value={newCritical} /></div>
           <div className="mt-1 text-[13px] text-muted">CVSS 9.0 이상 최고 위험 등급</div>
         </div>
         <div className="rounded-2xl border border-border bg-surface p-5">
           <SectionLabel>조치 대상</SectionLabel>
-          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}>{assetMatched}</div>
+          <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}><CountUp value={assetMatched} /></div>
           <div className="mt-1 text-[13px] text-muted">보유 자산에서 영향이 확인된 CVE</div>
         </div>
       </div>
