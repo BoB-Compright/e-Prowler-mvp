@@ -46,6 +46,8 @@ export interface Run {
   triggerType: RunTriggerType;
   createdAt: string;
   updatedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
 
 export interface RunEvent {

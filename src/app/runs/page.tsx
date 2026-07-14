@@ -8,6 +8,7 @@ import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
 import { formatKst } from "@/lib/time/kst";
 import { Card } from "../_components/Card";
+import { RunDuration } from "../_components/RunDuration";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
@@ -86,6 +87,9 @@ export default async function RunsPage({
                   <th className="px-3 py-3 text-center">
                     <SectionLabel>트리거</SectionLabel>
                   </th>
+                  <th className="px-3 py-3 text-center">
+                    <SectionLabel>소요시간</SectionLabel>
+                  </th>
                   <th className="px-5 py-3">
                     <SectionLabel>상태</SectionLabel>
                   </th>
@@ -156,6 +160,15 @@ export default async function RunsPage({
                       </td>
                       <td className="px-3 py-3 text-center text-[13px] text-muted">
                         {run.triggerType === "scheduled" ? "예약" : "수동"}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <RunDuration
+                          status={run.status}
+                          startedAt={run.startedAt}
+                          finishedAt={run.finishedAt}
+                          createdAt={run.createdAt}
+                          updatedAt={run.updatedAt}
+                        />
                       </td>
                       <td className="px-5 py-3">
                         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>

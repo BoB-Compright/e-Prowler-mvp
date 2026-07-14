@@ -19,6 +19,8 @@ function makeRun(overrides: Partial<Run> = {}): Run {
     triggerType: "manual",
     createdAt: "2026-07-09T01:00:00.000Z",
     updatedAt: "2026-07-09T01:23:45.000Z",
+    startedAt: null,
+    finishedAt: null,
     ...overrides,
   };
 }

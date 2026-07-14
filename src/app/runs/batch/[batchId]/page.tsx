@@ -10,6 +10,7 @@ import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
 import { formatKst } from "@/lib/time/kst";
 import { AutoRefresh } from "../../../_components/AutoRefresh";
 import { Card } from "../../../_components/Card";
+import { RunDuration } from "../../../_components/RunDuration";
 import { SectionLabel } from "../../../_components/SectionLabel";
 import { StatusBadge } from "../../../_components/StatusBadge";
 import type { BadgeStatus } from "../../../_components/statusBadgeStyles";
@@ -81,6 +82,9 @@ export default async function BatchPage({
                   <SectionLabel>마지막 갱신</SectionLabel>
                 </th>
                 <th className="px-5 py-3">
+                  <SectionLabel>소요시간</SectionLabel>
+                </th>
+                <th className="px-5 py-3">
                   <SectionLabel>상태</SectionLabel>
                 </th>
               </tr>
@@ -133,6 +137,15 @@ export default async function BatchPage({
                     </td>
                     <td className="px-5 py-3 font-mono text-[13px] text-muted">
                       {formatKst(run.updatedAt)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <RunDuration
+                        status={run.status}
+                        startedAt={run.startedAt}
+                        finishedAt={run.finishedAt}
+                        createdAt={run.createdAt}
+                        updatedAt={run.updatedAt}
+                      />
                     </td>
                     <td className="px-5 py-3">
                       <StatusBadge status={badge.status}>{badge.label}</StatusBadge>

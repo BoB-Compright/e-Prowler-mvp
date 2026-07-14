@@ -7,6 +7,7 @@ import { getRepoDisplayName } from "@/lib/pipeline/repoUrl";
 import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { computeRiskSummary, overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { RiskSummaryBar } from "@/app/_components/RiskSummaryBar";
+import { RunDuration } from "@/app/_components/RunDuration";
 import { StatusBadge } from "@/app/_components/StatusBadge";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
 
@@ -255,6 +256,17 @@ export function RunStatus({ runId }: { runId: string }) {
           }`}
         >
           {STAGE_LABELS[run.stage]} · {STATUS_LABELS[run.status]}
+        </div>
+        <div className="mt-1 text-[13px] text-muted">
+          소요시간:{" "}
+          <RunDuration
+            status={run.status}
+            startedAt={run.startedAt}
+            finishedAt={run.finishedAt}
+            createdAt={run.createdAt}
+            updatedAt={run.updatedAt}
+            className="font-mono text-[13px] text-text"
+          />
         </div>
         {run.imageTag && (
           <div>
