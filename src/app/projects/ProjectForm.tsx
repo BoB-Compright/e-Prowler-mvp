@@ -6,7 +6,7 @@ const inputClass =
   "rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
 const labelClass = "text-[13px] font-medium";
 
-export function ProjectForm() {
+export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -20,7 +20,8 @@ export function ProjectForm() {
     });
     if (res.ok) {
       form.reset();
-      router.refresh();
+      if (onSuccess) onSuccess();
+      else router.refresh();
     }
   }
 
