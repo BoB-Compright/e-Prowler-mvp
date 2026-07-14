@@ -16,6 +16,7 @@ import {
   listRecentCriticalCveAlerts,
   countRecentCriticalCveAlertsByAsset,
   listRecentMatchedCves,
+  listCveMatchesByCve,
 } from "./store";
 
 let db: Database;
@@ -179,5 +180,31 @@ describe("listRecentMatchedCves", () => {
       upsertCveMatch({ assetId: asset.id, packageName: `p${i}`, packageVersion: "1", entry: cveEntry({ cveId: `CVE-X${i}` }) }, t, db);
     }
     expect(listRecentMatchedCves("2026-07-13T00:00:00Z", 3, db)).toHaveLength(3);
+  });
+});
+
+describe("listCveMatchesByCve", () => {
+  it("returns non-dismissed matches for a cve across assets, joined with asset name/type", () => {
+    const a1 = server({ hostIp: "10.0.5.1", displayName: "웹-1" });
+    const a2 = server({ hostIp: "10.0.5.2", displayName: "웹-2" });
+    const now = new Date("2026-07-14T00:00:00Z");
+    upsertCveMatch({ assetId: a1.id, packageName: "openssl", packageVersion: "3.0.1", entry: cveEntry({ cveId: "CVE-2026-777" }) }, now, db);
+    upsertCveMatch({ assetId: a2.id, packageName: "openssl", packageVersion: "3.0.2", entry: cveEntry({ cveId: "CVE-2026-777" }) }, now, db);
+    const other = upsertCveMatch({ assetId: a1.id, packageName: "curl", packageVersion: "8.0", entry: cveEntry({ cveId: "CVE-2026-888" }) }, now, db);
+    setCveDismissed(other.match.id, true, db); // 다른 cve·dismissed → 제외
+
+    const rows = listCveMatchesByCve("CVE-2026-777", db);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.assetName).sort()).toEqual(["웹-1", "웹-2"]);
+    expect(rows[0].assetType).toBe("server");
+    expect(rows.every((r) => r.cveId === "CVE-2026-777")).toBe(true);
+  });
+
+  it("excludes dismissed matches", () => {
+    const a = server({ hostIp: "10.0.5.3" });
+    const now = new Date("2026-07-14T00:00:00Z");
+    const m = upsertCveMatch({ assetId: a.id, packageName: "p", packageVersion: "1", entry: cveEntry({ cveId: "CVE-2026-999" }) }, now, db);
+    setCveDismissed(m.match.id, true, db);
+    expect(listCveMatchesByCve("CVE-2026-999", db)).toEqual([]);
   });
 });
