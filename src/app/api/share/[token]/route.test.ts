@@ -88,16 +88,26 @@ describe("POST /api/share/[token]", () => {
     for (const asset of body.assets as Array<Record<string, unknown>>) {
       expect(Object.keys(asset).sort()).toEqual(["displayName", "id", "type", "verdict"]);
     }
-    for (const run of body.runs as Array<Record<string, unknown>>) {
-      expect(run).not.toHaveProperty("checks");
-      expect(run).not.toHaveProperty("cve");
-      expect(run).not.toHaveProperty("riskSummary");
-    }
+
+    // 응답 최상위는 project/assets/perAsset만 노출한다(runs/findings는 perAsset으로 대체).
+    expect(Object.keys(body).sort()).toEqual(["assets", "perAsset", "project"]);
+
+    // 미점검(no-run) 자산과 빌드 실패(succeeded 아님) 자산 모두 run:null, checks:[]다.
+    const perAssetById = new Map(
+      (body.perAsset as Array<{ assetId: string; run: unknown; checks: unknown[] }>).map((p) => [
+        p.assetId,
+        p,
+      ]),
+    );
+    expect(perAssetById.get(errorAsset.id)?.run).toBeNull();
+    expect(perAssetById.get(errorAsset.id)?.checks).toEqual([]);
+    expect(perAssetById.get(noRunAsset.id)?.run).toBeNull();
+    expect(perAssetById.get(noRunAsset.id)?.checks).toEqual([]);
   });
 
-  it("includes fail/review findings with mitigation for each asset's latest succeeded run (#mitigation)", async () => {
+  it("perAsset에 자산별 최신 성공 run의 전체 데코 항목을 반환하고 CVE는 없다", async () => {
     const { createProject } = await import("@/lib/projects/store");
-    const { createServerAsset } = await import("@/lib/assets/store");
+    const { createServerAsset, createRepoAsset } = await import("@/lib/assets/store");
     const { createRun, updateRunStage } = await import("@/lib/pipeline/runs");
     const { saveCheckResults } = await import("@/lib/checks/store");
     const { POST } = await import("./route");
@@ -105,25 +115,47 @@ describe("POST /api/share/[token]", () => {
     const project = createProject({ name: "P", pmName: "김", pmEmail: "a@nh.com", sharePassword: "pw" });
     const asset = createServerAsset({ displayName: "srv", hostIp: "10.0.0.1", hostname: "h", sshPort: 22, authType: "password", username: "u", secret: "p", projectId: project.id });
     const run = createRun(asset.hostIp!, "server", asset.id);
+    // pass·fail·review·skip 섞인 결과를 저장.
     saveCheckResults(run.id, [
-      { id: "U-01", status: "fail", evidence: "secret-evidence" },
-      { id: "U-13", status: "pass", evidence: "ok" },
+      { id: "U-01", status: "pass", evidence: "PermitRootLogin prohibit-password" },
+      { id: "U-13", status: "fail", evidence: "uid 0 (CVE-2024-1234)" },
+      { id: "U-42", status: "review", evidence: "manual check needed" },
+      { id: "U-44", status: "skip", evidence: "n/a" },
     ]);
     updateRunStage(run.id, "done", "succeeded");
 
-    const res = await POST(
-      new Request(`http://localhost/api/share/${project.shareToken}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: "pw" }),
-      }) as unknown as NextRequest,
-      { params: Promise.resolve({ token: project.shareToken }) },
-    );
+    const noRunAsset = createRepoAsset({
+      displayName: "no-run",
+      repoUrl: "https://github.com/nh/norun.git",
+      projectId: project.id,
+    });
+
+    const res = await POST(jsonRequest(project.shareToken, "pw"), {
+      params: Promise.resolve({ token: project.shareToken }),
+    });
+    expect(res.status).toBe(200);
     const body = await res.json();
-    const finding = body.findings.find((f: { assetId: string }) => f.assetId === asset.id);
-    expect(finding.items.map((i: { id: string }) => i.id)).toEqual(["U-01"]); // fail만, pass 제외
-    expect(finding.items[0].mitigation.fix.length).toBeGreaterThan(0);
-    // evidence 원문은 공유에 절대 포함되지 않는다.
-    expect(JSON.stringify(body)).not.toContain("secret-evidence");
+
+    const entry = body.perAsset.find((p: { assetId: string }) => p.assetId === asset.id);
+    expect(entry.run).not.toBeNull();
+    expect(entry.run.id).toBe(run.id);
+    expect(entry.checks.length).toBe(4);
+    // 전체 상태가 포함(pass도 포함 — 취약/검토만이 아님)
+    expect(entry.checks.some((c: { status: string }) => c.status === "pass")).toBe(true);
+    expect(entry.checks.some((c: { status: string }) => c.status === "review")).toBe(true);
+    expect(entry.checks.some((c: { status: string }) => c.status === "skip")).toBe(true);
+    // 데코 필드
+    const any = entry.checks[0];
+    expect(any).toHaveProperty("title");
+    expect(any).toHaveProperty("evidence");
+    expect(any).toHaveProperty("reason");
+    // CVE 미노출
+    expect(body).not.toHaveProperty("cveMatches");
+    expect(entry).not.toHaveProperty("cveMatches");
+
+    // 미점검 자산은 run:null, checks:[]
+    const noRunEntry = body.perAsset.find((p: { assetId: string }) => p.assetId === noRunAsset.id);
+    expect(noRunEntry.run).toBeNull();
+    expect(noRunEntry.checks).toEqual([]);
   });
 });
