@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { FeedRow } from "@/lib/cve/feedStore";
 import type { CveSeverity } from "@/lib/cve/nvdClient";
 import { Card } from "../_components/Card";
@@ -170,7 +171,15 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
                     <td className="px-4 py-3 whitespace-nowrap text-muted">{c.collectedLabel}</td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] text-muted">{c.publishedAt ? c.publishedAt.slice(0, 10) : "—"}</td>
                     <td className="px-4 py-3"><StatusBadge status={SEVERITY_STATUS[c.severity]}>{SEVERITY_LABEL[c.severity]}</StatusBadge></td>
-                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] font-bold">{c.cveId}</td>
+                    <td className="px-4 py-3 whitespace-nowrap font-mono text-[13px] font-bold">
+                      {c.assetMatches > 0 ? (
+                        <Link href={`/cve/${c.cveId}`} className="text-primary hover:underline">
+                          {c.cveId}
+                        </Link>
+                      ) : (
+                        c.cveId
+                      )}
+                    </td>
                     <td className="px-4 py-3 min-w-[220px]">{ko[c.cveId] ?? c.summary}</td>
                     <td className="px-4 py-3 text-center font-mono text-[13px] font-bold">{c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
