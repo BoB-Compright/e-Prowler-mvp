@@ -61,7 +61,9 @@ build 이미지 → sandbox → runAllChecks: resolveCheckPlan(autodetect)
 - distroless/스크래치(셸·os-release 없음): osUnix detect=false → U-* skip, 벤더 미탐지 → skip, 컨테이너 C-*만.
 - 벤더 팩 evidence 태스크는 read-only 쉘 프로브 — 컨테이너에서 안전.
 - 서버 경로·windowsOnly(serverScan) 로직 불변(declared 모드, 컨테이너 팩은 전부 linux).
-- itemIds 프리픽스 분리(각 벤더 팩 자기 항목만)는 기존대로 — 카테고리 공유 팩 중복 평가 없음.
+- **WEB 카탈로그(WEB-*)는 벤더 중립이라 web-nginx·web-apache가 같은 itemIds를 공유**한다. autodetect에서
+  둘 다 플랜에 들어가면 한 팩은 실판정·다른 팩은 skip을 내 항목이 중복된다. → `evaluatePlan`이 항목 id
+  단위로 **실판정을 skip보다 우선해 dedupe**(항목당 1건). (DB는 DB-*/PG-* 프리픽스 분리라 중복 없음.)
 
 ## 테스트 전략
 - 단위(resolve): 비-server → mode autodetect + packs=[container,osUnix,nginx,apache,tomcat,mysql,postgres],

@@ -138,4 +138,24 @@ describe("evaluatePlan — autodetect skip/eval", () => {
     expect(u.length).toBeGreaterThan(0);
     expect(u.every((r) => r.status === "skip")).toBe(true);
   });
+  it("항목 id 중복이 없다 — WEB 카탈로그 공유(nginx/apache)에도 WEB-*가 1건씩만", () => {
+    const plan = resolveCheckPlan(repoAsset());
+    // nginx 탐지: web-nginx는 실판정, web-apache는 같은 WEB-*를 skip → dedupe로 1건만.
+    const results = evaluatePlan(plan, { findings: null, tasks: imgTasks() }, repoAsset());
+    const ids = results.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length); // 중복 없음
+    // WEB-*는 nginx 탐지로 실판정(skip 아님)이 남아야 함(apache skip에 밀리지 않음)
+    const web = results.filter((r) => r.id.startsWith("WEB-"));
+    expect(web.length).toBeGreaterThan(0);
+    expect(web.some((r) => r.status !== "skip")).toBe(true);
+  });
+  it("둘 다 미탐지(neither)면 WEB-*는 skip 1건씩(중복 없음)", () => {
+    const plan = resolveCheckPlan(repoAsset());
+    const results = evaluatePlan(plan, { findings: null, tasks: [{ taskName: "os detection (internal)", stdout: "Linux" }] }, repoAsset());
+    const web = results.filter((r) => r.id.startsWith("WEB-"));
+    const ids = results.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(web.length).toBeGreaterThan(0);
+    expect(web.every((r) => r.status === "skip")).toBe(true);
+  });
 });

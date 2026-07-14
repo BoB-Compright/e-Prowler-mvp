@@ -59,6 +59,23 @@ function skipAll(pack: VendorPack, message: string): CheckResult[] {
   return pack.itemIds.map((id) => ({ id, status: "skip", evidence: message }));
 }
 
+// 같은 항목 id가 여러 팩에서 나올 때 하나만 남긴다. WEB 카탈로그(WEB-*)는 벤더 중립이라
+// web-nginx·web-apache가 같은 itemIds를 공유하는데, autodetect에선 두 팩이 모두 플랜에
+// 들어가 한 팩은 실판정·다른 팩은 skip을 내므로 중복이 생긴다. 실제 판정(skip 아님)을
+// skip보다 우선해 항목당 1건만 유지한다(declared 모드에선 겹치는 팩이 없어 no-op).
+function dedupePreferVerdict(results: CheckResult[]): CheckResult[] {
+  const byId = new Map<string, CheckResult>();
+  for (const r of results) {
+    const existing = byId.get(r.id);
+    if (!existing) {
+      byId.set(r.id, r);
+    } else if (existing.status === "skip" && r.status !== "skip") {
+      byId.set(r.id, r);
+    }
+  }
+  return [...byId.values()];
+}
+
 // 팩 하나를 평가하되 선택-모델 규칙을 적용한다:
 // - windows 실행경로: 실제 연결 전이므로 전부 review.
 // - autodetect(이미지): 팩 detect로 탐지된 것만 평가, 미탐지는 skip(노이즈 억제).
@@ -91,7 +108,7 @@ export function evaluatePack(
 // (autodetect는 오토셋 전체를 항상 넣으므로 "미지원 벤더" 개념이 없다).
 export function evaluatePlan(plan: CheckPlan, ctx: EvalContext, asset: Asset): CheckResult[] {
   const mode = plan.mode ?? "declared";
-  const results = plan.packs.flatMap((pack) => evaluatePack(pack, ctx, mode));
+  const results = dedupePreferVerdict(plan.packs.flatMap((pack) => evaluatePack(pack, ctx, mode)));
   const hasVendorPack = plan.packs.some((p) => p.vendors.length > 0);
   if (mode === "declared" && asset.category && asset.category !== "OS" && asset.vendor && !hasVendorPack) {
     results.push({
