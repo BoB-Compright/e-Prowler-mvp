@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Asset } from "@/lib/assets/types";
 
 vi.mock("./ansibleRunner", async () => {
   const actual = await vi.importActual<typeof import("./ansibleRunner")>("./ansibleRunner");
@@ -11,6 +12,13 @@ import { runAllChecks } from "./index";
 function task(taskName: string, stdout: string) {
   return { taskName, stdout };
 }
+
+const repoAssetFixture = {
+  id: "a1", type: "repo", displayName: "img", repoUrl: "https://github.com/nh/x",
+  projectId: null, hostIp: null, hostname: null, sshPort: null, authType: null,
+  username: null, encryptedSecret: null, os: null, owner: null, category: null,
+  vendor: null, dockerfilePath: null, createdAt: "",
+} as Asset;
 
 describe("runAllChecks (stack-based scoping)", () => {
   it("always includes generic items (C-*, most U-*) regardless of the detected stack", async () => {
@@ -88,5 +96,13 @@ describe("runAllChecks (stack-based scoping)", () => {
     // appliesTo/detectAssetProfile filter (not be dropped as before the fix).
     expect(results.some((r) => r.id.startsWith("WEB-"))).toBe(true);
     expect(results.some((r) => r.id === "WEB-04")).toBe(true);
+  });
+
+  it("categories=['DB']면 DB 팩만 평가되고 U-*/WEB-* 항목은 결과에 없다", async () => {
+    vi.mocked(runAnsibleChecks).mockResolvedValue([]);
+    const results = await runAllChecks(undefined, "fake-container", repoAssetFixture, ["DB"]);
+    expect(results.some((r) => r.id.startsWith("U-"))).toBe(false);
+    expect(results.some((r) => r.id.startsWith("WEB-"))).toBe(false);
+    expect(results.some((r) => r.id.startsWith("DB-") || r.id.startsWith("PG-"))).toBe(true);
   });
 });

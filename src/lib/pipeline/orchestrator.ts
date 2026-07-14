@@ -74,6 +74,7 @@ export async function runPipeline(
   source: RunSource,
   deps: PipelineDeps = defaultDeps,
   db: Database = getDb(),
+  options: { categories?: string[] } = {},
 ): Promise<void> {
   markRunStarted(runId, db);
   let imageTag: string;
@@ -223,7 +224,7 @@ export async function runPipeline(
     const asset = assetId ? getAsset(assetId, db) : undefined;
     let results;
     try {
-      results = await deps.runChecks(dockerfilePath, containerName, asset);
+      results = await deps.runChecks(dockerfilePath, containerName, asset, options.categories);
     } catch (err) {
       clearTimeout(sandboxTimeout);
       await deps.stopSandbox(containerName);
