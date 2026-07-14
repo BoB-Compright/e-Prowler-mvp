@@ -5,6 +5,7 @@ import { type RunOutcome } from "@/lib/checks/riskSummary";
 import { getAssetStatusMap, type AssetStatusKind } from "@/lib/pipeline/assetStatus";
 import { matchesProjectQuery } from "@/lib/search/match";
 import { ProjectsToolbar } from "./ProjectsToolbar";
+import { ProjectCardMenu } from "./ProjectCardMenu";
 import { Card } from "../_components/Card";
 import { StatusBadge } from "../_components/StatusBadge";
 
@@ -80,7 +81,14 @@ export default async function ProjectsPage({
                   </Link>
                 }
                 action={
-                  <span className="text-[13px] text-muted">자산 {projectAssets.length}</span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-[13px] text-muted">자산 {projectAssets.length}</span>
+                    <ProjectCardMenu
+                      projectId={project.id}
+                      projectName={project.name}
+                      assetCount={projectAssets.length}
+                    />
+                  </span>
                 }
               >
                 <p className="text-[13px] text-muted">
