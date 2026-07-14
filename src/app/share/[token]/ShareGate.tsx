@@ -4,8 +4,11 @@ import { useState } from "react";
 import { formatKst } from "@/lib/time/kst";
 import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { Card } from "../../_components/Card";
+import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
+import { SecurityScoreGauge } from "@/app/_components/dashboard/SecurityScoreGauge";
+import type { ScoreGrade } from "@/lib/dashboard/securityScore";
 import { ShareReport } from "./ShareReport";
 
 type AssetVerdict = "pass" | "fail" | "review" | "error" | "running" | "cancelled" | "none";
@@ -27,6 +30,7 @@ interface ShareData {
   project: { name: string; pmName: string };
   assets: ShareAsset[];
   perAsset: SharePerAsset[];
+  score?: { score: number; grade: ScoreGrade };
 }
 
 // 자산별 판정 배지 매핑 (#72) — 내부 자산 관리 화면(src/app/assets/page.tsx의
@@ -97,6 +101,15 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
           <h1 className="text-[22px] md:text-[26px] font-bold tracking-[-0.02em]">{data.project.name}</h1>
           <p className="mt-1 text-[13px] text-muted">담당 PM: {data.project.pmName}</p>
         </div>
+
+        {data.score && (
+          <Card className="mb-5" bodyClassName="p-5">
+            <SectionLabel>종합 보안 점수</SectionLabel>
+            <div className="mt-2 flex justify-center">
+              <SecurityScoreGauge score={data.score.score} grade={data.score.grade} />
+            </div>
+          </Card>
+        )}
 
         {data.assets.length === 0 ? (
           <Card bodyClassName="p-5">
