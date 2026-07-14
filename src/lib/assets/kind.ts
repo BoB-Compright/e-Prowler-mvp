@@ -29,6 +29,7 @@ export function categoryToKind(category: string | null): AssetKind {
 
 // 우선순위: 구체적 서비스(WAS>WEB>DB) > 런타임(→other) > OS 베이스 > other.
 const NAME_RULES: { keywords: string[]; kind: AssetKind }[] = [
+  { keywords: ["oraclelinux", "oracle-linux"], kind: "os" }, // Oracle Linux(OS)가 "oracle"(DB)로 오분류되지 않게 우선 처리
   { keywords: ["tomcat", "jboss", "wildfly", "weblogic", "jetty"], kind: "was" },
   { keywords: ["nginx", "apache", "httpd", "caddy", "haproxy"], kind: "web" },
   { keywords: ["mysql", "mariadb", "postgres", "redis", "mongo", "oracle", "mssql"], kind: "db" },

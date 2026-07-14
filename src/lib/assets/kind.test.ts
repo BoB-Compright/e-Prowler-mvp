@@ -46,6 +46,9 @@ describe("inferAssetKindFromName", () => {
     ["ubuntu:24.04", "os"],
     ["", "other"],
     ["some-unknown-thing", "other"],
+    ["oraclelinux:9", "os"],
+    ["nhit-image/oraclelinux-8-slim/Dockerfile", "os"],
+    ["oracle:19", "db"],
   ])("%s → %s", (name, kind) => {
     expect(inferAssetKindFromName(name)).toBe(kind);
   });
