@@ -127,11 +127,14 @@ export function AssetTable({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assetId, categories: scanCats }),
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.run?.id) {
         setScanModalOpen(false);
-        setMessage("점검을 시작했습니다");
+        setSelected(new Set());
+        // 방금 시작한 점검 진행 화면으로 이동(라이브 소요시간 확인) — bulk/재점검 경로와 UX 일치.
+        router.push(`/runs/${data.run.id}`);
       } else {
-        setMessage("점검 시작에 실패했습니다");
+        setMessage(String(data.error ?? "점검 시작에 실패했습니다"));
       }
     });
   }
