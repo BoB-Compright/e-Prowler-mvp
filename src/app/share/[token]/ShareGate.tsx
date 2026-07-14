@@ -130,7 +130,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-[26px] font-bold tracking-[-0.02em]">{data.project.name}</h1>
+          <h1 className="text-[22px] md:text-[26px] font-bold tracking-[-0.02em]">{data.project.name}</h1>
           <p className="mt-1 text-[13px] text-muted">담당 PM: {data.project.pmName}</p>
         </div>
 
@@ -141,7 +141,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                 <p className="p-5 text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                  <table className="w-full min-w-[520px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-border">
                         <th className="px-5 py-3">
@@ -273,15 +273,15 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                                     {it.severity}
                                   </StatusBadge>
                                 )}
-                                <span className="text-[13px]">{it.title}</span>
+                                <span className="text-[13px] break-words">{it.title}</span>
                               </div>
                               {it.mitigation ? (
                                 <div className="mt-2 text-[13px] leading-relaxed text-muted">
-                                  <p>
+                                  <p className="break-words">
                                     <span className="font-semibold text-text">위험 · </span>
                                     {it.mitigation.risk}
                                   </p>
-                                  <p className="mt-1">
+                                  <p className="mt-1 break-words">
                                     <span className="font-semibold text-text">조치 · </span>
                                     {it.mitigation.fix}
                                   </p>
