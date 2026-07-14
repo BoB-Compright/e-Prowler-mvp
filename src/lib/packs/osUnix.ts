@@ -2,6 +2,11 @@ import { getCatalogByCategory } from "@/lib/catalog";
 import * as R from "@/lib/checks/ruleEvaluation";
 import type { EvalContext, VendorPack } from "./types";
 import type { CheckResult } from "@/lib/checks/types";
+import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
+
+function findExact(tasks: AnsibleTaskOutput[], name: string): AnsibleTaskOutput | undefined {
+  return tasks.find((t) => t.taskName === name);
+}
 
 // U-01..U-67 평가기를 evaluateAllChecks와 동일 순서로 나열한다. 각 평가기는
 // tasks만 사용(U-*는 Dockerfile findings 불필요)한다.
@@ -31,7 +36,15 @@ export const osUnixPack: VendorPack = {
   vendors: [],
   executionPath: "linux",
   itemIds: getCatalogByCategory("unix").map((i) => i.id),
-  evidenceTasks: [],
-  detect: () => true,
+  evidenceTasks: [
+    {
+      name: "os detection (internal)",
+      raw: `sh -c 'cat /etc/os-release 2>/dev/null || uname -s 2>/dev/null || true'`,
+    },
+  ],
+  // 리눅스 userland(OS) 존재 여부. os-release나 uname 출력이 있으면 OS로 본다.
+  // declared 모드(서버)에선 이 detect가 평가에 쓰이지 않아 U-* 항상 평가는 불변이고,
+  // autodetect 모드(이미지)에서만 U-* 적용 여부를 가른다(distroless 배려).
+  detect: (tasks) => (findExact(tasks, "os detection (internal)")?.stdout.trim().length ?? 0) > 0,
   evaluate: evaluateUnix,
 };
