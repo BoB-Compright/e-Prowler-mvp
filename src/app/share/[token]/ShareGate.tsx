@@ -273,7 +273,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
                                     {it.severity}
                                   </StatusBadge>
                                 )}
-                                <span className="text-[13px]">{it.title}</span>
+                                <span className="text-[13px] break-words">{it.title}</span>
                               </div>
                               {it.mitigation ? (
                                 <div className="mt-2 text-[13px] leading-relaxed text-muted">

@@ -47,7 +47,29 @@ export function ShareLinkPanel({
     // hydrate cleanly, with the real URL populated right after.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShareUrl(`${window.location.origin}/share/${token}`);
+    // 토큰이 바뀌면(재발급 등) 이전 토큰으로 만든 QR은 죽은 링크이므로 폐기 — 아래 생성 이펙트가 재생성.
+    setQrDataUrl(null);
+    setQrError(null);
   }, [token]);
+
+  useEffect(() => {
+    // QR은 패널이 열려 있고 아직 만들지 않았을 때만 생성. 재발급으로 qrDataUrl이 비워지면 새 URL로 재생성된다.
+    if (!qrOpen || !shareUrl || qrDataUrl || qrError) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // 최초 필요 시에만 qrcode 로드(초기 번들 제외). data URL이라 외부 호출 없음(CSP 안전).
+        const QRCode = (await import("qrcode")).default;
+        const url = await QRCode.toDataURL(shareUrl, { width: 320, margin: 2 });
+        if (!cancelled) setQrDataUrl(url);
+      } catch {
+        if (!cancelled) setQrError("QR 생성에 실패했습니다");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [qrOpen, shareUrl, qrDataUrl, qrError]);
 
   async function handleRegenerate() {
     setError(null);
@@ -123,23 +145,8 @@ export function ShareLinkPanel({
     }
   }
 
-  async function toggleQr() {
-    if (qrOpen) {
-      setQrOpen(false);
-      return;
-    }
-    setQrOpen(true);
-    setQrError(null);
-    if (!qrDataUrl && shareUrl) {
-      try {
-        // 최초 열 때만 qrcode 로드(초기 번들 제외). data URL이라 외부 호출 없음(CSP 안전).
-        const QRCode = (await import("qrcode")).default;
-        const url = await QRCode.toDataURL(shareUrl, { width: 320, margin: 2 });
-        setQrDataUrl(url);
-      } catch {
-        setQrError("QR 생성에 실패했습니다");
-      }
-    }
+  function toggleQr() {
+    setQrOpen((open) => !open);
   }
 
   const isRevoked = status === "revoked";
