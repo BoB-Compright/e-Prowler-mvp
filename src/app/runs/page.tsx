@@ -7,6 +7,8 @@ import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { CHECK_STATUS_LABELS } from "@/lib/catalog/types";
 import { formatKst } from "@/lib/time/kst";
+import { classifyAssetKind } from "@/lib/assets/kind";
+import { AssetKindBadge } from "../_components/AssetKindBadge";
 import { Card } from "../_components/Card";
 import { RunDuration } from "../_components/RunDuration";
 import { SectionLabel } from "../_components/SectionLabel";
@@ -117,6 +119,11 @@ export default async function RunsPage({
                         >
                           {id.label}
                         </Link>
+                        {run.assetId && assetsById.get(run.assetId) ? (
+                          <span className="mt-0.5 block">
+                            <AssetKindBadge kind={classifyAssetKind(assetsById.get(run.assetId)!)} />
+                          </span>
+                        ) : null}
                         {id.filterAssetId ? (
                           <Link
                             href={`/runs?asset=${id.filterAssetId}`}

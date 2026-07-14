@@ -6,12 +6,15 @@ import { useRouter } from "next/navigation";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
+import type { AssetKind } from "@/lib/assets/kind";
+import { AssetKindBadge } from "../_components/AssetKindBadge";
 
 export interface AssetRowData {
   id: string;
   displayName: string;
   detail: string; // repoUrl 또는 host:port
   typeLabel: string; // "레포" | "서버"
+  kind: AssetKind; // 실질 구분(OS/WEB/WAS/DB/기타)
   projectName: string;
   createdAt: string;
   scheduleLabel: string;
@@ -270,7 +273,12 @@ export function AssetTable({
                   )}
                   <p className="mt-0.5 font-mono text-[13px] text-muted">{row.detail}</p>
                 </td>
-                <td className="px-5 py-3 text-muted">{row.typeLabel}</td>
+                <td className="px-5 py-3">
+                  <span className="text-muted">{row.typeLabel}</span>
+                  <span className="mt-0.5 block">
+                    <AssetKindBadge kind={row.kind} />
+                  </span>
+                </td>
                 <td className="px-5 py-3">{row.projectName}</td>
                 <td className="px-5 py-3 font-mono text-[13px] text-muted">{row.createdAt}</td>
                 <td className="px-5 py-3 text-[13px] text-muted">{row.scheduleLabel}</td>
