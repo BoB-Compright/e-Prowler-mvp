@@ -29,4 +29,7 @@ export interface VendorPack {
 export interface CheckPlan {
   packs: VendorPack[];
   evidenceTasks: PlaybookTask[];
+  // "declared"(서버: 선언 벤더, 미확인→review) | "autodetect"(이미지: 자동 탐지, 미탐지→skip).
+  // 생략 시 "declared"(하위호환).
+  mode?: "declared" | "autodetect";
 }
