@@ -17,6 +17,8 @@ interface RunRow {
   trigger_type: RunTriggerType;
   created_at: string;
   updated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
 }
 
 function toRun(row: RunRow): Run {
@@ -34,6 +36,8 @@ function toRun(row: RunRow): Run {
     triggerType: row.trigger_type,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
   };
 }
 
@@ -61,10 +65,12 @@ export function createRun(
     triggerType: "manual",
     createdAt: now,
     updatedAt: now,
+    startedAt: null,
+    finishedAt: null,
   };
   db.prepare(
-    `INSERT INTO runs (id, repo_url, source_type, stage, status, image_tag, container_name, error_message, asset_id, created_at, updated_at)
-     VALUES (@id, @repoUrl, @sourceType, @stage, @status, @imageTag, @containerName, @errorMessage, @assetId, @createdAt, @updatedAt)`,
+    `INSERT INTO runs (id, repo_url, source_type, stage, status, image_tag, container_name, error_message, asset_id, created_at, updated_at, started_at, finished_at)
+     VALUES (@id, @repoUrl, @sourceType, @stage, @status, @imageTag, @containerName, @errorMessage, @assetId, @createdAt, @updatedAt, @startedAt, @finishedAt)`,
   ).run(run);
   appendEvent(run.id, run.stage, run.status, null, db);
   return run;
@@ -99,6 +105,10 @@ export function updateRunStage(
     errorMessage: extra.errorMessage,
   });
   appendEvent(runId, stage, status, extra.message ?? extra.errorMessage ?? null, db);
+  // 종료 전이(파이프라인의 정상 완료 "done/succeeded" 또는 어떤 단계든 "failed")에서 종료 시각을 확정.
+  if (status === "failed" || (stage === "done" && status === "succeeded")) {
+    markRunFinished(runId, db);
+  }
 }
 
 export function appendEvent(
@@ -163,6 +173,7 @@ export function cancelRun(runId: string, message: string, db: Database = getDb()
     updatedAt: now,
   });
   appendEvent(runId, run.stage, "cancelled", message, db);
+  markRunFinished(runId, db);
   return getRun(runId, db)!;
 }
 
@@ -176,4 +187,21 @@ export function markRunTriggerType(
   db: Database = getDb(),
 ): void {
   db.prepare(`UPDATE runs SET trigger_type = ? WHERE id = ?`).run(triggerType, runId);
+}
+
+// 파이프라인이 실제로 실행을 시작하는 순간 호출 — 배치 큐 대기시간을 제외하려고
+// createRun(enqueue)이 아니라 여기서 찍는다. 이미 값이 있으면 덮어쓰지 않는다.
+export function markRunStarted(runId: string, db: Database = getDb()): void {
+  db.prepare(`UPDATE runs SET started_at = @now WHERE id = @id AND started_at IS NULL`).run({
+    id: runId,
+    now: new Date().toISOString(),
+  });
+}
+
+// 파이프라인 종료 순간 호출 — 첫 종료가 확정값(idempotent).
+export function markRunFinished(runId: string, db: Database = getDb()): void {
+  db.prepare(`UPDATE runs SET finished_at = @now WHERE id = @id AND finished_at IS NULL`).run({
+    id: runId,
+    now: new Date().toISOString(),
+  });
 }

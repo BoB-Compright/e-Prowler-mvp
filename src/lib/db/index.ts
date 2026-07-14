@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS runs (
   container_name TEXT,
   error_message TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS run_events (
@@ -190,6 +192,12 @@ export function migrate(db: Database.Database): void {
   }
   if (!runColumns.some((column) => column.name === "trigger_type")) {
     db.exec(`ALTER TABLE runs ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'manual'`);
+  }
+  if (!runColumns.some((column) => column.name === "started_at")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN started_at TEXT`);
+  }
+  if (!runColumns.some((column) => column.name === "finished_at")) {
+    db.exec(`ALTER TABLE runs ADD COLUMN finished_at TEXT`);
   }
 
   const assetColumns = db.prepare(`PRAGMA table_info(assets)`).all() as { name: string }[];

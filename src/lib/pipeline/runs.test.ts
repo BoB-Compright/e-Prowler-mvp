@@ -9,6 +9,8 @@ import {
   isCancelled,
   listRunEvents,
   listRuns,
+  markRunFinished,
+  markRunStarted,
   markRunTriggerType,
   updateRunStage,
 } from "./runs";
@@ -120,5 +122,50 @@ describe("cancelRun (#73)", () => {
     cancelRun(run.id, "취소", db);
 
     expect(isCancelled(run.id, db)).toBe(true);
+  });
+});
+
+describe("run duration timestamps", () => {
+  it("createRun은 started_at/finished_at을 null로 둔다 (큐 대기 제외)", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    const row = getRun(run.id, db)!;
+    expect(row.startedAt).toBeNull();
+    expect(row.finishedAt).toBeNull();
+  });
+
+  it("markRunStarted는 첫 값만 기록(idempotent)", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    markRunStarted(run.id, db);
+    const first = getRun(run.id, db)!.startedAt;
+    expect(first).not.toBeNull();
+    markRunStarted(run.id, db);
+    expect(getRun(run.id, db)!.startedAt).toBe(first);
+  });
+
+  it("종료 전이(done/succeeded)에서 finished_at 기록", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    expect(getRun(run.id, db)!.finishedAt).toBeNull();
+    updateRunStage(run.id, "done", "succeeded", {}, db);
+    expect(getRun(run.id, db)!.finishedAt).not.toBeNull();
+  });
+
+  it("실패 전이에서도 finished_at 기록", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    updateRunStage(run.id, "build", "failed", { errorMessage: "boom" }, db);
+    expect(getRun(run.id, db)!.finishedAt).not.toBeNull();
+  });
+
+  it("markRunFinished는 첫 값만 기록(idempotent)", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    markRunFinished(run.id, db);
+    const first = getRun(run.id, db)!.finishedAt;
+    updateRunStage(run.id, "done", "succeeded", {}, db);
+    expect(getRun(run.id, db)!.finishedAt).toBe(first);
+  });
+
+  it("cancelRun은 finished_at 기록", () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    cancelRun(run.id, "사용자 취소", db);
+    expect(getRun(run.id, db)!.finishedAt).not.toBeNull();
   });
 });
