@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCheckPlan, evaluatePack, evaluatePlan } from "./resolve";
+import { resolveCheckPlan, evaluatePack, evaluatePlan, filterPlanByCategories } from "./resolve";
 import type { Asset } from "@/lib/assets/types";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { VendorPack } from "./types";
@@ -157,5 +157,33 @@ describe("evaluatePlan — autodetect skip/eval", () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(web.length).toBeGreaterThan(0);
     expect(web.every((r) => r.status === "skip")).toBe(true);
+  });
+});
+
+describe("filterPlanByCategories", () => {
+  it("undefined/빈 배열이면 plan 그대로(no-op)", () => {
+    const plan = resolveCheckPlan(repoAsset());
+    expect(filterPlanByCategories(plan, undefined)).toBe(plan);
+    expect(filterPlanByCategories(plan, [])).toBe(plan);
+  });
+  it("선택 카테고리의 팩만 남기고 evidenceTasks 재계산·mode 보존", () => {
+    const plan = resolveCheckPlan(repoAsset()); // autodetect: container·OS·WEB·WAS·DB
+    const filtered = filterPlanByCategories(plan, ["DB"]);
+    expect(filtered.packs.every((p) => p.category === "DB")).toBe(true);
+    expect(filtered.packs.length).toBeGreaterThan(0);
+    expect(filtered.mode).toBe(plan.mode);
+    // evidenceTasks가 남은 팩 기준(전체보다 같거나 적음)
+    expect(filtered.evidenceTasks.length).toBeLessThanOrEqual(plan.evidenceTasks.length);
+  });
+  it("여러 카테고리 선택 시 합집합", () => {
+    const plan = resolveCheckPlan(repoAsset());
+    const filtered = filterPlanByCategories(plan, ["OS", "DB"]);
+    const cats = new Set(filtered.packs.map((p) => p.category));
+    expect([...cats].sort()).toEqual(["DB", "OS"]);
+  });
+  it("매칭 0개면 전체 plan으로 폴백", () => {
+    const plan = resolveCheckPlan(repoAsset());
+    const filtered = filterPlanByCategories(plan, ["NONEXISTENT"]);
+    expect(filtered).toBe(plan);
   });
 });
