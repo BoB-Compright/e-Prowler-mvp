@@ -119,3 +119,13 @@ export function evaluatePlan(plan: CheckPlan, ctx: EvalContext, asset: Asset): C
   }
   return results;
 }
+
+// 점검 계획을 선택된 카테고리로 좁힌다. undefined/빈 배열이면 그대로(전체). 남는 팩이 없으면 안전하게
+// 전체 계획으로 폴백. evidenceTasks는 남은 팩 기준으로 재계산해 수집·평가를 줄인다.
+export function filterPlanByCategories(plan: CheckPlan, categories: string[] | undefined): CheckPlan {
+  if (!categories || categories.length === 0) return plan;
+  const allowed = new Set(categories);
+  const packs = plan.packs.filter((p) => allowed.has(p.category));
+  if (packs.length === 0) return plan;
+  return { ...plan, packs, evidenceTasks: mergeEvidenceTasks(packs.map((p) => p.evidenceTasks)) };
+}

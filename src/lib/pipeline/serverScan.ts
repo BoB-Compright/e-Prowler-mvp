@@ -6,7 +6,7 @@ import { runAnsibleForServer, type AnsibleTaskOutput } from "@/lib/checks/ansibl
 import { retryOnConnectionFailure, AuthFailureError } from "@/lib/checks/retry";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
-import { resolveCheckPlan, evaluatePlan } from "@/lib/packs/resolve";
+import { resolveCheckPlan, evaluatePlan, filterPlanByCategories } from "@/lib/packs/resolve";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { createRun, isCancelled, markRunStarted, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
@@ -103,10 +103,11 @@ export async function runServerScanPipeline(
   asset: Asset,
   deps: ServerScanDeps = defaultDeps,
   db: Database = getDb(),
+  options: { categories?: string[] } = {},
 ): Promise<void> {
   markRunStarted(run.id, db);
   updateRunStage(run.id, "connect", "running", {}, db);
-  const plan = deps.resolveCheckPlan(asset);
+  const plan = filterPlanByCategories(deps.resolveCheckPlan(asset), options.categories);
   // A fully-windows plan (every selected pack has executionPath "windows",
   // e.g. os-windows + web-iis) has no real SSH/ansible target to reach yet —
   // there's no sshd on a Windows host, and evaluatePack already ignores

@@ -2,7 +2,7 @@ import { analyzeDockerfile } from "./dockerfileChecks";
 import { runAnsibleChecks } from "./ansibleRunner";
 import { evaluateAllChecks, detectAssetProfile } from "./ruleEvaluation";
 import { getCatalogItem } from "@/lib/catalog";
-import { resolveCheckPlan, evaluatePlan } from "@/lib/packs/resolve";
+import { resolveCheckPlan, evaluatePlan, filterPlanByCategories } from "@/lib/packs/resolve";
 import { webNginxPack } from "@/lib/packs/webNginx";
 import type { Asset } from "@/lib/assets/types";
 import type { CheckResult } from "./types";
@@ -29,11 +29,12 @@ export async function runAllChecks(
   dockerfilePath: string | undefined,
   containerName: string,
   asset?: Asset,
+  categories?: string[],
 ): Promise<CheckResult[]> {
   const findings = dockerfilePath ? analyzeDockerfile(dockerfilePath) : null;
 
   if (asset) {
-    const plan = resolveCheckPlan(asset);
+    const plan = filterPlanByCategories(resolveCheckPlan(asset), categories);
     const tasks = await runAnsibleChecks(containerName, plan.evidenceTasks);
     return evaluatePlan(plan, { findings, tasks }, asset);
   }

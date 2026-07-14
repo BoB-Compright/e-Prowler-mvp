@@ -52,13 +52,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const categories = Array.isArray(body?.categories)
+    ? body.categories.filter((c: unknown): c is string => typeof c === "string")
+    : undefined;
+
   if (asset.type === "server") {
     // Same fire-and-forget shape as the git path below: the run row is
     // created synchronously so we can respond with its id right away, and
     // the actual SSH/ansible scan (which can take minutes) runs in the
     // background on this same long-lived process.
     const { run, asset: serverAsset } = createServerRun(asset.id, null);
-    void runServerScanPipeline(run, serverAsset);
+    void runServerScanPipeline(run, serverAsset, undefined, undefined, { categories });
     return NextResponse.json({ run }, { status: 202 });
   }
 
@@ -71,11 +75,17 @@ export async function POST(req: NextRequest) {
   // Fire-and-forget: the pipeline runs in the background on this same
   // long-lived Node process (local single-user MVP), the client polls
   // GET /api/runs/[id] for progress instead of blocking this request.
-  void runPipeline(run.id, {
-    type: "git",
-    repoUrl: asset.repoUrl!,
-    ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
-  });
+  void runPipeline(
+    run.id,
+    {
+      type: "git",
+      repoUrl: asset.repoUrl!,
+      ...(asset.dockerfilePath ? { dockerfilePath: asset.dockerfilePath } : {}),
+    },
+    undefined,
+    undefined,
+    { categories },
+  );
 
   return NextResponse.json({ run }, { status: 202 });
 }

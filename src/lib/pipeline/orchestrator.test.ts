@@ -48,7 +48,7 @@ describe("runPipeline", () => {
     expect(updated.containerName).toBe(`scan-${run.id}`);
 
     expect(deps.build).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`);
-    expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`, undefined);
+    expect(deps.runChecks).toHaveBeenCalledWith("/tmp/fake-repo/Dockerfile", `scan-${run.id}`, undefined, undefined);
     expect(deps.stopSandbox).toHaveBeenCalledWith(`scan-${run.id}`);
     // A git-sourced run's one-off scan-<runId> image is cleaned up once the
     // pipeline is done with it, unlike a reused local_image (see below).
@@ -191,7 +191,7 @@ describe("runPipeline", () => {
     expect(deps.startSandbox).toHaveBeenCalledWith("nginx:latest", `scan-${run.id}`);
     // No Dockerfile is available for a local image, so runChecks gets undefined.
     // The third arg (asset) is also undefined here since this run has no asset_id.
-    expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`, undefined);
+    expect(deps.runChecks).toHaveBeenCalledWith(undefined, `scan-${run.id}`, undefined, undefined);
     // A local_image run reuses an image the user owns and must never delete it.
     expect(deps.removeImage).not.toHaveBeenCalled();
   });
@@ -215,6 +215,7 @@ describe("runPipeline", () => {
     expect(deps.runChecks).toHaveBeenCalledWith(
       "/tmp/fake-repo/docker/Dockerfile",
       `scan-${run.id}`,
+      undefined,
       undefined,
     );
     // build-stage succeeded event의 message에 상대경로가 기록된다.
