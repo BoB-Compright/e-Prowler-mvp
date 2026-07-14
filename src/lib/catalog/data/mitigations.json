@@ -688,5 +688,245 @@
     "risk": "로그 디렉터리 및 파일의 권한이 부적절하면 권한 없는 사용자가 로그를 열람, 수정, 삭제하여 공격 흔적을 은폐하거나 민감한 정보를 유출할 수 있습니다.",
     "fix": "1. 로그 디렉터리 권한을 700(rwx------)으로 설정하여 소유자만 접근 가능하게 하고, 2. 로그 파일 권한을 600(rw-------)으로 설정하며, 3. 로그 디렉터리/파일의 소유자를 웹서버 실행 계정(www-data, apache 등) 또는 전용 로그 계정으로 설정하고, 4. 정기적으로 권한 설정 상태를 점검하는 자동화 스크립트를 운영하세요.",
     "example": "chmod 700 /var/log/webapp\nchmod 600 /var/log/webapp/*.log\nchown -R www-data:www-data /var/log/webapp\nfind /var/log/webapp -type d -exec chmod 700 {} \\;\nfind /var/log/webapp -type f -exec chmod 600 {} \\;"
+  },
+  "ORA-01": {
+    "risk": "ORACLE_HOME 디렉터리와 그 하위 실행 파일·설정 파일에 그룹/기타 사용자 쓰기 권한이 열려 있으면, 비인가 로컬 계정이나 침해된 계정이 oracle 바이너리·tnslsnr·설정 파일을 변조해 백도어 삽입, 권한 상승, 서비스 중단을 일으킬 수 있다.",
+    "fix": "ORACLE_HOME 소유자를 전용 OS 계정(oracle:oinstall 등)으로 유지하고 group/other 쓰기 권한을 제거한다. 1) ORACLE_HOME 경로와 현재 소유자/권한 확인 2) 소유자가 oracle 계정이 아니면 정정 3) chmod로 group/other의 write 비트 제거 4) network/admin, dbs 등 민감 하위 디렉터리도 동일 정책 적용 5) 변경 후 리스너/DB 기동에 문제가 없는지 확인.",
+    "example": "stat -c \"%U:%G %a\" $ORACLE_HOME\nchown -R oracle:oinstall $ORACLE_HOME\nchmod -R o-w,g-w $ORACLE_HOME\nstat -c \"%U:%G %a\" $ORACLE_HOME\n# 기대 결과: group/other에 쓰기(w) 비트가 없어야 함"
+  },
+  "ORA-02": {
+    "risk": "Oracle 리스너·인스턴스 프로세스(tnslsnr, ora_pmon 등)가 root 계정으로 구동되면, 리스너나 extproc 관련 취약점 악용 시 공격자가 곧바로 root 권한을 획득해 시스템 전체가 장악될 수 있다.",
+    "fix": "Oracle은 반드시 전용 비특권 OS 계정(oracle)으로만 구동한다. 1) 현재 실행 계정 확인 2) root로 기동되어 있으면 리스너와 인스턴스를 정상 종료 3) systemd unit/기동 스크립트에 User=oracle(또는 su - oracle) 지정 4) oracle 계정으로 재기동 후 프로세스 소유자 재확인 5) 향후 부팅 시 자동 기동 스크립트가 root 셸에서 su - oracle 경유로만 실행되도록 점검.",
+    "example": "ps -eo user,args | grep -E \"tnslsnr|ora_pmon\"\n# root로 떠 있는 경우\nsu - oracle -c \"lsnrctl stop\"\nsu - oracle -c 'sqlplus / as sysdba <<EOF\nshutdown immediate;\nEOF'\nsu - oracle -c 'sqlplus / as sysdba <<EOF\nstartup;\nEOF'\nsu - oracle -c \"lsnrctl start\"\nps -eo user,args | grep -E \"tnslsnr|ora_pmon\"  # 소유자가 oracle인지 재확인"
+  },
+  "ORA-03": {
+    "risk": "listener.ora 파일에 그룹/기타 쓰기 권한이 있으면 비인가 사용자가 리스너 포트, ADMIN_RESTRICTIONS, extproc 등록 등 설정을 임의로 변경해 리스너를 통한 우회 접근이나 서비스 방해를 일으킬 수 있다.",
+    "fix": "listener.ora 소유자를 oracle 계정으로 하고 group/other 쓰기 권한을 제거한다(권장 640 이하). 1) $TNS_ADMIN/listener.ora 경로와 현재 권한 확인 2) 소유자/그룹이 oracle:oinstall인지 점검 3) chmod로 group/other write 제거 4) 파일 권한 변경은 즉시 반영되므로 재기동 없이 최종 권한만 재확인.",
+    "example": "ls -l $TNS_ADMIN/listener.ora\nchown oracle:oinstall $TNS_ADMIN/listener.ora\nchmod 640 $TNS_ADMIN/listener.ora\nstat -c \"%U:%G %a\" $TNS_ADMIN/listener.ora"
+  },
+  "ORA-04": {
+    "risk": "ADMIN_RESTRICTIONS가 미설정이거나 OFF이면 lsnrctl set 등 원격 명령으로 리스너 설정을 온라인 변경할 수 있어, 공격자가 리스너 파라미터를 조작해 로그 위치 변경, 서비스 등록 조작 등 리스너 하이재킹을 시도할 수 있다.",
+    "fix": "listener.ora에 ADMIN_RESTRICTIONS_<리스너명>=ON을 설정해 리스너 설정 변경이 파일 수정과 reload로만 가능하도록 제한한다. 1) 리스너 이름 확인(기본값 LISTENER) 2) listener.ora에 ADMIN_RESTRICTIONS_<리스너명>=ON 추가 3) lsnrctl reload(또는 리스너 재시작)로 적용 4) 리스너 구성을 실제로 변경하려는 원격 SET 명령(예: set log_status off, set save_config_on_stop off)을 시도해 \"TNS-01190: The user is not authorized to execute the requested listener command\"로 거부되는지 확인. displaymode 같은 로컬 출력 형식 변경 명령은 ADMIN_RESTRICTIONS의 영향을 받지 않으므로 검증에 사용하지 않는다.",
+    "example": "# listener.ora\nLISTENER =\n  (DESCRIPTION_LIST = ...)\nADMIN_RESTRICTIONS_LISTENER=ON\n\nlsnrctl reload LISTENER\n# 또는: lsnrctl stop LISTENER && lsnrctl start LISTENER\n\nlsnrctl set log_status off\n# 기대 결과: TNS-01190: The user is not authorized to execute the requested listener command\n\nlsnrctl set save_config_on_stop off\n# 기대 결과: 동일하게 TNS-01190으로 거부되어야 정상 (ADMIN_RESTRICTIONS_LISTENER=ON이 정상 동작 중)"
+  },
+  "ORA-05": {
+    "risk": "리스너에 extproc(외부 프로시저) 서비스가 등록되어 있으면 PL/SQL의 EXTERNAL PROCEDURE 호출을 통해 OS 셸 명령을 실행하는 경로가 열려, DB 세션 권한을 OS 레벨 명령 실행으로 확장(권한 상승)하는 데 악용될 수 있다.",
+    "fix": "외부 프로시저를 사용하지 않는다면 listener.ora에서 extproc 관련 SID_DESC(PROGRAM=extproc)를 완전히 제거한다. 불가피하게 필요하면 별도 리스너로 분리하고 네트워크 리스닝 없이 IPC(로컬 소켓)만 허용한다. 1) listener.ora에서 extproc SID_DESC 확인 2) 미사용 시 해당 블록 삭제 3) 필요 시 전용 EXTPROC 리스너로 분리하고 ADDRESS를 IPC 프로토콜로만 구성 4) lsnrctl reload 후 서비스 목록에서 extproc이 사라졌는지 확인.",
+    "example": "# 제거 대상 예시\nSID_LIST_LISTENER =\n  (SID_LIST =\n    (SID_DESC =\n      (SID_NAME = PLSExtProc)\n      (ORACLE_HOME = /u01/app/oracle/product/19.0.0/dbhome_1)\n      (PROGRAM = extproc)\n    )\n  )\n\n# 위 블록 삭제 후\nlsnrctl reload LISTENER\nlsnrctl status LISTENER   # extproc 서비스가 목록에 없는지 확인"
+  },
+  "ORA-06": {
+    "risk": "SQLNET.AUTHENTICATION_SERVICES가 설정되어 있지 않으면 의도치 않은 인증 방식(OS 신뢰 인증 등)이 기본값으로 동작해, 별도 비밀번호 검증 없이 DB에 접속 가능한 인증 우회 경로가 생길 수 있다.",
+    "fix": "sqlnet.ora에 SQLNET.AUTHENTICATION_SERVICES를 명시적으로 설정한다. OS 인증을 사용하지 않는 일반 환경에서는 NONE으로 설정해 비밀번호 기반 인증만 허용한다. 1) sqlnet.ora 위치 확인 2) 현재 설정값 유무 점검 3) 요구 인증 방식에 맞게 명시 설정(미사용 시 NONE, NTS/Kerberos 사용 시 해당 값만 명시) 4) 클라이언트 재연결로 정상 인증 동작 확인.",
+    "example": "# sqlnet.ora\nSQLNET.AUTHENTICATION_SERVICES = (NONE)\n\n# OS 인증을 실제로 쓰는 특수 환경이면 명시적으로 지정\n# SQLNET.AUTHENTICATION_SERVICES = (NTS)\n\nsqlplus scott/tiger@ORCL   # 비밀번호 인증이 정상 동작하는지 확인"
+  },
+  "ORA-07": {
+    "risk": "SQLNET.ENCRYPTION_SERVER가 REQUIRED/REQUESTED로 강제되지 않으면 클라이언트-서버 간 SQL*Net 트래픽이 평문으로 전송되어, 네트워크 스니핑을 통해 쿼리 결과나 자격증명이 노출될 수 있다.",
+    "fix": "sqlnet.ora에 서버 측 암호화를 REQUIRED(강제, 권장) 또는 최소 REQUESTED로 설정하고 허용 알고리즘을 명시한다. 1) sqlnet.ora에 SQLNET.ENCRYPTION_SERVER=REQUIRED 설정 2) SQLNET.ENCRYPTION_TYPES_SERVER로 AES256 등 안전한 알고리즘 지정 3) 클라이언트 측 sqlnet.ora도 대응 설정 4) 신규 세션에서 암호화 협상 여부를 v$session_connect_info로 확인.",
+    "example": "# sqlnet.ora (서버)\nSQLNET.ENCRYPTION_SERVER = REQUIRED\nSQLNET.ENCRYPTION_TYPES_SERVER = (AES256, AES192, AES128)\nSQLNET.CRYPTO_CHECKSUM_SERVER = REQUIRED\nSQLNET.CRYPTO_CHECKSUM_TYPES_SERVER = (SHA256)\n\nSELECT network_service_banner\nFROM v$session_connect_info\nWHERE sid = (SELECT sid FROM v$mystat WHERE rownum = 1);"
+  },
+  "ORA-08": {
+    "risk": "리스너 로깅이 OFF로 설정되어 있으면 접속 시도, 오류, 관리 명령 이력이 남지 않아 침해 사고 발생 시 원인 분석과 사고 대응(포렌식)이 불가능해진다.",
+    "fix": "listener.ora에서 로깅을 활성화하고(LOGGING_<리스너명>=ON 또는 명시적 OFF 제거) 로그 파일 경로와 보관·로테이션 정책을 함께 관리한다. 1) listener.ora에서 LOGGING_<리스너명> 값 확인 2) OFF로 되어 있으면 값을 제거하거나 ON으로 변경 3) 로그 디렉터리 용량 및 로테이션(logrotate 등) 정책 수립 4) lsnrctl reload 후 lsnrctl status로 로그 파일 활성화 여부 확인.",
+    "example": "# listener.ora\nLOGGING_LISTENER=ON\nLOG_DIRECTORY_LISTENER=/u01/app/oracle/diag/tnslsnr/host/listener/trace\nLOG_FILE_LISTENER=listener.log\n\nlsnrctl reload LISTENER\nlsnrctl status LISTENER   # \"Listener Log File\" 항목이 활성화되어 있는지 확인"
+  },
+  "ORA-09": {
+    "risk": "audit_trail이 NONE/FALSE로 설정되어 있으면 DB 로그인, 권한 사용, DDL/DML 등 감사 로그가 생성되지 않아 내부자 오남용이나 침해 사고 발생 시 행위 추적 및 원인 규명이 불가능하다.",
+    "fix": "init 파라미터(spfile 포함)에서 audit_trail을 DB, DB_EXTENDED, OS, XML 중 정책에 맞는 값으로 활성화한다. audit_trail은 static 파라미터이므로 spfile 사용 시 값 변경 후 인스턴스 재기동이 필요하다. 1) 현재 audit_trail 값 확인 2) 요구 수준(권장 DB_EXTENDED 이상)으로 설정 3) SCOPE=SPFILE로 변경 후 인스턴스 재기동 4) 재기동 후 SHOW PARAMETER로 반영 확인 5) 필요 시 Unified Auditing 정책도 별도 구성.",
+    "example": "SHOW PARAMETER audit_trail;\n\nALTER SYSTEM SET audit_trail=DB_EXTENDED SCOPE=SPFILE;\nSHUTDOWN IMMEDIATE;\nSTARTUP;\n\nSHOW PARAMETER audit_trail;"
+  },
+  "ORA-10": {
+    "risk": "remote_login_passwordfile이 SHARED 등 부적절한 값으로 설정되면 여러 인스턴스가 동일 비밀번호 파일을 공유하게 되어 SYSDBA/SYSOPER 계정 관리가 느슨해지고, 한 인스턴스의 침해가 다른 인스턴스의 관리자 권한 탈취로 이어질 수 있다.",
+    "fix": "remote_login_passwordfile을 EXCLUSIVE(인스턴스 전용 비밀번호 파일, 권장)로 설정하거나, 원격 SYSDBA 접속을 쓰지 않는 경우 NONE으로 설정한다. 1) 현재 값 확인 2) EXCLUSIVE로 변경(static 파라미터, 재기동 필요) 3) orapwd로 인스턴스 전용 비밀번호 파일 생성/교체 4) v$pwfile_users로 SYSDBA/SYSOPER 부여 계정 목록을 점검하고 불필요 계정 제거.",
+    "example": "SHOW PARAMETER remote_login_passwordfile;\n\nALTER SYSTEM SET remote_login_passwordfile=EXCLUSIVE SCOPE=SPFILE;\nSHUTDOWN IMMEDIATE;\nSTARTUP;\n\norapwd file=$ORACLE_HOME/dbs/orapw$ORACLE_SID password=<strong_password> force=y\n\nSELECT * FROM v$pwfile_users;"
+  },
+  "ORA-11": {
+    "risk": "SYS/SYSTEM 등 기본 제공 계정이 기본 비밀번호를 유지하거나, SCOTT 등 미사용 샘플 계정이 잠기지 않은 채 남아 있거나, 불필요한 사용자에게 DBA 등 과다 시스템 권한이 부여되어 있으면 공격자가 손쉽게 관리자 권한을 획득하거나 권한이 오남용될 수 있다.",
+    "fix": "이 항목은 라이브 SQL 조회(dba_users, dba_role_privs, dba_sys_privs)가 필요해 자동 판정 대신 수동/AI 검토 대상이다. 1) dba_users로 전 계정의 상태(LOCKED/OPEN)와 비밀번호 만료일 확인 2) SCOTT, OUTLN, BI 등 미사용 기본/샘플 계정을 잠금 또는 삭제 3) dba_role_privs/dba_sys_privs로 DBA, GRANT ANY 계열 등 과다 권한 보유 계정 확인 4) 업무상 불필요한 권한 회수 5) SYS·SYSTEM 등 필수 계정의 비밀번호를 정책에 맞는 강력한 값으로 교체하고 주기적으로 갱신.",
+    "example": "SELECT username, account_status, expiry_date\nFROM dba_users ORDER BY username;\n\nALTER USER scott ACCOUNT LOCK PASSWORD EXPIRE;\n\nSELECT grantee, granted_role\nFROM dba_role_privs WHERE granted_role = 'DBA';\n\nSELECT grantee, privilege\nFROM dba_sys_privs WHERE privilege LIKE '%ANY%';\n\nALTER USER sys IDENTIFIED BY \"<strong_password>\";\nALTER USER system IDENTIFIED BY \"<strong_password>\";"
+  },
+  "ORA-12": {
+    "risk": "Oracle 버전에 최신 PSU/RU(Patch Set Update/Release Update)가 적용되지 않으면 이미 공개된 취약점(CVE)이 그대로 남아 원격 코드 실행, 권한 상승 등 알려진 공격 기법에 노출된다.",
+    "fix": "정적 점검(버전 문자열)만으로는 패치 적용 여부를 정확히 판정할 수 없으므로, 설치된 패치 목록을 조회해 Oracle 분기별 Critical Patch Update(CPU) 공지와 대조하는 수동/AI 검토가 필요하다. 1) opatch lsinventory로 적용된 패치 목록과 버전 확인 2) dba_registry_sqlpatch로 DB에 실제 반영된 SQL 패치 이력 확인 3) Oracle CPU 공지에서 해당 버전의 최신 권고 패치와 비교 4) 미적용 패치가 있으면 유지보수 기간 내 패치 적용 계획 수립 5) 지원 종료(EOL) 버전이면 업그레이드/마이그레이션 검토.",
+    "example": "sqlplus -v\n$ORACLE_HOME/OPatch/opatch lsinventory\n\nSELECT * FROM v$version;\nSELECT patch_id, description, action_time\nFROM dba_registry_sqlpatch\nORDER BY action_time DESC;"
+  },
+  "MSSQL-01": {
+    "risk": "sa 계정은 이름이 고정적으로 알려진 최고 권한(sysadmin) 계정이라 무차별 대입(brute-force)·사전 공격의 1순위 표적이 되며, 탈취 시 인스턴스 전체를 즉시 장악당한다.",
+    "fix": "1) sa 계정을 사용하지 않도록 전환하고 이름을 추측 불가능한 값으로 변경(또는 비활성화)한다. 2) 부득이 유지해야 한다면 20자 이상의 복잡한 암호로 재설정한다. 3) 애플리케이션/운영 접속은 최소 권한을 부여한 전용 로그인 계정으로 분리한다. 4) sa 로그인의 로그인 시도를 감사 로그에 남겨 이상 사용을 모니터링한다.",
+    "example": "-- [대안 A] sa 사용 중단: 이름 변경 및 비활성화 (둘 중 하나만 적용)\nALTER LOGIN sa WITH NAME = [sa_disabled_20260715];\nALTER LOGIN sa_disabled_20260715 DISABLE;\n\n-- [대안 B] sa를 계속 사용해야 하는 경우: 강력한 암호로 재설정 (대안 A와 택일)\nALTER LOGIN sa WITH PASSWORD = 'C0mpl3x!P@ssw0rd_2026#';\n\n-- sa 로그인 이벤트 확인(감사 활성화 후, 대안 B 선택 시 권장)\nSELECT event_time, server_principal_name, succeeded\nFROM sys.fn_get_audit_file('C:\\SQLAudit\\*.sqlaudit', DEFAULT, DEFAULT)\nWHERE server_principal_name LIKE '%sa%';"
+  },
+  "MSSQL-02": {
+    "risk": "혼합 인증 모드(SQL Server and Windows Authentication mode)가 활성화되어 있으면 sa를 포함한 SQL 인증 로그인이 함께 사용되는데, SQL 인증은 Windows의 도메인 계정 잠금·복잡성 정책 등 그룹 정책 통제를 받지 않아 무차별 대입 공격에 취약하다.",
+    "fix": "1) 애플리케이션/사용자가 Windows 계정으로만 접속 가능한지 확인한다. 2) 가능하면 인증 모드를 Windows 인증 모드 전용으로 전환한다. 3) 레지스트리 또는 SSMS 서버 속성에서 인증 모드를 변경한 뒤 SQL Server 서비스를 재시작해 적용한다. 4) 불가피하게 혼합 모드를 유지해야 하면 SQL 로그인에 대해 CHECK_POLICY, CHECK_EXPIRATION을 강제한다.",
+    "example": "-- SSMS: 서버 속성 > 보안 > 서버 인증 > \"Windows 인증 모드\" 선택 후 서비스 재시작\n\n-- 레지스트리로 확인/변경 (1=Windows 인증, 2=혼합 모드)\nREG QUERY \"HKLM\\SOFTWARE\\Microsoft\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQLServer\" /v LoginMode\nREG ADD \"HKLM\\SOFTWARE\\Microsoft\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQLServer\" /v LoginMode /t REG_DWORD /d 1 /f\n-- 변경 후 SQL Server 서비스 재시작 필요\n\n-- 혼합 모드 불가피 시 SQL 로그인 정책 강제\nALTER LOGIN [app_user] WITH CHECK_POLICY = ON, CHECK_EXPIRATION = ON;"
+  },
+  "MSSQL-03": {
+    "risk": "필요하지 않은 원격 네트워크 접속(TCP/IP, 원격 프로시저 호출 등)이 열려 있으면 공격 표면이 넓어지고, 내부망 전역 또는 인터넷에서 SQL 인스턴스로 직접 접근을 시도할 수 있는 경로가 생긴다.",
+    "fix": "1) 업무상 원격 접속이 불필요하면 SQL Server Configuration Manager에서 TCP/IP 프로토콜을 비활성화하거나 필요한 서브넷으로만 리스닝을 제한한다. 2) 원격 서버 간 RPC 호출이 불필요하면 sp_configure의 'remote access' 옵션을 0으로 설정한다. 3) Windows 방화벽에서 SQL Server 포트에 대해 허용 IP를 화이트리스트로 제한한다. 4) 불필요한 Linked Server를 제거한다.",
+    "example": "-- 원격 프로시저 호출(원격 서버 접속) 비활성화\nEXEC sp_configure 'show advanced options', 1;\nRECONFIGURE;\nEXEC sp_configure 'remote access', 0;\nRECONFIGURE;\n-- 서비스 재시작 필요\n\n-- Windows 방화벽: 허용 IP만 SQL 포트 접근 가능하도록 제한\nNew-NetFirewallRule -DisplayName \"SQL Server - Trusted Only\" -Direction Inbound -Protocol TCP -LocalPort 1433 -RemoteAddress 10.0.0.0/24 -Action Allow"
+  },
+  "MSSQL-04": {
+    "risk": "로그인 감사가 비활성화되어 있으면 무차별 대입 시도, 비인가 계정의 접속 성공/실패 이력을 추적할 수 없어 침해 발생 시 원인 분석과 초기 탐지가 지연된다.",
+    "fix": "1) SSMS 서버 속성 > 보안 > 로그인 감사에서 최소 \"실패한 로그인\" 이상(권장: \"실패한 로그인 및 성공한 로그인\")을 설정한다. 2) 설정 변경 후 SQL Server 서비스를 재시작해 적용한다. 3) 필요 시 SQL Server Audit 개체와 서버 감사 사양을 생성해 로그인 이벤트를 별도 파일로 남기고 SIEM과 연동한다. 4) Windows 이벤트 로그(응용 프로그램 로그)에서 정기적으로 감사 로그를 점검한다.",
+    "example": "-- SSMS: 서버 속성 > 보안 > 로그인 감사 > \"실패한 로그인 및 성공한 로그인\" 선택 후 서비스 재시작\n\n-- SQL Server Audit으로 로그인 이벤트 별도 기록\nCREATE SERVER AUDIT [Audit_Login]\nTO FILE (FILEPATH = 'C:\\SQLAudit\\')\nWITH (ON_FAILURE = CONTINUE);\n\nCREATE SERVER AUDIT SPECIFICATION [AuditSpec_Login]\nFOR SERVER AUDIT [Audit_Login]\nADD (FAILED_LOGIN_GROUP),\nADD (SUCCESSFUL_LOGIN_GROUP)\nWITH (STATE = ON);\n\nALTER SERVER AUDIT [Audit_Login] WITH (STATE = ON);"
+  },
+  "MSSQL-05": {
+    "risk": "SQL Server 서비스가 LocalSystem이나 도메인 관리자 계정처럼 과도한 권한을 가진 계정으로 실행되면, 서비스나 xp_cmdshell 등을 통한 침해가 발생했을 때 공격자가 OS 전체 또는 도메인 권한까지 탈취할 수 있다.",
+    "fix": "1) SQL Server 서비스 계정으로 전용 gMSA(그룹 관리형 서비스 계정) 또는 최소 권한 도메인/로컬 계정을 사용한다. 2) LocalSystem, 도메인 관리자 계정 사용을 지양한다. 3) 계정에는 SQL Server 설치 시 자동 부여되는 권한 외 불필요한 로컬 관리자·추가 파일시스템 권한을 부여하지 않는다. 4) 서비스 계정 변경은 반드시 SQL Server Configuration Manager를 통해 수행해 관련 ACL/권한이 자동 재설정되도록 한다.",
+    "example": "-- SQL Server Configuration Manager에서 서비스 계정 변경 (레지스트리 직접 수정 금지)\n-- SQL Server Configuration Manager > SQL Server 서비스 > 속성 > 로그온 탭\n-- 계정: contoso\\svc-sqlserver (gMSA 권장: contoso\\svc-sqlserver$)\n\n-- 현재 서비스 계정 확인\nSELECT servicename, service_account, startup_type_desc\nFROM sys.dm_server_services;"
+  },
+  "MSSQL-06": {
+    "risk": "xp_cmdshell은 SQL 세션에서 운영체제 셸 명령을 직접 실행할 수 있게 하므로, SQL 인젝션이나 권한 탈취가 발생하면 공격자가 OS 수준 원격 코드 실행(RCE)으로 확장할 수 있는 매우 위험한 통로가 된다.",
+    "fix": "1) 업무상 필요하지 않다면 xp_cmdshell을 비활성화한다. 2) sp_configure로 옵션 값을 0으로 변경 후 RECONFIGURE를 실행한다. 3) 부득이 사용해야 하는 경우 sysadmin이 아닌 저권한 프록시 계정(xp_cmdshell proxy account)을 지정하고 사용 후 즉시 재비활성화한다. 4) xp_cmdshell 실행 이력을 감사 로그로 남긴다.",
+    "example": "-- xp_cmdshell 비활성화\nEXEC sp_configure 'show advanced options', 1;\nRECONFIGURE;\nEXEC sp_configure 'xp_cmdshell', 0;\nRECONFIGURE;\n\n-- 현재 설정 확인\nEXEC sp_configure 'xp_cmdshell';"
+  },
+  "MSSQL-07": {
+    "risk": "클라이언트-서버 간 네트워크 트래픽이 암호화되지 않으면 자격 증명, 쿼리, 응답 데이터가 평문으로 전송되어 네트워크 스니핑(패킷 캡처)을 통해 유출될 수 있다.",
+    "fix": "1) 신뢰할 수 있는 CA 또는 사설 CA에서 발급한 서버 인증서를 SQL Server 서비스 계정이 읽을 수 있도록 바인딩한다. 2) SQL Server Configuration Manager에서 프로토콜 속성의 Force Encryption을 Yes로 설정한다. 3) 변경 후 SQL Server 서비스를 재시작한다. 4) 클라이언트 연결 문자열에도 Encrypt=True(및 필요 시 TrustServerCertificate 설정)를 명시해 이중으로 강제한다.",
+    "example": "-- SQL Server Configuration Manager > SQL Server 네트워크 구성 > 프로토콜\n-- 인증서 탭에서 서버 인증서 선택 후, 플래그 탭에서 Force Encryption = Yes 설정 후 서비스 재시작\n\n-- 현재 암호화 강제 여부 확인\nSELECT encrypt_option\nFROM sys.dm_exec_connections\nWHERE session_id = @@SPID;\n\n-- 클라이언트 연결 문자열 예시\nServer=tcp:dbserver,1433;Encrypt=True;TrustServerCertificate=False;"
+  },
+  "MSSQL-08": {
+    "risk": "최신 누적 업데이트(CU)나 보안 패치를 적용하지 않으면 이미 공개적으로 알려진 취약점과 공개 익스플로잇(PoC)을 그대로 이용한 공격에 노출된다.",
+    "fix": "1) 현재 버전과 빌드 번호를 확인해 최신 CU 대비 지연 개월 수를 파악한다. 2) 테스트/스테이징 환경에서 최신 CU 및 보안 패치를 먼저 검증한다. 3) 정기 패치 주기(예: 분기별)를 수립해 운영 환경에 순차 적용한다. 4) Microsoft Update 또는 SQL Server Update Center를 통해 릴리스 노트를 확인하고 알려진 CVE 대응 여부를 점검한다.",
+    "example": "-- 현재 버전/빌드 확인\nSELECT @@VERSION;\nSELECT SERVERPROPERTY('ProductVersion') AS ProductVersion,\n       SERVERPROPERTY('ProductLevel') AS ProductLevel,\n       SERVERPROPERTY('Edition') AS Edition;\n\n-- 패치 적용 후 재확인 (CU 적용은 설치 파일 실행: SQLServer2022-KB xxxxxxx-x64.exe /quiet /IAcceptSQLServerLicenseTerms)"
+  },
+  "MSSQL-09": {
+    "risk": "데이터/로그 파일(.mdf, .ldf, .bak)에 대한 NTFS 권한이 과도하게 개방(예: Everyone, Users 그룹에 읽기/쓰기 허용)되어 있으면, OS 계정을 확보한 공격자가 SQL Server를 우회해 파일을 직접 복사·반출하거나 변조할 수 있다.",
+    "fix": "1) 데이터/로그/백업 파일이 위치한 폴더의 NTFS 권한을 SQL Server 서비스 계정과 로컬 관리자(및 백업 담당 계정)로만 제한한다. 2) 일반 사용자·Everyone·Users 그룹의 접근 권한을 제거한다. 3) 폴더 상속 권한을 확인해 상위 폴더로부터 불필요한 권한이 내려오지 않도록 한다. 4) 백업 파일도 동일한 수준으로 접근을 제한하고 별도 암호화를 적용한다.",
+    "example": "-- 데이터 파일 폴더 소유자/권한 확인\nicacls \"D:\\SQLData\"\n\n-- 서비스 계정과 관리자 그룹에만 권한 부여, 상속 제거 후 재설정\nicacls \"D:\\SQLData\" /inheritance:r\nicacls \"D:\\SQLData\" /grant \"NT SERVICE\\MSSQLSERVER:(OI)(CI)F\"\nicacls \"D:\\SQLData\" /grant \"BUILTIN\\Administrators:(OI)(CI)F\"\nicacls \"D:\\SQLData\" /remove \"Users\" \"Everyone\" \"Authenticated Users\""
+  },
+  "MSSQL-10": {
+    "risk": "기본 포트(TCP 1433)를 그대로 사용하면서 외부에 노출되어 있으면 인터넷 스캐너와 자동화된 공격 도구의 우선 표적이 되어, 계정 탈취 시도나 취약점 스캔이 집중된다.",
+    "fix": "1) 인터넷 등 신뢰되지 않은 네트워크에서 SQL Server 포트로의 직접 접근을 차단한다(가급적 VPN/배스천 호스트 경유). 2) 필요 시 SQL Server Configuration Manager에서 TCP 포트를 비표준 값으로 변경한다(단, 포트 변경만으로는 보안이 보장되지 않으며 방화벽 통제가 핵심임을 유의). 3) Windows 방화벽/네트워크 방화벽에서 허용된 애플리케이션 서버 IP만 화이트리스트로 등록한다. 4) SQL Server Browser 서비스가 불필요하면 중지해 UDP 1434 스캔 노출도 줄인다.",
+    "example": "-- SQL Server Configuration Manager > SQL Server 네트워크 구성 > 프로토콜 > TCP/IP 속성\n-- IPAll 섹션의 TCP Port 값을 비표준 포트(예: 14330)로 변경 후 서비스 재시작\n\n-- Windows 방화벽: 신뢰된 애플리케이션 서버 IP만 허용\nNew-NetFirewallRule -DisplayName \"SQL Server - App Servers Only\" -Direction Inbound -Protocol TCP -LocalPort 14330 -RemoteAddress 10.0.1.10,10.0.1.11 -Action Allow\n\n-- 불필요 시 SQL Server Browser 서비스 중지\nSTOP-SERVICE -Name \"SQLBrowser\""
+  },
+  "WLS-01": {
+    "risk": "관리 콘솔(Administration Console) 및 관리 서버 통신 채널이 평문 HTTP로 노출되면 관리자 계정 정보, 세션 쿠키, 도메인 설정 정보가 네트워크 스니핑에 의해 탈취될 수 있습니다. 공격자가 관리 콘솔에 접근하면 도메인 전체(애플리케이션 배포, 데이터소스, 자격증명 등)를 장악할 수 있어 피해 범위가 매우 큽니다.",
+    "fix": "1. Administration Console에 접속하여 도메인 구조에서 대상 서버(AdminServer 및 관리형 서버)를 선택합니다.\n2. Configuration > General 탭에서 'SSL Listen Port Enabled'를 체크하고 SSL 포트(예: 7002)를 지정합니다.\n3. Configuration > SSL 탭에서 Identity(서버 인증서) 및 Trust(신뢰 CA) 키스토어를 설정합니다. 데모 인증서(DemoIdentity/DemoTrust)는 운영 환경에서 반드시 신뢰기관 발급 인증서로 교체합니다.\n4. Configuration > General에서 'Listen Port Enabled'(평문 HTTP 리스너)를 해제하여 비-SSL 접근을 차단합니다.\n5. 관리 콘솔 접속 URL을 https://<host>:7002/console 으로 변경하고, 방화벽에서 평문 포트(7001 등)를 내부망에서도 차단합니다.\n6. 변경사항 저장 후 관리 서버를 재기동하여 적용합니다(무중단 적용 불가 항목).",
+    "example": "관리 콘솔 경로:\nDomain Structure > Environment > Servers > AdminServer(admin) > Configuration > General\n  [v] SSL Listen Port Enabled\n  SSL Listen Port: 7002\n\nDomain Structure > Environment > Servers > AdminServer(admin) > Configuration > SSL\n  Identity and Trust Locations: Custom Identity and Custom Trust\n  Private Key Alias / Passphrase 설정\n\nconfig.xml 예시:\n<server>\n  <name>AdminServer</name>\n  <ssl>\n    <enabled>true</enabled>\n    <listen-port>7002</listen-port>\n  </ssl>\n  <listen-port-enabled>false</listen-port-enabled>\n</server>\n\nWLST 예시:\nconnect('weblogic','password','t3://localhost:7001')\nedit()\nstartEdit()\ncd('/Servers/AdminServer')\ncmo.setListenPortEnabled(false)\ncd('/Servers/AdminServer/SSL/AdminServer')\ncmo.setEnabled(true)\ncmo.setListenPort(7002)\nsave()\nactivate()"
+  },
+  "WLS-02": {
+    "risk": "설치 시 생성된 기본/초기 관리자 계정(weblogic, system 등)이나 추측 가능한 이름의 관리자 계정이 그대로 남아 있으면, 공격자가 공개된 기본 자격증명이나 사전 대입 공격으로 손쉽게 관리자 권한을 획득해 도메인 전체를 장악할 수 있습니다.",
+    "fix": "1. Administration Console에서 Security Realm > myrealm > Users and Groups로 이동하여 현재 관리자 그룹(Administrators)에 속한 계정 목록을 확인합니다.\n2. 조직 명명 규칙에 맞는 신규 관리자 계정을 생성하고 Administrators 그룹에 추가한 뒤, 강력한 비밀번호를 설정합니다.\n3. 신규 계정으로 재로그인하여 정상 동작을 확인합니다.\n4. 설치 시 사용된 기본 계정(예: weblogic)의 비밀번호를 변경하거나, 더 이상 필요 없다면 잠금(Lock) 또는 삭제 처리합니다. 삭제가 불가한 시스템 계정은 최소한 Administrators 그룹에서 제외하고 계정을 잠급니다.\n5. 각 관리자 계정은 개인별로 분리 발급하여 공용 계정 사용을 금지하고, 계정별 감사 추적이 가능하도록 합니다.\n6. 변경 후 config.xml 및 DefaultAuthenticator의 사용자/그룹 매핑을 재확인합니다.",
+    "example": "관리 콘솔 경로(신규 관리자 생성 후 기본 계정 처리):\nSecurity Realms > myrealm > Users and Groups > Users > New\n  Name: admin_park, Password: <강력한 비밀번호>\n  생성 후 Groups 탭에서 Administrators 그룹에 추가\nSecurity Realms > myrealm > Users and Groups > Users > weblogic\n  Lock Account 체크(또는 비밀번호 변경) 후 Administrators 그룹에서 제외\n\nWLST 완결 예시(신규 관리자 계정 생성):\nconnect('weblogic','oldpassword','t3://localhost:7001')\nedit()\nstartEdit()\ncd('/SecurityConfiguration/mydomain/Realms/myrealm/AuthenticationProviders/DefaultAuthenticator')\ncmo.createUser('admin_park', 'StrongP@ssw0rd!2026', '개인화된 관리자 계정')\ncmo.addMemberToGroup('Administrators', 'admin_park')\nsave()\nactivate()\n\nWLST 완결 예시(기본 weblogic 계정 비밀번호 변경, UserPasswordEditorMBean.changeUserPassword):\nconnect('admin_park','StrongP@ssw0rd!2026','t3://localhost:7001')\nedit()\nstartEdit()\ncd('/SecurityConfiguration/mydomain/Realms/myrealm/AuthenticationProviders/DefaultAuthenticator')\ncmo.changeUserPassword('weblogic', 'oldpassword', 'NewStr0ngP@ss!2026')\nsave()\nactivate()"
+  },
+  "WLS-03": {
+    "risk": "개발 모드(Development Mode)로 운영 중인 도메인은 배포 시 자동 재배포, 약한 자격증명 검증, 자동 스터브 생성 등 개발 편의 기능이 활성화되어 있어 보안 통제가 느슨합니다. 특히 개발 모드는 기본 관리자 비밀번호 정책이 완화되고 부팅 시 자격증명 확인 절차가 약해 운영 환경에서는 심각한 보안 공백이 됩니다.",
+    "fix": "1. Administration Console에서 도메인 구조 루트(도메인명 선택) > Configuration > General 탭으로 이동합니다.\n2. 'Production Mode' 체크박스를 활성화합니다.\n3. 저장 및 활성화 후 AdminServer와 모든 관리형 서버를 재기동해야 실제로 적용됩니다(런타임 즉시 반영되는 것이 아니라 재기동 필요).\n4. 프로덕션 모드 전환 시 자동 배포 디렉토리(autodeploy) 감시가 비활성화되는지, JTA 타임아웃 등 운영 기준값이 적용되는지 확인합니다.\n5. startWebLogic.sh 실행 시 이용되는 setDomainEnv.sh에서 PRODUCTION_MODE 값도 true로 일치시킵니다.\n6. 전환 후 boot.properties를 이용한 무인 기동 시 자격증명이 안전하게 관리되는지(암호화 저장) 점검합니다.",
+    "example": "관리 콘솔 경로:\nDomain Structure > mydomain > Configuration > General\n  [v] Production Mode\n\nconfig.xml 예시:\n<domain>\n  <name>mydomain</name>\n  <production-mode-enabled>true</production-mode-enabled>\n</domain>\n\nWLST 예시:\nconnect('weblogic','password','t3://localhost:7001')\nedit()\nstartEdit()\ncd('/')\ncmo.setProductionModeEnabled(true)\nsave()\nactivate()\n\nsetDomainEnv.sh 확인:\nPRODUCTION_MODE=\"true\"\nexport PRODUCTION_MODE"
+  },
+  "WLS-04": {
+    "risk": "감사(Audit) 프로바이더가 비활성화되어 있으면 관리자 로그인, 설정 변경, 배포, 권한 변경 등 보안상 중요한 이벤트에 대한 기록이 남지 않아 침해사고 발생 시 원인 분석(포렌식)과 책임 추적이 불가능해집니다.",
+    "fix": "1. Administration Console에서 Security Realms > myrealm > Providers > Auditing 탭으로 이동합니다.\n2. New 버튼을 클릭하여 DefaultAuditor(또는 조직 표준 감사 프로바이더)를 추가합니다.\n3. 생성된 프로바이더를 클릭해 Configuration에서 감사 심각도 임계값(Severity, 예: INFORMATION 이상)을 설정하고 로그 저장 경로를 지정합니다.\n4. 감사 이벤트 유형(로그인 성공/실패, 인가 거부, 설정 변경 등)이 모두 기록되도록 필터를 확인합니다.\n5. 저장 후 도메인을 재기동하여 적용하고, 실제 로그인 시도 후 감사 로그 파일(DefaultAuditRecorder.log 등)에 이벤트가 기록되는지 확인합니다.\n6. 감사 로그를 중앙 로그 수집 시스템(SIEM)과 연동하여 실시간 모니터링 체계를 구축합니다.",
+    "example": "관리 콘솔 경로:\nSecurity Realms > myrealm > Providers > Auditing > New\n  Name: DefaultAuditor\n  Type: DefaultAuditor\n\nconfig.xml 예시:\n<sec:security-configuration>\n  <sec:realm>\n    <sec:auditor xsi:type=\"wls:default-auditor\">\n      <sec:name>DefaultAuditor</sec:name>\n      <sec:severity>Information</sec:severity>\n    </sec:auditor>\n  </sec:realm>\n</sec:security-configuration>\n\nWLST 예시:\ncd('/SecurityConfiguration/mydomain/Realms/myrealm')\ncreate('DefaultAuditor','Auditor')\ncd('Auditors/DefaultAuditor')\nset('Severity','Information')\nsave()\nactivate()"
+  },
+  "WLS-05": {
+    "risk": "Node Manager는 관리형 서버의 시작/중지/모니터링을 담당하는 컴포넌트로, 평문(Plain) 통신 모드나 기본 비밀번호가 사용될 경우 공격자가 네트워크 상에서 명령을 가로채거나 위조하여 임의로 서버를 기동·중지시키거나 원격 코드 실행으로 이어질 수 있습니다.",
+    "fix": "1. $DOMAIN_HOME/nodemanager/nodemanager.properties 파일에서 SecureListener 값을 true로 설정하여 SSL 통신을 강제합니다.\n2. Node Manager용 별도 키스토어(예: nmIdentity.jks, nmTrust.jks)를 생성하고 KeyStores 항목에 CustomIdentityAndCustomTrust로 지정합니다.\n3. Administration Console의 각 머신(Machines) 설정에서 Node Manager 타입을 SSL로 지정하고 Listen Address/Port를 명시적으로 제한합니다(0.0.0.0 금지).\n4. Node Manager 인증 자격증명은 관리 서버와 동일 계정을 재사용하지 말고 별도 계정을 생성하며, nm_password.properties 등 평문 저장 파일을 암호화 저장(SecretStore 또는 boot.properties 방식)으로 전환합니다.\n5. Node Manager 접근을 필요한 관리 네트워크 대역으로만 허용하도록 방화벽/보안그룹을 설정합니다.\n6. 변경 후 Node Manager를 재기동하고, 관리 콘솔의 Machines > Monitoring 탭에서 SSL 연결 상태(Reachable, SSL)를 확인합니다.",
+    "example": "nodemanager.properties 예시:\nSecureListener=true\nListenAddress=10.0.1.10\nListenPort=5556\nKeyStores=CustomIdentityAndCustomTrust\nCustomIdentityKeyStoreFileName=/opt/oracle/nmIdentity.jks\nCustomIdentityKeyStorePassPhrase={AES}...\nCustomIdentityAlias=nodemanager\nCustomIdentityPrivateKeyPassPhrase={AES}...\n\n관리 콘솔 경로:\nDomain Structure > Environment > Machines > <machine명> > Configuration > Node Manager\n  Type: SSL\n  Listen Address / Listen Port 명시\n\nWLST 예시:\ncd('/Machines/machine1/NodeManager/machine1')\ncmo.setNMType('SSL')\ncmo.setListenAddress('10.0.1.10')\ncmo.setListenPort(5556)\nsave()\nactivate()"
+  },
+  "WLS-06": {
+    "risk": "비밀번호 최소 길이, 복잡도, 이력 관리, 계정 잠금 정책이 미흡하면 무차별 대입(Brute-force) 공격이나 사전 공격으로 관리자·애플리케이션 계정 비밀번호가 쉽게 노출되어 인증 우회로 이어질 수 있습니다.",
+    "fix": "1. Administration Console에서 Security Realms > myrealm > Providers > Password Validation 탭으로 이동합니다.\n2. SystemPasswordValidator(또는 커스텀 Validator)를 선택하고 최소 길이(예: 12자 이상), 최소 숫자/특수문자/대소문자 포함 개수를 설정합니다.\n3. 사용자명과 동일하거나 유사한 비밀번호 사용을 금지하는 옵션(Reject Equal or Contain UserID)을 활성화합니다.\n4. Security Realms > myrealm > User Lockout 탭에서 Lockout Enabled를 체크하고 Lockout Threshold(예: 5회), Lockout Duration(예: 30분), Lockout Reset Duration을 설정합니다.\n5. 정기적인 비밀번호 변경 주기(90일 등)와 재사용 금지 정책을 조직 IAM 정책과 연계하여 관리합니다.\n6. 설정 저장 후 테스트 계정으로 정책 미준수 비밀번호 입력 시 거부되는지, 연속 로그인 실패 시 계정이 잠기는지 검증합니다.",
+    "example": "관리 콘솔 경로:\nSecurity Realms > myrealm > Providers > Password Validation > SystemPasswordValidator\n  Minimum Password Length: 12\n  Minimum Numeric or Special Characters: 2\n  Reject Equal or Contain UserID: true\n\nSecurity Realms > myrealm > User Lockout\n  [v] Lockout Enabled\n  Lockout Threshold: 5\n  Lockout Duration: 30 (minutes)\n\nWLST 예시:\ncd('/SecurityConfiguration/mydomain/Realms/myrealm/PasswordValidators/SystemPasswordValidator')\nset('MinPasswordLength',12)\nset('MinNumericOrSpecialCharacters',2)\ncd('/SecurityConfiguration/mydomain/Realms/myrealm')\nset('LockoutEnabled','true')\nset('LockoutThreshold',5)\nset('LockoutDuration',30)\nsave()\nactivate()"
+  },
+  "WLS-07": {
+    "risk": "JMX(MBean) 및 T3/T3S 프로토콜을 통한 원격 접근이 제한 없이 열려 있으면, 인증되지 않은 외부 사용자가 원격으로 MBean을 조작하거나 역직렬화 취약점(예: T3 프로토콜 관련 CVE)을 악용해 원격 코드 실행(RCE)까지 이어질 수 있는 심각한 위험이 있습니다.",
+    "fix": "1. Administration Console에서 각 서버(Servers) > Protocols > General 탭으로 이동하여 T3, T3S 프로토콜에 대해 필요하지 않은 경우 'Enable Tunneling'을 비활성화하고, 사용하지 않는 프로토콜 채널은 제거합니다.\n2. 도메인 전역에서 Connection Filter(예: weblogic.security.net.ConnectionFilterImpl)를 설정하여 T3/T3S 접근을 허용된 IP 대역(관리 네트워크)으로만 제한합니다.\n3. JMX 원격 접근이 불필요하면 시작 스크립트에서 -Dcom.sun.management.jmxremote 관련 옵션을 제거하거나, 필요한 경우 인증(jmxremote.password/access)과 SSL(-Dcom.sun.management.jmxremote.ssl=true)을 필수로 적용합니다.\n4. 관리 포트(Administration Port)를 별도로 분리 활성화하여 관리 트래픽과 애플리케이션 트래픽을 분리합니다.\n5. 방화벽에서 T3/T3S/JMX 포트를 외부(인터넷)에서 접근 불가하도록 차단하고 내부 관리망에서만 허용합니다.\n6. 적용 후 외부망에서 telnet/nc 등으로 해당 포트 접근을 시도하여 차단이 정상 동작하는지 확인합니다.",
+    "example": "Connection Filter 설정 (config.xml):\n<domain>\n  <security-configuration>\n    <connection-filter>weblogic.security.net.ConnectionFilterImpl</connection-filter>\n    <connection-filter-rule-file>/opt/oracle/domain/connectionfilter.rules</connection-filter-rule-file>\n  </security-configuration>\n</domain>\n\nconnectionfilter.rules 예시:\n10.0.0.0/8 * t3 allow\n0.0.0.0/0 * t3,t3s deny\n\nWLST 예시:\ncd('/')\ncmo.setConnectionFilter('weblogic.security.net.ConnectionFilterImpl')\ncmo.setConnectionFilterRules(['10.0.0.0/8 * t3 allow','0.0.0.0/0 * t3,t3s deny'])\nsave()\nactivate()\n\n관리 포트 분리:\nDomain Structure > mydomain > Configuration > General\n  [v] Enable Administration Port, Administration Port: 9002"
+  },
+  "WLS-08": {
+    "risk": "WebLogic Server에는 매 분기 Oracle CPU(Critical Patch Update)를 통해 원격 코드 실행(RCE), 인증 우회 등 심각도 Critical 취약점이 지속적으로 발견됩니다(예: CVE-2020-14882, CVE-2023-21931 등). PSU(Patch Set Update) 미적용 시 공개된 익스플로잇만으로 서버 완전 장악이 가능한 경우가 많아 즉각적인 패치 적용이 필요합니다.",
+    "fix": "1. My Oracle Support(MOS)에서 현재 설치된 WebLogic Server 버전을 확인하고 최신 분기별 CPU/PSU 패치 목록을 조회합니다.\n2. OPatch 유틸리티(opatch lsinventory)로 현재 적용된 패치 이력을 점검하여 누락된 PSU를 식별합니다.\n3. 비운영 환경(스테이징)에서 패치를 우선 적용하여 애플리케이션 호환성을 검증합니다.\n4. 운영 적용 전 전체 도메인 백업(config, 애플리케이션, 데이터소스 설정)을 수행합니다.\n5. opatch apply 명령으로 PSU를 적용하고, 적용 후 반드시 관리 서버 및 모든 관리형 서버를 재기동합니다.\n6. 패치 적용 후 opatch lsinventory로 정상 반영을 확인하고, 애플리케이션 정상 동작 및 취약점 스캔 재점검을 수행합니다.\n7. 이후 분기별 CPU 발표 시마다 정기 패치 적용 프로세스를 운영 절차에 반영합니다.",
+    "example": "패치 이력 확인:\n$ cd $ORACLE_HOME/OPatch\n$ ./opatch lsinventory\n\n패치 적용:\n$ ./opatch apply /path/to/psu_patch_dir\n\n적용 후 재기동:\n$ $DOMAIN_HOME/bin/stopWebLogic.sh\n$ $DOMAIN_HOME/bin/startWebLogic.sh\n$ $DOMAIN_HOME/bin/startManagedWebLogic.sh managed1 t3://adminhost:7001\n\n버전/패치 확인 WLST:\n$ java weblogic.version\n$ ./opatch lsinventory -detail | grep -i PSU"
+  },
+  "WSP-01": {
+    "risk": "관리 보안(Administrative Security)이 비활성화되어 있으면 인증 없이 통합 관리 콘솔(ISC)이나 wsadmin으로 서버 구성 변경, 애플리케이션 배포/삭제, 사용자·리소스 설정 조작이 가능해 서버 전체가 공격자에게 완전히 장악될 수 있습니다. 관리 보안은 WebSphere 전체 보안 체계(전역 보안, SSL, 역할 기반 접근제어)의 전제 조건이므로 비활성화 시 다른 보안 설정도 사실상 무력화됩니다.",
+    "fix": "1) 통합 관리 콘솔에서 관리 보안을 즉시 활성화합니다. 2) 활성화 전 반드시 관리자 계정(파일 기반 레지스트리, LDAP 등)을 먼저 등록하고 최소 1개 이상의 관리자 역할(Administrator)을 매핑합니다. 3) 활성화 후 서버(노드/DMGR)를 재시작하고 콘솔 로그인 시 인증이 요구되는지 확인합니다. 4) 관리자 계정은 강력한 패스워드 정책(최소 길이, 복잡도, 주기적 변경)을 적용합니다. 5) 변경 후 wsadmin 스크립트/자동화 도구도 인증 정보를 사용하도록 갱신합니다.",
+    "example": "[관리 콘솔]\nSecurity > Global security > \"Enable administrative security\" 체크박스 선택 > Apply/Save 후 서버 재시작\n\n[wsadmin(jython) 확인]\nAdminTask.help('-interactive setAdminActiveSecuritySettings')\nsecurityoff = AdminControl.getAttribute(AdminControl.completeObjectName('type=SecurityAdmin,*'), 'enabled')\nprint securityoff\n\n[wsadmin(jython) 활성화 예시]\nsecurity = AdminConfig.getid('/Security:/')\nAdminConfig.modify(security, [['enabled', 'true']])\nAdminConfig.save()\n\n[security.xml 확인 포인트]\n<security:Security xmi:id=\"Security_1\" useLocalSecurityServer=\"true\" enabled=\"true\" enforceJava2Security=\"true\" .../>\n(enabled=\"true\" 여부 확인)"
+  },
+  "WSP-02": {
+    "risk": "전역 보안(Global Security)이 비활성화되면 관리 보안뿐 아니라 애플리케이션 보안, 인증/인가(JAAS), SSL 채널 프레임워크 전체가 동작하지 않아 관리 콘솔·SOAP/RMI 커넥터·내부 서버 간 통신이 평문 및 무인증 상태로 노출됩니다. 이는 계정 탈취, 중간자 공격(MITM), 무단 리소스 접근으로 직결되는 최상위 위험 설정입니다.",
+    "fix": "1) 관리 콘솔에서 전역 보안을 활성화하고 사용할 사용자 레지스트리(로컬 OS, 파일 기반, LDAP, 사용자 지정)를 지정합니다. 2) 인증 메커니즘(LTPA 등)과 인증서/키 저장소를 함께 구성합니다. 3) 활성화 전 테스트 환경에서 애플리케이션이 정상 인증 흐름을 타는지 검증 후 운영 반영합니다. 4) DMGR과 각 노드가 동일한 전역 보안 설정을 공유하도록 동기화(Node Sync)합니다. 5) 변경 후 전체 셀(cell) 재시작 및 로그인 검증을 수행합니다.",
+    "example": "[관리 콘솔]\nSecurity > Global security\n- Enable administrative security: 체크\n- Enable application security: 체크\n- User account repository: 사용할 레지스트리 선택(LDAP 권장) > Apply > Save > 노드 동기화 > 서버 재시작\n\n[wsadmin(jython)]\nsecurity = AdminConfig.getid('/Security:/')\nAdminConfig.modify(security, [['enabled', 'true'], ['enforceJava2Security', 'true']])\nAdminConfig.save()\n\n[security.xml]\n<security:Security enabled=\"true\" enforceJava2Security=\"true\" appEnabled=\"true\"\n  activeUserRegistry=\"LDAPUserRegistry_1\" .../>"
+  },
+  "WSP-03": {
+    "risk": "WebSphere 설치 시 함께 제공되는 기본/샘플 애플리케이션(DefaultApplication, snoop, hitcount, SamplesGallery 등)과 기본 관리자 계정(wsadmin 기본 자격증명, DefaultPrincipalMapping 등)은 공개된 문서와 자동화 스캐너에 잘 알려져 있어 손쉬운 초기 침투 경로가 됩니다. 미제거 시 정보 노출, 원격 코드 실행, 인증 우회의 발판이 될 수 있습니다.",
+    "fix": "1) 통합 관리 콘솔에서 DefaultApplication, SamplesGallery, snoop/hitcount/HitCount 등 기본 제공 샘플 애플리케이션을 모두 중지 후 삭제합니다. 2) 기본 프로필 생성 시 만들어진 테스트/샘플 사용자 계정을 사용자 레지스트리에서 제거하거나 비활성화합니다. 3) 프로파일 생성 옵션에서 애초에 샘플을 설치하지 않도록(Deploy the sample applications 체크 해제) 신규 구축 시 설정합니다. 4) 제거 후 애플리케이션 목록과 URL(/snoop, /hitcount)에 접근이 차단되는지 확인합니다.",
+    "example": "[관리 콘솔]\nApplications > All applications > DefaultApplication / SamplesGallery 선택 > Stop > Uninstall > Save\n\n[wsadmin(jython) 삭제]\nAdminApp.uninstall('DefaultApplication')\nAdminApp.uninstall('SamplesGallery')\nAdminConfig.save()\n\n[wsadmin 목록 확인]\nprint AdminApp.list()\n\n[프로파일 생성 시(manageprofiles)]\nmanageprofiles.sh -create -profileName AppSrv01 ... -enableAdminSecurity true\n(샘플 배포 옵션 미선택 확인)"
+  },
+  "WSP-04": {
+    "risk": "애플리케이션 보안(Application Security)이 비활성화되면 EJB/서블릿에 선언한 J2EE 역할 기반 접근제어(@RolesAllowed, web.xml security-constraint 등)가 강제되지 않아, 인증이 필요한 업무 화면·API에 익명 사용자가 그대로 접근할 수 있습니다. 이는 개별 애플리케이션 수준의 인가 우회로 이어집니다.",
+    "fix": "1) 관리 콘솔에서 전역 보안 하위의 애플리케이션 보안을 활성화합니다(전역 보안 활성화가 선행 조건). 2) 각 애플리케이션의 배포 기술서(web.xml/ejb-jar.xml)에 정의된 보안 역할(security-role)을 실제 사용자 그룹에 올바르게 매핑합니다. 3) 배포 시 역할-사용자 매핑 단계를 누락하지 않도록 배포 체크리스트에 포함합니다. 4) Java 2 보안(enforceJava2Security)도 함께 검토하여 애플리케이션의 파일/네트워크 접근 권한을 제한합니다. 5) 적용 후 미인증 접근 시 401/403이 반환되는지 테스트합니다.",
+    "example": "[관리 콘솔]\nSecurity > Global security > \"Enable application security\" 체크 > Apply/Save > 재시작\n\n애플리케이션 역할 매핑:\nApplications > All applications > [앱 이름] > Security role to user/group mapping > 역할별 사용자/그룹 지정 > OK > Save\n\n[wsadmin(jython)]\nAdminApp.edit('MyApp', '[-MapRolesToUsers [[Admin \"No\" \"No\" appAdminGroup]]]')\nAdminConfig.save()\n\n[security.xml]\n<security:Security appEnabled=\"true\" enabled=\"true\" .../>"
+  },
+  "WSP-05": {
+    "risk": "SSL/TLS가 미적용되거나 취약한 프로토콜(SSLv3, TLS 1.0/1.1)·약한 암호 스위트가 허용되면 관리 콘솔, SOAP/IIOP 커넥터, 클러스터 간 통신, 클라이언트-서버 트래픽이 도청·변조(MITM)에 노출됩니다. 특히 관리 트래픽 노출 시 자격증명 탈취로 서버 전체가 위협받습니다.",
+    "fix": "1) 관리 콘솔에서 SSL 구성(SSL configurations)을 점검하여 TLS 1.2 이상만 허용하도록 프로토콜을 강제합니다. 2) 약한 암호 스위트(RC4, DES, 3DES, NULL 등)를 비활성화하고 강한 암호 스위트만 사용하도록 Quality of Protection(QoP) 설정을 변경합니다. 3) 기본 자체 서명(self-signed) 인증서를 신뢰할 수 있는 CA 발급 인증서로 교체합니다. 4) 각 엔드포인트(HTTPS, SOAP connector, IIOP, LDAP)에 적용된 SSL 구성을 개별 확인합니다. 5) 변경 후 openssl s_client 등으로 실제 지원 프로토콜/암호를 재검증합니다.",
+    "example": "[관리 콘솔]\nSecurity > SSL certificate and key management > SSL configurations > [해당 구성] > Quality of protection (QoP)\n- Protocol: TLSv1.2 (또는 TLS_PROTOCOL 사용 시 TLSv1.2 이상)\n- Cipher suite group: Strong 선택 후 취약 스위트 제외 > Apply > Save\n\n[wsadmin(jython) 예시]\nsslConfig = AdminConfig.getid('/SSLConfig:NodeDefaultSSLSettings/')\nAdminConfig.modify(sslConfig, [['jsseProvider', 'IBMJSSE2'], ['sslProtocol', 'TLSv1.2']])\nAdminConfig.save()\n\n[검증]\nopenssl s_client -connect host:9043 -tls1\n(연결 실패해야 정상, -tls1_2로는 연결되어야 함)"
+  },
+  "WSP-06": {
+    "risk": "보안 감사 로깅(Security Auditing)이 비활성화되어 있으면 관리자 계정 로그인/로그아웃, 권한 변경, 애플리케이션 배포, 인증 실패 등 보안 이벤트에 대한 기록이 남지 않아 침해 사고 발생 시 원인 분석과 책임 추적(포렌식)이 불가능합니다. 규제 준수(개인정보보호법, 금융 감독 규정 등) 측면에서도 감사 추적 미비는 지적 사항입니다.",
+    "fix": "1) 관리 콘솔에서 보안 감사 서브시스템(Security Auditing)을 활성화합니다. 2) 감사 이벤트 팩터리(Audit event factories)에서 인증, 인가, 관리 작업 등 필요한 이벤트 유형을 선택합니다. 3) 감사 로그의 무결성 보호를 위해 서명/암호화 옵션과 저장 위치(별도 보안 파티션 또는 중앙 로그 서버 전송)를 구성합니다. 4) 로그 보관 기간과 로테이션 정책을 조직의 로그 보관 규정에 맞게 설정합니다. 5) SIEM 등 중앙 로그 시스템으로 연계하여 실시간 모니터링 체계를 구축합니다.",
+    "example": "[관리 콘솔]\nSecurity > Security auditing > \"Enable security auditing\" 체크\n> Audit service providers / Audit event factories에서 필요한 이벤트(AUTHN, AUTHZ, MGMT_OPERATION 등) 선택 > Apply > Save > 재시작\n\n[wsadmin(jython)]\nAdminTask.enableSecurityAuditing('[-auditEnabled true]')\nAdminConfig.save()\n\n[감사 로그 확인 경로]\n${PROFILE_ROOT}/logs/audit/audit.log\n(파일 접근 권한을 관리자 그룹으로 제한했는지 별도 점검 필요)"
+  },
+  "WSP-07": {
+    "risk": "세션 보안이 강화되지 않으면(쿠키 Secure/HttpOnly 미설정, 세션 타임아웃 과다, URL 재작성을 통한 세션ID 노출 등) 세션 하이재킹, XSS를 통한 세션 쿠키 탈취, 세션 고정(Session Fixation) 공격에 취약해집니다. 특히 HTTP 환경에서 세션ID가 평문 전송되면 네트워크 스니핑만으로 계정 탈취가 가능합니다.",
+    "fix": "1) 웹 컨테이너 설정에서 세션 쿠키에 Secure, HttpOnly 속성을 강제 적용합니다. 2) URL을 통한 세션 재작성(URL rewriting)을 비활성화하여 세션ID가 주소창/로그에 노출되지 않도록 합니다. 3) 세션 타임아웃을 업무 특성에 맞게 최소화(예: 30분 이내)합니다. 4) 로그인 성공 시 세션ID를 재발급하도록 애플리케이션 로직을 구성하여 세션 고정 공격을 방지합니다. 5) 세션 정보를 저장하는 클러스터 환경에서는 세션 데이터의 암호화 전송(SSL) 여부도 함께 점검합니다.",
+    "example": "[관리 콘솔 - 서버 단위]\nServers > Server Types > WebSphere application servers > [서버명] > Web Container Settings > Session management\n- Enable cookies 체크 > Cookies settings에서 \"Set session cookies to HTTPOnly\" 및 \"Restrict cookies to HTTPS requests\"(Secure) 체크\n- \"Enable URL rewriting\" 체크 해제\n- Session timeout: Set timeout 30분 이내로 설정 > Apply > Save\n\n[wsadmin(jython)]\nsessionMgr = AdminConfig.getid('/Server:server1/SessionManager:/')\nAdminConfig.modify(sessionMgr, [['enableCookies', 'true'], ['enableUrlRewriting', 'false']])\ncookieCfg = AdminConfig.showAttribute(sessionMgr, 'defaultCookieSettings')\nAdminConfig.modify(cookieCfg, [['secure', 'true']])\nAdminConfig.save()"
+  },
+  "WSP-08": {
+    "risk": "IBM WebSphere Application Server는 알려진 취약점(CVE)에 대해 정기적으로 Interim Fix/Fix Pack을 배포하는데, 최신 보안 픽스팩을 적용하지 않으면 이미 공개된 원격 코드 실행, 인증 우회, 정보 노출 등 취약점이 그대로 남아 공격자가 공개 익스플로잇으로 손쉽게 침투할 수 있습니다.",
+    "fix": "1) IBM Fix Central에서 현재 설치된 WebSphere 버전에 대한 최신 Fix Pack 및 보안 관련 Interim Fix(iFix) 목록을 확인합니다. 2) 운영 반영 전 테스트 환경에서 패치 적용 후 애플리케이션 호환성을 검증합니다. 3) IBM Installation Manager 또는 updateInstaller를 이용해 패치를 적용하고, 적용 후 버전 정보를 확인합니다. 4) 패치 적용 주기(분기별 등)를 정례화하고 IBM 보안 공지(PSIRT)를 구독하여 긴급 취약점 발생 시 신속히 대응합니다. 5) 패치 이력을 형상관리 문서로 남겨 감사 추적이 가능하도록 합니다.",
+    "example": "[버전/패치 확인 - CLI]\n${WAS_HOME}/bin/versionInfo.sh\n(현재 버전 및 적용된 Fix Pack, iFix 목록 출력)\n\n[Installation Manager를 통한 업데이트]\n${IM_HOME}/eclipse/tools/imcl listAvailableFixes -repositories <IBM Fix Central 저장소 경로>\n${IM_HOME}/eclipse/tools/imcl install <offering ID> -repositories <경로> -acceptLicense\n\n[관리 콘솔에서 버전 확인]\nSystem administration > Nodes > [노드명] 컬럼의 \"Version\" 확인\n\n[IBM Fix Central]\nhttps://www.ibm.com/support/fixcentral 에서 제품군 \"WebSphere Application Server\" 선택 후 최신 보안 Fix Pack 다운로드"
+  },
+  "WIN-01": {
+    "risk": "기본 Administrator 계정명은 널리 알려져 있어 무작위 대입(brute force) 공격의 우선 표적이 되기 쉽고, Guest 계정이 활성화되어 있으면 인증 절차 없이 시스템 접근 경로가 열려 초기 침투에 악용될 수 있습니다.",
+    "fix": "로컬 보안 정책(secpol.msc) 또는 그룹 정책의 보안 옵션에서 \"계정: 관리자 계정 이름 바꾸기\"를 사용해 기본 Administrator 계정명을 추측하기 어려운 이름으로 변경하고, Guest 계정은 이름 변경 후 비활성화합니다. 도메인 환경에서는 GPO로 전체 서버에 일괄 적용하고, 불필요한 로컬 기본 계정은 주기적으로 점검·정리합니다.",
+    "example": "로컬 보안 정책 경로: 컴퓨터 구성 > Windows 설정 > 보안 설정 > 로컬 정책 > 보안 옵션\n- Accounts: Rename administrator account -> 임의 이름으로 변경\n- Accounts: Rename guest account -> 임의 이름으로 변경\n- Accounts: Guest account status -> Disabled\n\nPowerShell:\nRename-LocalUser -Name \"Administrator\" -NewName \"svc-adm01\"\nDisable-LocalUser -Name \"Guest\"\n\n확인: net user"
+  },
+  "WIN-02": {
+    "risk": "계정 잠금 임계값/기간이 설정되어 있지 않으면 공격자가 제한 없이 암호 대입 공격을 시도할 수 있어 계정 탈취 및 최종적으로 서버 장악으로 이어질 위험이 큽니다.",
+    "fix": "로컬 보안 정책 또는 GPO의 계정 정책 > 계정 잠금 정책에서 \"계정 잠금 임계값\"을 5회 이하로, \"계정 잠금 기간\"과 \"다음 시간 후 계정 잠금 수를 원래대로 설정\"을 15분 이상으로 구성합니다. 서비스 계정 등 잠금 시 업무 영향이 큰 계정은 별도 정책(전용 GPO OU 분리)으로 관리하되, 임계값을 0(무제한 허용)으로 두지 않습니다.",
+    "example": "로컬 보안 정책: 계정 정책 > 계정 잠금 정책\n- 계정 잠금 임계값: 5번의 잘못된 로그온 시도\n- 계정 잠금 기간: 15분\n- 다음 시간 후 계정 잠금 수 원래대로 설정: 15분\n\n명령줄(net accounts):\nnet accounts /lockoutthreshold:5 /lockoutduration:15 /lockoutwindow:15\n\n확인: net accounts"
+  },
+  "WIN-03": {
+    "risk": "암호 최소 길이·복잡성·이력 관리가 미흡하면 단순하거나 재사용되는 취약한 암호가 그대로 허용되어 사전 대입 공격, 크리덴셜 스터핑, 계정 탈취에 취약해집니다.",
+    "fix": "로컬 보안 정책/GPO의 계정 정책 > 암호 정책에서 \"암호는 복잡성을 만족해야 함\"을 사용으로, 최소 암호 길이를 12자 이상으로, 최대 암호 사용 기간을 90일 이하로, \"암호 기록 강제\"를 최근 24개 이상 기억하도록 설정합니다. \"되돌릴 수 있는 암호화를 사용하여 암호 저장\"은 사용 안 함으로 유지합니다.",
+    "example": "로컬 보안 정책: 계정 정책 > 암호 정책\n- 암호는 복잡성을 만족해야 함: 사용\n- 최소 암호 길이: 12자\n- 최대 암호 사용 기간: 90일\n- 암호 기록 강제: 24개 암호 기억\n\nnet accounts:\nnet accounts /minpwlen:12 /maxpwage:90 /uniquepw:24\n\nsecedit로 일괄 적용:\nsecedit /configure /db secedit.sdb /cfg policy.inf"
+  },
+  "WIN-04": {
+    "risk": "로그온/로그오프, 계정 관리, 권한 사용 등에 대한 감사 정책이 비활성화되어 있으면 침해 사고 발생 시 공격 경로와 흔적을 추적할 수 없고, 내부자 위협이나 이상 행위를 사전에 탐지하기 어렵습니다.",
+    "fix": "로컬 보안 정책의 고급 보안 감사 정책 구성(또는 GPO)에서 로그온/로그오프, 계정 관리, 권한 사용, 정책 변경, 시스템 이벤트 등 주요 하위 범주에 대해 성공/실패 감사를 활성화합니다. 이벤트 로그 최대 크기를 충분히 확보하고, 가능하면 중앙 로그 수집(SIEM, Windows Event Forwarding 등)과 연계해 장기 보관 및 상관 분석을 수행합니다.",
+    "example": "로컬 보안 정책: 보안 설정 > 고급 보안 감사 정책 구성 > 시스템 감사 정책\n- 로그온/로그오프 > 로그온 감사: 성공, 실패\n- 계정 관리 > 사용자 계정 관리 감사: 성공, 실패\n- 권한 사용 > 중요 권한 사용 감사: 성공, 실패\n\nauditpol 명령:\nauditpol /set /subcategory:\"로그온\" /success:enable /failure:enable\nauditpol /set /subcategory:\"사용자 계정 관리\" /success:enable /failure:enable\n\n확인: auditpol /get /category:*"
+  },
+  "WIN-05": {
+    "risk": "Telnet, FTP, SNMP, Remote Registry, 불필요한 Print Spooler 등 업무상 사용하지 않는 서비스가 활성화되어 있으면 공격 표면이 넓어지고, 해당 서비스의 알려진 취약점(예: PrintNightmare)을 통한 원격 코드 실행 경로로 악용될 수 있습니다.",
+    "fix": "서비스 관리자(services.msc) 또는 PowerShell로 서버 역할에 불필요한 서비스를 식별한 뒤 중지하고 시작 유형을 \"사용 안 함\"으로 변경합니다. 변경 전 다른 서비스와의 의존성을 확인하고, GPO의 시스템 서비스 정책을 통해 동일 역할의 서버군에 일괄 적용해 설정 드리프트를 방지합니다.",
+    "example": "PowerShell:\nGet-Service | Where-Object {$_.Status -eq \"Running\"} | Select Name, DisplayName\nStop-Service -Name \"TlntSvr\" -Force\nSet-Service -Name \"TlntSvr\" -StartupType Disabled\n\nRemote Registry 비활성화 예:\nStop-Service RemoteRegistry\nSet-Service RemoteRegistry -StartupType Disabled\n\nGPO 경로: 컴퓨터 구성 > Windows 설정 > 보안 설정 > 시스템 서비스"
+  },
+  "WIN-06": {
+    "risk": "SMBv1은 WannaCry/NotPetya 등이 악용한 EternalBlue(MS17-010)를 포함해 다수의 원격 코드 실행 취약점이 알려진 노후 프로토콜로, 활성화 상태로 남아 있으면 랜섬웨어 등 웜성 공격의 확산 경로가 됩니다.",
+    "fix": "Windows 기능에서 \"SMB 1.0/CIFS 파일 공유 지원\"을 제거하거나 PowerShell로 SMBv1 서버/클라이언트 기능을 비활성화합니다. 이후 통신은 SMBv2/v3만 사용하도록 하고, SMB 서명(signing) 강제 적용도 함께 검토합니다.",
+    "example": "PowerShell(권장):\nSet-SmbServerConfiguration -EnableSMB1Protocol $false -Force\nDisable-WindowsOptionalFeature -Online -FeatureName smb1protocol\n\n확인:\nGet-SmbServerConfiguration | Select EnableSMB1Protocol\n\n레지스트리(대체):\nSet-ItemProperty -Path \"HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters\" -Name SMB1 -Value 0 -Type DWORD"
+  },
+  "WIN-07": {
+    "risk": "NLA(네트워크 수준 인증)가 비활성화된 RDP는 인증 이전 단계에서 원격 데스크톱 프로토콜 스택 전체가 네트워크에 노출되어 BlueKeep(CVE-2019-0708) 같은 사전 인증 원격 코드 실행 취약점 및 자격 증명 탈취 공격에 취약해집니다.",
+    "fix": "시스템 속성의 원격 설정 또는 GPO에서 \"사용자 인증에 네트워크 수준 인증을 요구\" 정책을 사용(Enabled)으로 설정하고, RDP 리스너의 보안 계층을 SSL(TLS) 또는 협상(Negotiate) 모드로 구성합니다. 계정 잠금 정책, RDP 접근 IP 제한과 함께 적용하는 것을 권장합니다.",
+    "example": "GPO 경로: 컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > 원격 데스크톱 서비스 > 원격 데스크톱 세션 호스트 > 보안\n- \"사용자 인증에 네트워크 수준 인증 요구\": 사용\n\nPowerShell:\nSet-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name \"UserAuthentication\" -Value 1\n\n시스템 속성 GUI: 제어판 > 시스템 > 원격 설정 > \"네트워크 수준 인증을 사용하는 원격 데스크톱을 실행하는 컴퓨터에서만 연결 허용\" 체크"
+  },
+  "WIN-08": {
+    "risk": "Windows Defender 방화벽이 비활성화되거나 도메인/사설/공용 프로필 중 하나라도 꺼져 있으면 불필요한 인바운드 트래픽이 차단되지 않아 네트워크 스캐닝, 원격 공격, 내부 확산(lateral movement) 위험이 크게 증가합니다.",
+    "fix": "Windows Defender 방화벽에서 도메인/사설/공용 프로필을 모두 사용으로 설정하고, 기본 인바운드 동작을 차단으로 지정한 뒤 실제로 필요한 서비스에 대해서만 명시적으로 인바운드 허용 규칙을 구성합니다. GPO로 서버군에 일괄 적용하고 방화벽 규칙을 주기적으로 재검토합니다.",
+    "example": "PowerShell:\nSet-NetFirewallProfile -Profile Domain,Public,Private -Enabled True\nSet-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Block\n\n확인:\nGet-NetFirewallProfile | Select Name, Enabled, DefaultInboundAction\n\nGPO 경로: 컴퓨터 구성 > Windows 설정 > 보안 설정 > 고급 보안이 포함된 Windows Defender 방화벽"
+  },
+  "WIN-09": {
+    "risk": "UAC(사용자 계정 컨트롤)가 비활성화되거나 알림 수준이 낮게 설정되면 관리자 권한이 필요한 작업이 사용자 동의 없이 조용히 실행될 수 있어, 악성코드나 악의적 스크립트에 의한 권한 상승 및 시스템 변조 위험이 커집니다.",
+    "fix": "로컬 보안 정책의 보안 옵션에서 사용자 계정 컨트롤 관련 항목을 모두 권장값 이상으로 설정합니다. \"관리자 승인 모드에서 관리자에 대한 사용자 계정 컨트롤 동작\"을 \"안전한 바탕화면에서 동의 요청\"으로, \"모든 관리자를 관리자 승인 모드로 실행\"과 \"UAC를 사용하여 모든 관리자를 관리자 승인 모드로 실행\"을 사용으로 설정합니다.",
+    "example": "로컬 보안 정책: 보안 설정 > 로컬 정책 > 보안 옵션 > 사용자 계정 컨트롤\n- 관리자 승인 모드에서 관리자에 대한 UAC 동작: 안전한 바탕화면에서 동의 요청\n- 모든 관리자를 관리자 승인 모드로 실행: 사용\n- 표준 사용자의 권한 상승 요청 자동 거부: 사용\n\n레지스트리/PowerShell:\nSet-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\" -Name EnableLUA -Value 1\n\n확인: gpresult /r 로 적용된 정책 확인"
+  },
+  "WIN-10": {
+    "risk": "운영체제 보안 패치가 최신 상태로 유지되지 않으면 이미 공개된 CVE 취약점을 악용한 원격 코드 실행, 권한 상승, 랜섬웨어 감염 등에 그대로 노출됩니다.",
+    "fix": "WSUS, Windows Update, 또는 SCCM/Intune 등 패치 관리 체계를 통해 매월 정기 보안 롤업(Patch Tuesday)과 긴급(0-day) 패치를 신속히 적용하고, 적용 현황을 주기적으로 점검·보고합니다. 프로덕션 적용 전 테스트 환경에서 회귀 검증을 거쳐 배포 일정을 수립합니다.",
+    "example": "PowerShell(Windows Update):\nInstall-Module PSWindowsUpdate\nGet-WindowsUpdate\nInstall-WindowsUpdate -AcceptAll -AutoReboot\n\n패치 적용 이력 확인:\nGet-HotFix | Sort-Object InstalledOn -Descending\n\nGPO 경로: 컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > Windows Update에서 자동 업데이트 구성"
   }
 }
