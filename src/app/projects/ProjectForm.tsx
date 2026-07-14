@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const inputClass =
@@ -8,20 +9,27 @@ const labelClass = "text-[13px] font-medium";
 
 export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitting) return;
     const form = e.currentTarget;
     const body = Object.fromEntries(new FormData(form).entries());
-    const res = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      form.reset();
-      if (onSuccess) onSuccess();
-      else router.refresh();
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        form.reset();
+        if (onSuccess) onSuccess();
+        else router.refresh();
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -48,9 +56,10 @@ export function ProjectForm({ onSuccess }: { onSuccess?: () => void }) {
       <div className="flex justify-end">
         <button
           type="submit"
-          className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+          disabled={submitting}
+          className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
-          프로젝트 생성
+          {submitting ? "생성 중…" : "프로젝트 생성"}
         </button>
       </div>
     </form>
