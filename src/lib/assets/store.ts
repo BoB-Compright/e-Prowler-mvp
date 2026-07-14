@@ -161,6 +161,10 @@ export function getAsset(id: string, db: Database = getDb()): Asset | undefined 
   return row ? toAsset(row) : undefined;
 }
 
+export function updateAssetCategory(assetId: string, category: string, db: Database = getDb()): void {
+  db.prepare(`UPDATE assets SET category = ? WHERE id = ?`).run(category, assetId);
+}
+
 export function setAssetsProject(
   assetIds: string[],
   projectId: string | null,

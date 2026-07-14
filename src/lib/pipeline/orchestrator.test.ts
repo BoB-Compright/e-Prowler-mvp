@@ -7,6 +7,7 @@ import { createInMemoryDb } from "@/lib/db";
 import { cancelRun, createRun, getRun, listRunEvents } from "./runs";
 import { listCheckResults } from "@/lib/checks/store";
 import { runPipeline, type PipelineDeps } from "./orchestrator";
+import { createRepoAsset, getAsset } from "@/lib/assets/store";
 
 let db: Database;
 
@@ -300,6 +301,27 @@ describe("runPipeline", () => {
     const updated = getRun(run.id, db)!;
     expect(updated.startedAt).not.toBeNull();
     expect(updated.finishedAt).not.toBeNull();
+  });
+
+  it("autodetect 스캔이 감지한 WAS를 repo 자산 category에 보정 저장한다", async () => {
+    const asset = createRepoAsset({ displayName: "svc", repoUrl: "https://github.com/nh/svc" }, db);
+    const run = createRun(asset.repoUrl!, "git", asset.id, db);
+    const deps = baseDeps();
+    deps.runChecks = vi.fn().mockResolvedValue([
+      { id: "WAS-01", status: "pass", evidence: "" },
+      { id: "U-16", status: "pass", evidence: "" },
+    ]);
+    await runPipeline(run.id, { type: "git", repoUrl: asset.repoUrl! }, deps, db);
+    expect(getAsset(asset.id, db)!.category).toBe("WAS");
+  });
+
+  it("감지 종류가 없으면(컨테이너만) category를 null로 유지한다", async () => {
+    const asset = createRepoAsset({ displayName: "svc2", repoUrl: "https://github.com/nh/svc2" }, db);
+    const run = createRun(asset.repoUrl!, "git", asset.id, db);
+    const deps = baseDeps();
+    deps.runChecks = vi.fn().mockResolvedValue([{ id: "C-01", status: "pass", evidence: "" }]);
+    await runPipeline(run.id, { type: "git", repoUrl: asset.repoUrl! }, deps, db);
+    expect(getAsset(asset.id, db)!.category).toBeNull();
   });
 });
 

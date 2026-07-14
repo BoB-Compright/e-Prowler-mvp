@@ -18,6 +18,7 @@ import {
   deleteAsset,
   getAsset,
   listAssets,
+  updateAssetCategory,
 } from "./store";
 import { getScheduleByAsset, upsertSchedule } from "@/lib/scheduling/store";
 
@@ -100,6 +101,15 @@ describe("listAssets", () => {
     createRepoAsset({ displayName: "b", repoUrl: "https://github.com/x/b" }, db);
     expect(listAssets({ type: "repo" }, db)).toHaveLength(2);
     expect(listAssets({ projectId: null }, db)).toHaveLength(2);
+  });
+});
+
+describe("updateAssetCategory", () => {
+  it("자산 category를 갱신한다", () => {
+    const a = createRepoAsset({ displayName: "img", repoUrl: "https://github.com/nh/svc" }, db);
+    expect(getAsset(a.id, db)!.category).toBeNull();
+    updateAssetCategory(a.id, "WAS", db);
+    expect(getAsset(a.id, db)!.category).toBe("WAS");
   });
 });
 
