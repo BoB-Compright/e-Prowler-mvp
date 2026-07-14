@@ -111,3 +111,11 @@ body {
   .animate-gauge-draw { stroke-dasharray: none; animation: none; }
   .animate-donut-unfurl { animation: none; }
 }
+
+/* 사이드바 접기: html[data-nav-collapsed] 기준으로 폭·본문 여백 제어(레이아웃은 서버 컴포넌트). */
+aside[data-app-sidebar] { transition: width 0.2s ease; }
+@media (min-width: 768px) {
+  .app-main { padding-left: 16rem; transition: padding-left 0.2s ease; }
+  html[data-nav-collapsed="1"] .app-main { padding-left: 4rem; }
+  html[data-nav-collapsed="1"] aside[data-app-sidebar] { width: 4rem; }
+}
