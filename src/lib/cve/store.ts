@@ -257,3 +257,21 @@ export function listRecentMatchedCves(since: string, limit: number, db: Database
     firstSeenAt: r.first_seen_at,
   }));
 }
+
+export interface CveMatchWithAsset extends CveMatch {
+  assetName: string;
+  assetType: string;
+}
+
+// 특정 cve_id의 미해제 매칭을 자산(이름·타입) 조인해 반환한다(상세 페이지용).
+export function listCveMatchesByCve(cveId: string, db: Database = getDb()): CveMatchWithAsset[] {
+  const rows = db
+    .prepare(
+      `SELECT m.*, a.display_name AS asset_name, a.type AS asset_type
+       FROM cve_matches m JOIN assets a ON a.id = m.asset_id
+       WHERE m.cve_id = ? AND m.dismissed = 0
+       ORDER BY m.first_seen_at DESC`,
+    )
+    .all(cveId) as (CveMatchRow & { asset_name: string; asset_type: string })[];
+  return rows.map((r) => ({ ...toCveMatch(r), assetName: r.asset_name, assetType: r.asset_type }));
+}
