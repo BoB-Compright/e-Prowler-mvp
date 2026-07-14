@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createInMemoryDb } from "@/lib/db";
 import { createRepoAsset, getAsset } from "@/lib/assets/store";
+import { createScanBatch } from "@/lib/pipeline/scanBatches";
 import {
   ProjectNotFoundError,
   ShareLinkRevokedError,
@@ -42,6 +43,21 @@ describe("deleteProject", () => {
     deleteProject(project.id, db);
     expect(getProject(project.id, db)).toBeUndefined();
     expect(getAsset(asset.id, db)?.projectId).toBeNull();
+  });
+
+  it("scan_batches가 있는 프로젝트도 FK 오류 없이 삭제하고 자산·배치는 연결만 해제한다", () => {
+    const p = createProject({ name: "P", pmName: "김", pmEmail: "p@nh.com", sharePassword: "pw" }, db);
+    const asset = createRepoAsset({ displayName: "img", repoUrl: "https://github.com/nh/x", projectId: p.id }, db);
+    const batch = createScanBatch(p.id, db);
+
+    deleteProject(p.id, db);
+
+    expect(getProject(p.id, db)).toBeUndefined();
+    // 자산은 남고 project_id만 NULL
+    expect(getAsset(asset.id, db)!.projectId).toBeNull();
+    // 배치 행은 남고 project_id만 NULL
+    const batchRow = db.prepare(`SELECT project_id FROM scan_batches WHERE id = ?`).get(batch.id) as { project_id: string | null };
+    expect(batchRow.project_id).toBeNull();
   });
 });
 

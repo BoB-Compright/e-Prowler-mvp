@@ -94,6 +94,7 @@ export function updateProject(
 export function deleteProject(id: string, db: Database = getDb()): void {
   const transaction = db.transaction(() => {
     db.prepare(`UPDATE assets SET project_id = NULL WHERE project_id = ?`).run(id);
+    db.prepare(`UPDATE scan_batches SET project_id = NULL WHERE project_id = ?`).run(id);
     db.prepare(`DELETE FROM projects WHERE id = ?`).run(id);
   });
   transaction();
