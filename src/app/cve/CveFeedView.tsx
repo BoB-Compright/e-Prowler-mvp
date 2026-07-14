@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { FeedRow } from "@/lib/cve/feedStore";
 import type { CveSeverity } from "@/lib/cve/nvdClient";
+import { applyCveFilter, SEVERITY_LABEL } from "@/lib/cve/feedFilter";
 import { Card } from "../_components/Card";
 import { SectionLabel } from "../_components/SectionLabel";
 import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
 import { CountUp } from "../_components/CountUp";
 
-const SEVERITY_LABEL: Record<CveSeverity, string> = {
-  critical: "심각", high: "높음", medium: "중간", low: "낮음", unknown: "미상",
-};
 const SEVERITY_STATUS: Record<CveSeverity, BadgeStatus> = {
   critical: "fail", high: "fail", medium: "review", low: "neutral", unknown: "neutral",
 };
@@ -28,6 +26,7 @@ function actionRequired(assetMatches: number): boolean {
 export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initialLastScan: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<"all" | "actionable">("all");
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   // cve_id → 한국어 설명. 마운트 후 /api/cve/translate로 채워 영문 위에 덮어쓴다.
@@ -56,16 +55,7 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
     };
   }, [feed]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return feed;
-    return feed.filter((c) =>
-      [c.cveId, ko[c.cveId] ?? c.summary, SEVERITY_LABEL[c.severity], c.severity]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [feed, query, ko]);
+  const filtered = useMemo(() => applyCveFilter(feed, mode, query, ko), [feed, mode, query, ko]);
 
   const collectedToday = feed.length;
   const newCritical = feed.filter((c) => c.severity === "critical").length;
@@ -131,20 +121,52 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
           <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${newCritical > 0 ? "text-fail" : ""}`}><CountUp value={newCritical} /></div>
           <div className="mt-1 text-[13px] text-muted">CVSS 9.0 이상 최고 위험 등급</div>
         </div>
-        <div className="rounded-2xl border border-border bg-surface p-5">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={mode === "actionable"}
+          onClick={() => setMode("actionable")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setMode("actionable");
+            }
+          }}
+          className={`cursor-pointer rounded-2xl border bg-surface p-5 transition-colors ${
+            mode === "actionable" ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/50"
+          }`}
+        >
           <SectionLabel>조치 대상</SectionLabel>
           <div className={`mt-2 text-[32px] font-bold leading-10 tracking-[-0.02em] ${assetMatched > 0 ? "text-fail" : ""}`}><CountUp value={assetMatched} /></div>
           <div className="mt-1 text-[13px] text-muted">보유 자산에서 영향이 확인된 CVE</div>
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="CVE ID · 설명 · 심각도로 검색"
           className="w-full max-w-md rounded-lg border border-border bg-surface px-3.5 py-2 text-sm focus:border-primary focus:outline-none"
         />
+        <div className="inline-flex overflow-hidden rounded-lg border border-border">
+          <button
+            type="button"
+            aria-pressed={mode === "all"}
+            onClick={() => setMode("all")}
+            className={`px-3.5 py-2 text-[13px] font-semibold ${mode === "all" ? "bg-primary text-white" : "text-muted hover:bg-bg"}`}
+          >
+            전체
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "actionable"}
+            onClick={() => setMode("actionable")}
+            className={`px-3.5 py-2 text-[13px] font-semibold ${mode === "actionable" ? "bg-primary text-white" : "text-muted hover:bg-bg"}`}
+          >
+            조치 대상만
+          </button>
+        </div>
       </div>
 
       <Card bodyClassName="p-0">
@@ -197,7 +219,10 @@ export function CveFeedView({ feed, initialLastScan }: { feed: FeedRow[]; initia
         {feed.length === 0 && (
           <p className="p-5 text-[13px] text-muted italic">아직 수집된 CVE가 없습니다. &quot;스캔 실행&quot;으로 NVD 피드를 수집하세요.</p>
         )}
-        {feed.length > 0 && filtered.length === 0 && (
+        {feed.length > 0 && filtered.length === 0 && mode === "actionable" && query.trim() === "" && (
+          <p className="p-5 text-[13px] text-muted italic">조치가 필요한 CVE가 없습니다 — 보유 자산에 영향을 주는 CVE가 아직 없습니다.</p>
+        )}
+        {feed.length > 0 && filtered.length === 0 && !(mode === "actionable" && query.trim() === "") && (
           <p className="p-5 text-[13px] text-muted italic">검색 조건에 맞는 CVE가 없습니다.</p>
         )}
       </Card>
