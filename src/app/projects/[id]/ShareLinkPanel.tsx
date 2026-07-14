@@ -192,14 +192,14 @@ export function ShareLinkPanel({
         {status === "active" && (
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className={labelClass}>발표용 QR</p>
+              <p className={labelClass}>QR 코드</p>
               <button
                 type="button"
                 onClick={toggleQr}
                 className={secondaryButtonClass}
                 aria-expanded={qrOpen}
               >
-                {qrOpen ? "QR 접기" : "발표용 QR 표시"}
+                {qrOpen ? "QR 접기" : "QR 코드 표시"}
               </button>
             </div>
             {qrOpen && (
@@ -208,13 +208,12 @@ export function ShareLinkPanel({
                   <p className="text-[13px] text-fail">{qrError}</p>
                 ) : qrDataUrl ? (
                   <>
-                    {/* data URL 이미지 — 청중이 스캔해 공유 리포트로 이동한다. */}
+                    {/* data URL 이미지 — 스캔하면 공유 리포트 링크로 이동한다. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={qrDataUrl} alt="공유 링크 QR 코드" width={256} height={256} className="h-64 w-64" />
                     <p className="font-mono text-[12px] break-all text-center text-muted">{shareUrl}</p>
                     <p className="max-w-[360px] text-center text-[12px] text-muted">
-                      청중이 스캔한 뒤 비밀번호를 입력합니다. 비밀번호를 정확히 안내하세요. 링크가 잠기면 아래
-                      &lsquo;재발급&rsquo;으로 복구할 수 있습니다.
+                      스캔하면 공유 리포트 링크로 이동합니다. 열람에는 비밀번호가 필요합니다.
                     </p>
                   </>
                 ) : (
