@@ -8,6 +8,7 @@ import { StatusBadge } from "../_components/StatusBadge";
 import type { BadgeStatus } from "../_components/statusBadgeStyles";
 import type { AssetKind } from "@/lib/assets/kind";
 import { AssetKindBadge } from "../_components/AssetKindBadge";
+import { Modal } from "../_components/Modal";
 
 export interface AssetRowData {
   id: string;
@@ -15,6 +16,7 @@ export interface AssetRowData {
   detail: string; // repoUrl 또는 host:port
   typeLabel: string; // "레포" | "서버"
   kind: AssetKind; // 실질 구분(OS/WEB/WAS/DB/기타)
+  scanCategories: string[]; // 이 자산 점검 계획의 후보 카테고리(container/OS/WEB/WAS/DB)
   projectName: string;
   createdAt: string;
   scheduleLabel: string;
@@ -26,6 +28,10 @@ export interface AssetRowData {
 }
 
 type PanelMode = null | "move" | "schedule";
+
+const CATEGORY_LABEL: Record<string, string> = {
+  container: "컨테이너", OS: "OS", WEB: "WEB", WAS: "WAS", DB: "DB",
+};
 
 const actionButtonClass =
   "rounded-lg border border-primary px-3 py-1.5 text-[13px] font-semibold text-primary hover:bg-primary/5 disabled:opacity-50";
@@ -46,6 +52,8 @@ export function AssetTable({
   const [scheduleTarget, setScheduleTarget] = useState<string>("daily"); // daily|weekly|monthly|none
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanCats, setScanCats] = useState<string[]>([]);
 
   // 필터 변경으로 rows가 바뀌면 사라진 행의 선택은 무시한다.
   const rowIds = new Set(rows.map((r) => r.id));
@@ -89,7 +97,13 @@ export function AssetTable({
     }
   }
 
-  const handleScan = () =>
+  const handleScan = () => {
+    if (selectedIds.length === 1) {
+      const row = rows.find((r) => r.id === selectedIds[0]);
+      setScanCats(row ? [...row.scanCategories] : []);
+      setScanModalOpen(true);
+      return;
+    }
     runAction(async () => {
       const { ok, data } = await callBulk("/api/assets/bulk/scan", "POST", {});
       if (!ok) {
@@ -102,6 +116,25 @@ export function AssetTable({
       }
       router.push(`/runs/batch/${data.batchId}`);
     });
+  };
+
+  async function startSingleScan() {
+    const assetId = selectedIds[0];
+    if (!assetId || scanCats.length === 0) return;
+    await runAction(async () => {
+      const res = await fetch("/api/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, categories: scanCats }),
+      });
+      if (res.ok) {
+        setScanModalOpen(false);
+        setMessage("점검을 시작했습니다");
+      } else {
+        setMessage("점검 시작에 실패했습니다");
+      }
+    });
+  }
 
   const handleMove = () =>
     runAction(async () => {
@@ -293,6 +326,43 @@ export function AssetTable({
       {rows.length === 0 && (
         <p className="p-5 text-[13px] text-muted italic">조건에 맞는 자산이 없습니다.</p>
       )}
+
+      <Modal open={scanModalOpen} onClose={() => setScanModalOpen(false)} title="점검 카테고리 선택">
+        <p className="text-[13px] text-muted">점검할 카테고리를 고르면 대상 항목과 소요시간이 줄어듭니다.</p>
+        <div className="mt-3 flex flex-col gap-2">
+          {(rows.find((r) => r.id === selectedIds[0])?.scanCategories ?? []).map((cat) => (
+            <label key={cat} className="flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                checked={scanCats.includes(cat)}
+                onChange={(e) =>
+                  setScanCats((prev) =>
+                    e.target.checked ? [...prev, cat] : prev.filter((c) => c !== cat),
+                  )
+                }
+              />
+              {CATEGORY_LABEL[cat] ?? cat}
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setScanModalOpen(false)}
+            className="rounded-lg border border-border px-4 py-2 text-[13px] font-semibold text-muted hover:bg-bg"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={startSingleScan}
+            disabled={busy || scanCats.length === 0}
+            className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            점검 시작
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -24,6 +24,8 @@ function toRow(asset: Asset, projects: { id: string; name: string }[]): AssetRow
     detail: asset.type === "repo" ? (asset.repoUrl ?? "") : `${asset.hostIp}:${asset.sshPort}`,
     typeLabel: asset.type === "repo" ? "레포" : "서버",
     kind: classifyAssetKind(asset),
+    // 업로드 미리보기는 아직 저장 전 자산이라 점검 액션이 없다 — resolveCheckPlan(서버 전용) 호출 없이 빈 배열.
+    scanCategories: [],
     projectName: project?.name ?? "미분류",
     createdAt: asset.createdAt,
     scheduleLabel: "—",

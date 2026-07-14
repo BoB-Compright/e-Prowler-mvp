@@ -6,6 +6,7 @@ import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
 import { matchesAssetQuery } from "@/lib/search/match";
 import { classifyAssetKind } from "@/lib/assets/kind";
+import { resolveCheckPlan } from "@/lib/packs/resolve";
 import { AssetFilters } from "./AssetFilters";
 import { AssetTable } from "./AssetTable";
 import { Card } from "../_components/Card";
@@ -80,6 +81,7 @@ export default async function AssetsPage({
               detail: asset.type === "repo" ? (asset.repoUrl ?? "") : `${asset.hostIp}:${asset.sshPort}`,
               typeLabel: asset.type === "repo" ? "레포" : "서버",
               kind: classifyAssetKind(asset),
+              scanCategories: [...new Set(resolveCheckPlan(asset).packs.map((p) => p.category))],
               projectName: project?.name ?? "미분류",
               createdAt: asset.createdAt,
               scheduleLabel,
