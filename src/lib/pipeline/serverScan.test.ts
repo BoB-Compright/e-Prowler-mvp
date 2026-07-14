@@ -160,6 +160,15 @@ describe("scanServerAsset", () => {
     expect(run.errorMessage).toBe("ANTHROPIC_API_KEY missing");
     expect(listCheckResults(runId, db).length).toBeGreaterThan(0);
   });
+
+  it("서버 파이프라인 실행 시 started_at/finished_at을 기록한다", async () => {
+    const asset = createServerAsset(serverAssetInput(), db);
+    const deps = baseDeps();
+    const runId = await scanServerAsset(asset.id, null, deps, db);
+    const run = getRun(runId, db)!;
+    expect(run.startedAt).not.toBeNull();
+    expect(run.finishedAt).not.toBeNull();
+  });
 });
 
 describe("createServerRun", () => {

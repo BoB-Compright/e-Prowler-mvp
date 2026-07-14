@@ -292,6 +292,15 @@ describe("runPipeline", () => {
     await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, deps, db);
     expect(fs.existsSync(dir)).toBe(false);
   });
+
+  it("파이프라인 실행 시작 시 started_at을 기록한다", async () => {
+    const run = createRun("https://example.com/repo.git", "git", null, db);
+    expect(getRun(run.id, db)!.startedAt).toBeNull();
+    await runPipeline(run.id, { type: "git", repoUrl: run.repoUrl }, baseDeps(), db);
+    const updated = getRun(run.id, db)!;
+    expect(updated.startedAt).not.toBeNull();
+    expect(updated.finishedAt).not.toBeNull();
+  });
 });
 
 // (#73) The orchestrator has no way to forcibly abort an in-flight `await` in

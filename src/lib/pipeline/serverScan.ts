@@ -8,7 +8,7 @@ import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
 import { resolveCheckPlan, evaluatePlan } from "@/lib/packs/resolve";
 import { analyzeAndSaveChecks } from "@/lib/claude";
-import { createRun, isCancelled, updateRunStage } from "@/lib/pipeline/runs";
+import { createRun, isCancelled, markRunStarted, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
 import { runPipeline } from "@/lib/pipeline/orchestrator";
 import { refreshAssetInventory } from "@/lib/cve/poller";
@@ -104,6 +104,7 @@ export async function runServerScanPipeline(
   deps: ServerScanDeps = defaultDeps,
   db: Database = getDb(),
 ): Promise<void> {
+  markRunStarted(run.id, db);
   updateRunStage(run.id, "connect", "running", {}, db);
   const plan = deps.resolveCheckPlan(asset);
   // A fully-windows plan (every selected pack has executionPath "windows",

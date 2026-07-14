@@ -8,7 +8,7 @@ import { detectDockerfile } from "./dockerfile";
 import { buildImage, removeImage } from "./build";
 import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
-import { isCancelled, updateRunStage } from "./runs";
+import { isCancelled, markRunStarted, updateRunStage } from "./runs";
 import { runAllChecks } from "@/lib/checks";
 import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
@@ -74,6 +74,7 @@ export async function runPipeline(
   deps: PipelineDeps = defaultDeps,
   db: Database = getDb(),
 ): Promise<void> {
+  markRunStarted(runId, db);
   let imageTag: string;
   let dockerfilePath: string | undefined;
   // Hoisted so it's reachable from the shared finally below and from every
