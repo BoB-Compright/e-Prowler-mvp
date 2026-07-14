@@ -89,8 +89,8 @@ describe("POST /api/share/[token]", () => {
       expect(Object.keys(asset).sort()).toEqual(["displayName", "id", "type", "verdict"]);
     }
 
-    // 응답 최상위는 project/assets/perAsset만 노출한다(runs/findings는 perAsset으로 대체).
-    expect(Object.keys(body).sort()).toEqual(["assets", "perAsset", "project"]);
+    // 응답 최상위는 project/assets/perAsset/score만 노출한다(runs/findings는 perAsset으로 대체).
+    expect(Object.keys(body).sort()).toEqual(["assets", "perAsset", "project", "score"]);
 
     // 미점검(no-run) 자산과 빌드 실패(succeeded 아님) 자산 모두 run:null, checks:[]다.
     const perAssetById = new Map(
@@ -157,5 +157,65 @@ describe("POST /api/share/[token]", () => {
     const noRunEntry = body.perAsset.find((p: { assetId: string }) => p.assetId === noRunAsset.id);
     expect(noRunEntry.run).toBeNull();
     expect(noRunEntry.checks).toEqual([]);
+  });
+
+  it("응답에 프로젝트 종합 점수(score/grade)를 포함한다", async () => {
+    const { createProject } = await import("@/lib/projects/store");
+    const { createRepoAsset, createServerAsset } = await import("@/lib/assets/store");
+    const { createRun, updateRunStage } = await import("@/lib/pipeline/runs");
+    const { saveCheckResults } = await import("@/lib/checks/store");
+    const { POST } = await import("./route");
+
+    const project = createProject({
+      name: "nh-pay",
+      pmName: "홍길동",
+      pmEmail: "pm@nh.example",
+      sharePassword: "secret1234",
+    });
+
+    const passAsset = createRepoAsset({
+      displayName: "pass-repo",
+      repoUrl: "https://github.com/nh/pass.git",
+      projectId: project.id,
+    });
+    const passRun = createRun(passAsset.repoUrl!, "git", passAsset.id);
+    saveCheckResults(passRun.id, [{ id: "C-01", status: "pass", evidence: "ok" }]);
+    updateRunStage(passRun.id, "done", "succeeded");
+
+    // U-01(KISA, severity: High)을 fail로 저장해 criticalHighCheckFindings > 0을 만든다.
+    const failAsset = createServerAsset({
+      displayName: "fail-server",
+      hostIp: "10.0.0.2",
+      hostname: "h2",
+      sshPort: 22,
+      authType: "password",
+      username: "u",
+      secret: "p",
+      projectId: project.id,
+    });
+    const failRun = createRun(failAsset.hostIp!, "server", failAsset.id);
+    saveCheckResults(failRun.id, [{ id: "U-01", status: "fail", evidence: "root 원격 접속 허용" }]);
+    updateRunStage(failRun.id, "done", "succeeded");
+
+    // 미점검(run 없음) 자산 — uncheckedAssets 감점 확인용.
+    const noRunAsset = createRepoAsset({
+      displayName: "no-run-repo",
+      repoUrl: "https://github.com/nh/norun.git",
+      projectId: project.id,
+    });
+    void noRunAsset;
+
+    const res = await POST(jsonRequest(project.shareToken, "secret1234"), {
+      params: Promise.resolve({ token: project.shareToken }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.score).toBeTruthy();
+    expect(typeof body.score.score).toBe("number");
+    expect(body.score.score).toBeGreaterThanOrEqual(0);
+    expect(body.score.score).toBeLessThanOrEqual(100);
+    expect(body.score.score).toBeLessThan(100);
+    expect(["safe", "caution", "warning", "danger"]).toContain(body.score.grade);
   });
 });

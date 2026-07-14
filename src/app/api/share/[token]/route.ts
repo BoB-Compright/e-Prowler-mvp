@@ -4,6 +4,8 @@ import { listAssets } from "@/lib/assets/store";
 import { listRuns } from "@/lib/pipeline/runs";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { getDecoratedResults } from "@/lib/checks/decorate";
+import { computeSecurityScore } from "@/lib/dashboard/securityScore";
+import { computeRiskSummary } from "@/lib/checks/riskSummary";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -54,5 +56,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     };
   });
 
-  return NextResponse.json({ project: publicProject, assets: publicAssets, perAsset });
+  const score = computeSecurityScore({
+    totalAssets: publicAssets.length,
+    vulnerableAssets: publicAssets.filter((a) => a.verdict === "fail").length,
+    uncheckedAssets: publicAssets.filter((a) => a.verdict === "none").length,
+    criticalHighCheckFindings: perAsset.reduce((sum, e) => {
+      const s = computeRiskSummary(e.checks);
+      return sum + s.severityCounts.Critical + s.severityCounts.High;
+    }, 0),
+    criticalHighOpenCves: 0, // 공유 뷰: CVE 감점 제외(정책)
+  });
+
+  return NextResponse.json({ project: publicProject, assets: publicAssets, perAsset, score });
 }
