@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Project } from "@/lib/projects/types";
 import type { Asset } from "@/lib/assets/types";
 import type { ImportRowResult } from "@/lib/assets/excelImport";
+import { classifyAssetKind } from "@/lib/assets/kind";
 import { Card } from "../../_components/Card";
 import { AssetTable, type AssetRowData } from "../AssetTable";
 
@@ -22,6 +23,7 @@ function toRow(asset: Asset, projects: { id: string; name: string }[]): AssetRow
     displayName: asset.displayName,
     detail: asset.type === "repo" ? (asset.repoUrl ?? "") : `${asset.hostIp}:${asset.sshPort}`,
     typeLabel: asset.type === "repo" ? "레포" : "서버",
+    kind: classifyAssetKind(asset),
     projectName: project?.name ?? "미분류",
     createdAt: asset.createdAt,
     scheduleLabel: "—",

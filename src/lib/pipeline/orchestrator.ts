@@ -2,13 +2,14 @@ import type { Database } from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { getDb } from "@/lib/db";
-import { getAsset } from "@/lib/assets/store";
+import { getAsset, updateAssetCategory } from "@/lib/assets/store";
+import { detectKindFromResults } from "@/lib/assets/kind";
 import { cloneRepo } from "./clone";
 import { detectDockerfile } from "./dockerfile";
 import { buildImage, removeImage } from "./build";
 import { startSandbox, stopSandbox } from "./sandbox";
 import { scheduleSandboxTimeout } from "./sandboxTimeout";
-import { isCancelled, markRunStarted, updateRunStage } from "./runs";
+import { getRun, isCancelled, markRunStarted, updateRunStage } from "./runs";
 import { runAllChecks } from "@/lib/checks";
 import { saveCheckResults } from "@/lib/checks/store";
 import { analyzeAndSaveChecks } from "@/lib/claude";
@@ -237,6 +238,19 @@ export async function runPipeline(
 
     updateRunStage(runId, "rule_eval", "running", {}, db);
     saveCheckResults(runId, results, db);
+    // autodetect 스캔 결과로 레포 자산의 실질 구분을 보정 저장(best-effort — 실패해도 스캔 불변).
+    try {
+      const assetId = getRun(runId, db)?.assetId;
+      if (assetId) {
+        const asset = getAsset(assetId, db);
+        if (asset?.type === "repo") {
+          const detected = detectKindFromResults(results);
+          if (detected) updateAssetCategory(assetId, detected, db);
+        }
+      }
+    } catch {
+      /* 보정 실패는 무시 */
+    }
     updateRunStage(runId, "rule_eval", "succeeded", {}, db);
 
     updateRunStage(runId, "claude", "running", {}, db);

@@ -5,6 +5,7 @@ import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
 import { matchesAssetQuery } from "@/lib/search/match";
+import { classifyAssetKind } from "@/lib/assets/kind";
 import { AssetFilters } from "./AssetFilters";
 import { AssetTable } from "./AssetTable";
 import { Card } from "../_components/Card";
@@ -78,6 +79,7 @@ export default async function AssetsPage({
               displayName: asset.displayName,
               detail: asset.type === "repo" ? (asset.repoUrl ?? "") : `${asset.hostIp}:${asset.sshPort}`,
               typeLabel: asset.type === "repo" ? "레포" : "서버",
+              kind: classifyAssetKind(asset),
               projectName: project?.name ?? "미분류",
               createdAt: asset.createdAt,
               scheduleLabel,

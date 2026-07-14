@@ -4,6 +4,7 @@ import { listAssets } from "@/lib/assets/store";
 import { getScheduleByAsset } from "@/lib/scheduling/store";
 import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
+import { classifyAssetKind } from "@/lib/assets/kind";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 import { FleetScanButton } from "./FleetScanButton";
 import { AutoRefresh } from "../../_components/AutoRefresh";
@@ -63,6 +64,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               displayName: asset.displayName,
               detail: asset.type === "repo" ? (asset.repoUrl ?? "") : `${asset.hostIp}:${asset.sshPort}`,
               typeLabel: asset.type === "repo" ? "레포" : "서버",
+              kind: classifyAssetKind(asset),
               projectName: proj?.name ?? "미분류",
               createdAt: asset.createdAt,
               scheduleLabel,
