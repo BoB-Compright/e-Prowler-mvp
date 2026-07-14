@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { formatKst } from "@/lib/time/kst";
+import type { DecoratedCheckResult } from "@/lib/checks/types";
 import { Card } from "../../_components/Card";
-import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
+import { ShareReport } from "./ShareReport";
 
 type AssetVerdict = "pass" | "fail" | "review" | "error" | "running" | "cancelled" | "none";
 
@@ -16,37 +17,16 @@ interface ShareAsset {
   verdict: AssetVerdict;
 }
 
-interface ShareRun {
-  id: string;
-  status: string;
-  createdAt: string;
-  assetId: string | null;
-}
-
-interface ShareFinding {
-  id: string;
-  title: string;
-  severity: string | null;
-  status: "fail" | "review";
-  mitigation: { risk: string; fix: string; example?: string } | null;
+interface SharePerAsset {
+  assetId: string;
+  run: { id: string; createdAt: string; repoUrl: string } | null;
+  checks: DecoratedCheckResult[];
 }
 
 interface ShareData {
   project: { name: string; pmName: string };
   assets: ShareAsset[];
-  runs: ShareRun[];
-  findings: { assetId: string; items: ShareFinding[] }[];
-}
-
-// 공유 뷰는 파이프라인 실행 상태(running/succeeded/failed)만 이력 표시에 사용한다 —
-// 취약점 판정(양호/취약/검토)은 자산 테이블의 판정 배지(verdictBadge)로만 노출한다.
-function runBadge(run: ShareRun | undefined): { status: BadgeStatus; label: string } {
-  if (!run) return { status: "neutral", label: "점검 전" };
-  if (run.status === "running") return { status: "progress", label: "진행 중" };
-  if (run.status === "cancelled") return { status: "neutral", label: "취소됨" };
-  if (run.status === "failed") return { status: "fail", label: "실패" };
-  if (run.status === "succeeded") return { status: "neutral", label: "완료" };
-  return { status: "neutral", label: run.status };
+  perAsset: SharePerAsset[];
 }
 
 // 자산별 판정 배지 매핑 (#72) — 내부 자산 관리 화면(src/app/assets/page.tsx의
@@ -62,14 +42,6 @@ const VERDICT_BADGE: Record<AssetVerdict, { status: BadgeStatus; label: string }
   none: { status: "neutral", label: "미점검" },
 };
 
-// 조치 항목 심각도 배지: Critical/High→취약색, Medium→검토색, Low→중립.
-const SEVERITY_BADGE: Record<string, BadgeStatus> = {
-  Critical: "fail",
-  High: "fail",
-  Medium: "review",
-  Low: "neutral",
-};
-
 type ShareLinkStatus = { ok: true } | { ok: false; reason: "not_found" | "disabled" | "revoked" };
 
 const REJECTION_MESSAGES: Record<"not_found" | "disabled" | "revoked", string> = {
@@ -81,6 +53,7 @@ const REJECTION_MESSAGES: Record<"not_found" | "disabled" | "revoked", string> =
 export function ShareGate({ token, initialStatus }: { token: string; initialStatus: ShareLinkStatus }) {
   const [password, setPassword] = useState("");
   const [data, setData] = useState<ShareData | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,27 +78,18 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
         }
         return;
       }
-      setData(await res.json());
+      const json: ShareData = await res.json();
+      setData(json);
+      setSelectedAssetId(json.assets[0]?.id ?? null);
     } finally {
       setSubmitting(false);
     }
   }
 
   if (data) {
-    const latestRunByAsset = new Map<string, ShareRun>();
-    const runsByAsset = new Map<string, ShareRun[]>();
-    for (const run of data.runs) {
-      if (!run.assetId) continue;
-      if (!latestRunByAsset.has(run.assetId)) {
-        latestRunByAsset.set(run.assetId, run);
-      }
-      const list = runsByAsset.get(run.assetId);
-      if (list) {
-        list.push(run);
-      } else {
-        runsByAsset.set(run.assetId, [run]);
-      }
-    }
+    const perAssetByAssetId = new Map(data.perAsset.map((entry) => [entry.assetId, entry]));
+    const selectedAsset = data.assets.find((asset) => asset.id === selectedAssetId) ?? null;
+    const selectedEntry = selectedAssetId ? (perAssetByAssetId.get(selectedAssetId) ?? null) : null;
 
     return (
       <div>
@@ -134,181 +98,47 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
           <p className="mt-1 text-[13px] text-muted">담당 PM: {data.project.pmName}</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Card title={`자산 보안 상태 (${data.assets.length})`} bodyClassName="p-0">
-              {data.assets.length === 0 ? (
-                <p className="p-5 text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="px-5 py-3">
-                          <SectionLabel>자산</SectionLabel>
-                        </th>
-                        <th className="px-5 py-3">
-                          <SectionLabel>타입</SectionLabel>
-                        </th>
-                        <th className="px-5 py-3">
-                          <SectionLabel>최근 점검</SectionLabel>
-                        </th>
-                        <th className="px-5 py-3">
-                          <SectionLabel>판정</SectionLabel>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {data.assets.map((asset) => {
-                        const run = latestRunByAsset.get(asset.id);
-                        const verdictBadge = VERDICT_BADGE[asset.verdict];
-                        return (
-                          <tr key={asset.id} className="hover:bg-bg">
-                            <td className="px-5 py-3 font-semibold">{asset.displayName}</td>
-                            <td className="px-5 py-3 text-muted">
-                              {asset.type === "repo" ? "레포" : "서버"}
-                            </td>
-                            <td className="px-5 py-3 font-mono text-[13px] text-muted">
-                              {run ? formatKst(run.createdAt) : "—"}
-                            </td>
-                            <td className="px-5 py-3">
-                              <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <div>
-            <Card title="상세 정보">
-              <dl className="flex flex-col gap-4">
-                <div>
-                  <dt>
-                    <SectionLabel>담당 PM</SectionLabel>
-                  </dt>
-                  <dd className="mt-1 text-sm">{data.project.pmName}</dd>
-                </div>
-                <div>
-                  <dt>
-                    <SectionLabel>자산 수</SectionLabel>
-                  </dt>
-                  <dd className="mt-1 text-sm">{data.assets.length}</dd>
-                </div>
-                <div>
-                  <dt>
-                    <SectionLabel>점검 이력</SectionLabel>
-                  </dt>
-                  <dd className="mt-1 text-sm">{data.runs.length}건</dd>
-                </div>
-              </dl>
-            </Card>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <Card title="점검 이력" bodyClassName="p-0">
-            {data.assets.length === 0 ? (
-              <p className="p-5 text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
-            ) : (
-              <div className="divide-y divide-border">
+        {data.assets.length === 0 ? (
+          <Card bodyClassName="p-5">
+            <p className="text-[13px] italic text-muted">등록된 자산이 없습니다.</p>
+          </Card>
+        ) : (
+          <>
+            <div className="mb-4 -mx-1 overflow-x-auto px-1">
+              <div className="flex gap-2 pb-1">
                 {data.assets.map((asset) => {
-                  const assetRuns = runsByAsset.get(asset.id) ?? [];
+                  const verdictBadge = VERDICT_BADGE[asset.verdict];
+                  const active = asset.id === selectedAssetId;
                   return (
-                    <details key={asset.id} className="px-5 py-3">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
-                        <span className="font-semibold">{asset.displayName}</span>
-                        <SectionLabel>점검 이력 {assetRuns.length}건</SectionLabel>
-                      </summary>
-                      {assetRuns.length === 0 ? (
-                        <p className="mt-2 text-[13px] italic text-muted">점검 이력이 없습니다.</p>
-                      ) : (
-                        <ul className="mt-2 divide-y divide-border">
-                          {assetRuns.map((run) => {
-                            const badge = runBadge(run);
-                            return (
-                              <li key={run.id} className="flex items-center gap-3 py-2 text-sm">
-                                <span className="font-mono text-[13px] text-muted">
-                                  {formatKst(run.createdAt)}
-                                </span>
-                                <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </details>
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => setSelectedAssetId(asset.id)}
+                      className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+                        active ? "border-primary bg-surface font-semibold" : "border-border hover:bg-bg"
+                      }`}
+                    >
+                      <span>{asset.displayName}</span>
+                      <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
+                    </button>
                   );
                 })}
               </div>
-            )}
-          </Card>
-        </div>
+            </div>
 
-        {data.findings.some((f) => f.items.length > 0) ? (
-          <div className="mt-4">
-            <Card title="조치가 필요한 항목" bodyClassName="p-5">
-              <div className="flex flex-col gap-5">
-                {data.findings
-                  .filter((f) => f.items.length > 0)
-                  .map((f) => {
-                    const assetName = data.assets.find((a) => a.id === f.assetId)?.displayName ?? f.assetId;
-                    return (
-                      <div key={f.assetId}>
-                        <div className="mb-2 text-[13px] font-semibold">{assetName}</div>
-                        <ul className="flex flex-col gap-3">
-                          {f.items.map((it) => (
-                            <li key={it.id} className="rounded-lg border border-border p-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-[13px] font-bold">{it.id}</span>
-                                <StatusBadge status={it.status === "fail" ? "fail" : "review"}>
-                                  {it.status === "fail" ? "취약" : "검토"}
-                                </StatusBadge>
-                                {it.severity && (
-                                  <StatusBadge status={SEVERITY_BADGE[it.severity] ?? "neutral"}>
-                                    {it.severity}
-                                  </StatusBadge>
-                                )}
-                                <span className="text-[13px] break-words">{it.title}</span>
-                              </div>
-                              {it.mitigation ? (
-                                <div className="mt-2 text-[13px] leading-relaxed text-muted">
-                                  <p className="break-words">
-                                    <span className="font-semibold text-text">위험 · </span>
-                                    {it.mitigation.risk}
-                                  </p>
-                                  <p className="mt-1 break-words">
-                                    <span className="font-semibold text-text">조치 · </span>
-                                    {it.mitigation.fix}
-                                  </p>
-                                  {it.mitigation.example && (
-                                    <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface p-3 font-mono text-xs whitespace-pre-wrap text-text">
-                                      {it.mitigation.example}
-                                    </pre>
-                                  )}
-                                </div>
-                              ) : (
-                                <p className="mt-2 text-[13px] italic text-muted">조치 가이드 준비 중입니다.</p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-              </div>
-            </Card>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <Card title="조치가 필요한 항목" bodyClassName="p-5">
-              <p className="text-[13px] italic text-muted">조치 필요 항목 없음</p>
-            </Card>
-          </div>
+            {selectedEntry?.run ? (
+              <ShareReport
+                assetName={selectedAsset?.displayName ?? ""}
+                targetLabel={selectedEntry.run.repoUrl}
+                scannedAt={formatKst(selectedEntry.run.createdAt)}
+                checks={selectedEntry.checks}
+              />
+            ) : (
+              <Card bodyClassName="p-5">
+                <p className="text-[13px] italic text-muted">점검 이력이 없습니다.</p>
+              </Card>
+            )}
+          </>
         )}
       </div>
     );
