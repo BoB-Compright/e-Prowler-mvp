@@ -3,6 +3,8 @@ import { requireApiSession } from "@/lib/auth/requireSession";
 import { getRun, listRunEvents } from "@/lib/pipeline/runs";
 import { getDecoratedResults } from "@/lib/checks/decorate";
 import { listCveMatches } from "@/lib/cve/store";
+import { getAsset } from "@/lib/assets/store";
+import { assetScanCategories } from "@/lib/packs/resolve";
 
 export async function GET(
   req: Request,
@@ -21,5 +23,8 @@ export async function GET(
 
   const cveMatches = run.sourceType === "server" && run.assetId ? listCveMatches(run.assetId) : [];
 
-  return NextResponse.json({ run, events: listRunEvents(id), checks, cveMatches });
+  const asset = run.assetId ? getAsset(run.assetId) : undefined;
+  const scanCategories = asset ? assetScanCategories(asset) : [];
+
+  return NextResponse.json({ run, events: listRunEvents(id), checks, cveMatches, scanCategories });
 }

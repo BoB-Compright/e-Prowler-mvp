@@ -20,6 +20,11 @@ const CONTAINER_AUTODETECT_PACKS: VendorPack[] = [
   webNginxPack, webApachePack, wasTomcatPack, dbMysqlPack, dbPostgresPack,
 ];
 
+// 자산 점검 계획이 담을 수 있는 후보 카테고리(container/OS/WEB/WAS/DB) 고유 목록. 카테고리 선택 UI용.
+export function assetScanCategories(asset: Asset): string[] {
+  return [...new Set(resolveCheckPlan(asset).packs.map((p) => p.category))];
+}
+
 // 자산의 종류로 베이스라인을, category+vendor로 벤더 팩을 골라 합성한다.
 export function resolveCheckPlan(asset: Asset): CheckPlan {
   // 컨테이너/이미지: OS + 서비스로 전면 점검(자동 탐지). container·os-unix·벤더 오토셋을 모두 넣고,

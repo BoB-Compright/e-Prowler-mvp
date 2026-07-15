@@ -10,7 +10,8 @@ import { ScheduleForm } from "./ScheduleForm";
 import { overallRunOutcome, type RunOutcome } from "@/lib/checks/riskSummary";
 import { getRunRiskSummary } from "@/lib/checks/riskSummaryStore";
 import { formatKst } from "@/lib/time/kst";
-import { StartScanButton } from "./StartScanButton";
+import { ScanCategoryButton } from "@/app/_components/ScanCategoryButton";
+import { assetScanCategories } from "@/lib/packs/resolve";
 import { Card } from "../../_components/Card";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
@@ -71,7 +72,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
               )}
             </p>
           </div>
-          <StartScanButton assetId={id} />
+          <ScanCategoryButton assetId={id} scanCategories={assetScanCategories(asset)} label="점검 시작" variant="primary" />
         </div>
 
         <Card title="자산 정보" className="mb-6">
