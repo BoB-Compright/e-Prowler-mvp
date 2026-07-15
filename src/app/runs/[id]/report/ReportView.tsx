@@ -20,7 +20,7 @@ import { SectionLabel } from "@/app/_components/SectionLabel";
 import { StatusBadge } from "@/app/_components/StatusBadge";
 import { CountUp } from "@/app/_components/CountUp";
 import type { BadgeStatus } from "@/app/_components/statusBadgeStyles";
-import { RescanButton } from "./RescanButton";
+import { ScanCategoryButton } from "@/app/_components/ScanCategoryButton";
 import type { CveMatch } from "@/lib/cve/store";
 import { CveList } from "@/app/assets/[id]/CveList";
 
@@ -104,6 +104,7 @@ export function ReportView({ runId }: { runId: string }) {
   const [frameworkFilter, setFrameworkFilter] = useState<string | null>(null);
   const [aiOnly, setAiOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [scanCategories, setScanCategories] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +119,7 @@ export function ReportView({ runId }: { runId: string }) {
       setRun(data.run);
       setChecks(data.checks);
       setCveMatches(data.cveMatches ?? []);
+      setScanCategories(data.scanCategories ?? []);
     }
     load();
     return () => {
@@ -162,7 +164,9 @@ export function ReportView({ runId }: { runId: string }) {
               점검 진행 중 — 일부 항목만 표시됨
             </span>
           )}
-          {run.status !== "running" && run.assetId && <RescanButton assetId={run.assetId} />}
+          {run.status !== "running" && run.assetId && (
+            <ScanCategoryButton assetId={run.assetId} scanCategories={scanCategories} label="재스캔" variant="outline" />
+          )}
           {run.status === "succeeded" && (
             <a
               href={`/api/runs/${runId}/export`}
