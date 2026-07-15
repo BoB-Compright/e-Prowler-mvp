@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCheckPlan, evaluatePack, evaluatePlan, filterPlanByCategories } from "./resolve";
+import { resolveCheckPlan, evaluatePack, evaluatePlan, filterPlanByCategories, assetScanCategories } from "./resolve";
 import type { Asset } from "@/lib/assets/types";
 import type { AnsibleTaskOutput } from "@/lib/checks/ansibleRunner";
 import type { VendorPack } from "./types";
@@ -185,5 +185,17 @@ describe("filterPlanByCategories", () => {
     const plan = resolveCheckPlan(repoAsset());
     const filtered = filterPlanByCategories(plan, ["NONEXISTENT"]);
     expect(filtered).toBe(plan);
+  });
+});
+
+describe("assetScanCategories", () => {
+  it("이미지는 container·OS·WEB·WAS·DB 고유 카테고리", () => {
+    expect(assetScanCategories(repoAsset()).sort()).toEqual(["DB", "OS", "WEB", "WAS", "container"].sort());
+  });
+  it("서버 OS/Ubuntu는 OS", () => {
+    expect(assetScanCategories(serverAsset({ category: "OS", vendor: "Ubuntu" }))).toEqual(["OS"]);
+  });
+  it("서버 DB/PostgreSQL은 OS + DB", () => {
+    expect(assetScanCategories(serverAsset({ category: "DB", vendor: "PostgreSQL" })).sort()).toEqual(["DB", "OS"].sort());
   });
 });
