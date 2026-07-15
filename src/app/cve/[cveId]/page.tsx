@@ -8,8 +8,10 @@ import { Card } from "../../_components/Card";
 import { SectionLabel } from "../../_components/SectionLabel";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
-import { RescanButton } from "../../runs/[id]/report/RescanButton";
 import { CveMatchDismissButton } from "./CveMatchDismissButton";
+import { ScanCategoryButton } from "@/app/_components/ScanCategoryButton";
+import { assetScanCategories } from "@/lib/packs/resolve";
+import { getAsset } from "@/lib/assets/store";
 
 export const dynamic = "force-dynamic";
 
@@ -56,22 +58,32 @@ export default async function CveDetailPage({ params }: { params: Promise<{ cveI
       <div className="mt-6">
         <Card title={`영향받는 자산 (${matches.length})`} bodyClassName="p-0">
           <ul className="divide-y divide-border">
-            {matches.map((m) => (
-              <li key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
-                <Link href={`/assets/${m.assetId}`} className="font-semibold text-primary hover:underline">
-                  {m.assetName}
-                </Link>
-                <span className="rounded bg-bg px-2 py-0.5 text-[11px] text-muted">
-                  {m.assetType === "repo" ? "레포" : "서버"}
-                </span>
-                <span className="font-mono text-[13px] text-muted">{m.packageName} {m.packageVersion}</span>
-                {m.aiImpact && <p className="w-full text-[13px] text-muted">영향: {m.aiImpact}</p>}
-                <span className="ml-auto flex items-center gap-2">
-                  {m.assetType === "server" && <RescanButton assetId={m.assetId} />}
-                  <CveMatchDismissButton matchId={m.id} />
-                </span>
-              </li>
-            ))}
+            {matches.map((m) => {
+              const asset = m.assetType === "server" ? getAsset(m.assetId) : undefined;
+              return (
+                <li key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
+                  <Link href={`/assets/${m.assetId}`} className="font-semibold text-primary hover:underline">
+                    {m.assetName}
+                  </Link>
+                  <span className="rounded bg-bg px-2 py-0.5 text-[11px] text-muted">
+                    {m.assetType === "repo" ? "레포" : "서버"}
+                  </span>
+                  <span className="font-mono text-[13px] text-muted">{m.packageName} {m.packageVersion}</span>
+                  {m.aiImpact && <p className="w-full text-[13px] text-muted">영향: {m.aiImpact}</p>}
+                  <span className="ml-auto flex items-center gap-2">
+                    {m.assetType === "server" && (
+                      <ScanCategoryButton
+                        assetId={m.assetId}
+                        scanCategories={asset ? assetScanCategories(asset) : []}
+                        label="재스캔"
+                        variant="outline"
+                      />
+                    )}
+                    <CveMatchDismissButton matchId={m.id} />
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </Card>
       </div>
