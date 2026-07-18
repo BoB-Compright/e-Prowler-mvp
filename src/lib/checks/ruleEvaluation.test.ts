@@ -277,6 +277,29 @@ describe("evaluateC03", () => {
     ]);
     expect(result.status).toBe("fail");
   });
+
+  it("returns review when local image has no runtime listening evidence (keep-alive, #79)", () => {
+    const result = evaluateC03(null, [
+      task("C-03: listening ports", "State  Recv-Q Send-Q Local Address:Port\n"),
+    ]);
+    expect(result.status).toBe("review");
+    expect(result.evidence).toContain("앱 미실행(keep-alive)");
+  });
+
+  it("returns review when local image C-03 task output is missing entirely (#79)", () => {
+    const result = evaluateC03(null, [task("C-03: listening ports", "__MISSING__")]);
+    expect(result.status).toBe("review");
+    expect(result.evidence).toContain("앱 미실행(keep-alive)");
+  });
+
+  it("keeps EXPOSE-based evaluation for git runs but words missing runtime evidence honestly (#79)", () => {
+    const result = evaluateC03(findings({ exposedPorts: ["8080"] }), [
+      task("C-03: listening ports", "__MISSING__"),
+    ]);
+    expect(result.status).toBe("pass");
+    expect(result.evidence).toContain("앱 미실행(keep-alive)");
+    expect(result.evidence).not.toContain("확인 불가");
+  });
 });
 
 describe("evaluateC04", () => {

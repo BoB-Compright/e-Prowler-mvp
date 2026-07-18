@@ -63,13 +63,22 @@ export function evaluateC03(
   const fail = exposedAdminPorts.length > 0 || listeningAdminPorts.length > 0;
   const foundAdminPorts = [...new Set([...exposedAdminPorts, ...listeningAdminPorts])];
 
+  // Sandbox는 keep-alive 루프로 기동하므로(앱 미실행) 런타임 리스닝 포트 증거는
+  // 비어 있는 것이 정상이다. 정적 폴백(Dockerfile EXPOSE)마저 없는 local_image
+  // 경로에서는 판단 근거가 전혀 없으므로 "양호"가 아니라 검토로 넘긴다 (#79).
+  const runtimeEvidence = listeningPorts.size
+    ? [...listeningPorts].join(", ")
+    : "미확인 — 앱 미실행(keep-alive) 상태";
+  const noEvidenceAtAll = findings === null && listeningPorts.size === 0;
+
   return {
     id: "C-03",
-    status: fail ? "fail" : "pass",
+    status: noEvidenceAtAll ? "review" : fail ? "fail" : "pass",
     evidence:
-      `EXPOSE 포트: ${findings === null ? "확인 불가 (Dockerfile 없음)" : exposedPorts.join(", ") || "없음"} / ` +
-      `실행 중 리스닝 포트: ${listeningPorts.size ? [...listeningPorts].join(", ") : "확인 불가"}` +
-      (fail ? ` / 관리·DB 포트 발견: ${foundAdminPorts.join(", ")}` : ""),
+      `EXPOSE 포트: ${findings === null ? "Dockerfile 없음" : exposedPorts.join(", ") || "없음"} / ` +
+      `실행 중 리스닝 포트: ${runtimeEvidence}` +
+      (fail ? ` / 관리·DB 포트 발견: ${foundAdminPorts.join(", ")}` : "") +
+      (noEvidenceAtAll ? " / 자동 평가 근거 없음 — 수동 확인 필요" : ""),
   };
 }
 
