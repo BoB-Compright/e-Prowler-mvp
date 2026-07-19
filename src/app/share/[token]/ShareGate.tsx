@@ -11,7 +11,7 @@ import { SecurityScoreGauge } from "@/app/_components/dashboard/SecurityScoreGau
 import type { ScoreGrade } from "@/lib/dashboard/securityScore";
 import { ShareReport } from "./ShareReport";
 import type { AssetKind } from "@/lib/assets/kind";
-import { groupAssetsByKind } from "@/lib/assets/groupByKind";
+import { firstGroupedAssetId, groupAssetsByKind } from "@/lib/assets/groupByKind";
 import { KindIcon } from "@/app/_components/AssetKindBadge";
 
 type AssetVerdict = "pass" | "fail" | "review" | "error" | "running" | "cancelled" | "none";
@@ -89,7 +89,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
       }
       const json: ShareData = await res.json();
       setData(json);
-      setSelectedAssetId(json.assets[0]?.id ?? null);
+      setSelectedAssetId(firstGroupedAssetId(json.assets));
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +100,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
     const selectedAsset = data.assets.find((asset) => asset.id === selectedAssetId) ?? null;
     const selectedEntry = selectedAssetId ? (perAssetByAssetId.get(selectedAssetId) ?? null) : null;
     const groups = groupAssetsByKind(data.assets);
-    const activeKind = selectedKind ?? groups[0]?.kind ?? null;
+    const activeKind = selectedKind ?? data.assets.find((a) => a.id === selectedAssetId)?.kind ?? groups[0]?.kind ?? null;
     const activeGroup = groups.find((g) => g.kind === activeKind) ?? null;
 
     return (

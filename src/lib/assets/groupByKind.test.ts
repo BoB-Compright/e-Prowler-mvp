@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupAssetsByKind } from "./groupByKind";
+import { firstGroupedAssetId, groupAssetsByKind } from "./groupByKind";
 
 const a = (id: string, kind: "os" | "web" | "was" | "db" | "other") => ({
   id,
@@ -28,5 +28,23 @@ describe("groupAssetsByKind", () => {
     const groups = groupAssetsByKind([a("b", "db"), a("a", "db")]);
     expect(groups[0].label).toBe("DB");
     expect(groups[0].assets.map((x) => x.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("firstGroupedAssetId", () => {
+  it("returns null for no assets", () => {
+    expect(firstGroupedAssetId([])).toBeNull();
+  });
+
+  it("returns the first asset of the first group in fixed kind order, not input order", () => {
+    // "db" 자산이 입력에서 먼저(최신) 오지만, 고정 순서(OS→WEB→WAS→DB→기타)상
+    // "os"가 먼저이므로 os 자산의 id를 반환해야 한다.
+    const assets = [a("a", "db"), a("b", "os")];
+    expect(firstGroupedAssetId(assets)).toBe("b");
+  });
+
+  it("returns the first asset id for a single-kind list", () => {
+    const assets = [a("x", "web"), a("y", "web")];
+    expect(firstGroupedAssetId(assets)).toBe("x");
   });
 });

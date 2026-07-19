@@ -26,3 +26,9 @@ export function groupAssetsByKind<T extends GroupableAsset>(assets: T[]): AssetK
     assets: assets.filter((asset) => asset.kind === kind),
   })).filter((group) => group.assets.length > 0);
 }
+
+// 그룹 순서(OS→WEB→WAS→DB→기타) 기준 첫 그룹의 첫 자산 id. 없으면 null.
+// 공유 뷰 초기 선택이 강조된 종류 칩과 항상 일치하도록 하는 용도.
+export function firstGroupedAssetId<T extends GroupableAsset>(assets: T[]): string | null {
+  return groupAssetsByKind(assets)[0]?.assets[0]?.id ?? null;
+}
