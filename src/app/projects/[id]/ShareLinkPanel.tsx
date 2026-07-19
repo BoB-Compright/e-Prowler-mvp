@@ -5,6 +5,7 @@ import { Card } from "../../_components/Card";
 import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
 import type { ShareStatus } from "@/lib/projects/types";
+import { buildShareMailto } from "@/lib/projects/shareMail";
 
 const inputClass =
   "rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -23,10 +24,16 @@ export function ShareLinkPanel({
   projectId,
   shareToken,
   shareStatus,
+  projectName,
+  pmName,
+  pmEmail,
 }: {
   projectId: string;
   shareToken: string;
   shareStatus: ShareStatus;
+  projectName: string;
+  pmName: string;
+  pmEmail: string;
 }) {
   const [token, setToken] = useState(shareToken);
   const [status, setStatus] = useState<ShareStatus>(shareStatus);
@@ -180,7 +187,20 @@ export function ShareLinkPanel({
             <button type="button" onClick={handleCopy} className={secondaryButtonClass}>
               {copied ? "복사됨" : "복사"}
             </button>
+            {status === "active" && shareUrl && pmEmail.trim() && (
+              <a
+                href={buildShareMailto({ pmEmail, pmName, projectName, shareUrl })}
+                className={secondaryButtonClass}
+              >
+                PM에게 메일로 보내기
+              </a>
+            )}
           </div>
+          {status === "active" && (
+            <p className="mt-1 text-[13px] text-muted">
+              메일 본문에는 링크만 담기며, 열람 비밀번호는 보안을 위해 별도 채널로 전달하세요.
+            </p>
+          )}
           {status !== "active" && (
             <p className="mt-1 text-[13px] text-muted">
               {isRevoked
