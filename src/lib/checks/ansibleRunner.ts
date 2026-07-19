@@ -206,7 +206,7 @@ export async function runAnsibleForServer(
   return withComposedPlaybook(extraTasks, (playbookPath) => {
     const run = (keyFilePath: string | null): Promise<AnsibleTaskOutput[]> => {
       const plan = buildSshArgs(asset, decryptedSecret, keyFilePath);
-      return runAnsibleWithArgs(plan.args, { ...plan.extraVars, ...scanExtraVars }, timeoutMs, playbookPath);
+      return runAnsibleWithArgs(plan.args, { ...scanExtraVars, ...plan.extraVars }, timeoutMs, playbookPath);
     };
 
     if (needsKeyFile) {
