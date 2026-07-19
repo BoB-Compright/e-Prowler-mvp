@@ -109,3 +109,49 @@ describe("tiberoPack", () => {
     expect(r.find((x) => x.id === "TB-13")!.status).toBe("fail");
   });
 });
+
+function dbTasks(login: string, queries: string) {
+  return [
+    { taskName: "TB-DB: tibero sys default login", stdout: login },
+    { taskName: "TB-DB: tibero queries", stdout: queries },
+  ];
+}
+const PROVIDED = new Set(["tibero_home", "tibero_tbsid", "tibero_db_user", "tibero_db_pass"]);
+
+describe("tiberoPack DB checks (TB-01~12)", () => {
+  it("reviews all DB items when credentials are missing", () => {
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("", ""), inputsProvided: new Set(["tibero_home","tibero_tbsid"]) });
+    for (const id of ["TB-01","TB-03","TB-05","TB-11"]) expect(r.find((x) => x.id === id)!.status).toBe("review");
+  });
+
+  it("reviews DB items when tbSQL connection failed (no __CONN_OK__)", () => {
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", "TBR-12345: login denied"), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-05")!.status).toBe("review");
+    expect(r.find((x) => x.id === "TB-05")!.evidence).toContain("DB 인증 실패");
+  });
+
+  it("TB-02 fails when SYS default password login succeeds", () => {
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW__", "__CONN_OK__\n###TB01\n###TB03\n###TB04\n###TBPROF\n###TB11\n"), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-02")!.status).toBe("fail");
+  });
+
+  it("TB-05 fails when FAILED_LOGIN_ATTEMPTS is UNLIMITED (default profile)", () => {
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\nDEFAULT|FAILED_LOGIN_ATTEMPTS|UNLIMITED\nDEFAULT|PASSWORD_LIFE_TIME|90\n###TB11\naudit_trail|DB\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-05")!.status).toBe("fail");
+    expect(r.find((x) => x.id === "TB-07")!.status).toBe("pass"); // 90일 → 양호
+  });
+
+  it("TB-11 fails when audit_trail is NONE", () => {
+    const queries = "__CONN_OK__\n###TB01\n###TB03\n###TB04\n###TBPROF\nDEFAULT|FAILED_LOGIN_ATTEMPTS|5\n###TB11\naudit_trail|NONE\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-11")!.status).toBe("fail");
+    expect(r.find((x) => x.id === "TB-05")!.status).toBe("pass"); // 5 → 양호
+  });
+
+  it("TB-03 fails when a non-SYS account has DBA role", () => {
+    const queries = "__CONN_OK__\n###TB01\n###TB03\nAPPUSER\n###TB04\n###TBPROF\n###TB11\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-03")!.status).toBe("fail");
+  });
+});

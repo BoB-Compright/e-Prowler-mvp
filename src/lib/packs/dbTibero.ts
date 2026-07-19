@@ -101,6 +101,30 @@ function isOverPermissive(mode: string): boolean {
   return (group & 2) === 2 || (other & 2) === 2; // 쓰기 비트
 }
 
+// TB-01 기본계정 목록(미사용 시 잠금/만료돼 있어야 하는 계정들).
+const DEFAULT_ACCOUNTS = ["SYS", "SYSCAT", "SYSGIS", "OUTLN", "SYSBACKUP", "TIBERO", "TIBERO1", "LBACSYS"];
+
+// tbSQL 쿼리 출력을 ###마커로 섹션 분할한다. 각 섹션은 마커 다음부터 다음 마커(또는 끝)까지의 라인.
+function splitSections(out: string): Record<string, string[]> {
+  const sections: Record<string, string[]> = {};
+  let cur: string | null = null;
+  for (const line of out.split("\n")) {
+    const m = line.match(/^###(TB01|TB03|TB04|TBPROF|TB11)\s*$/);
+    if (m) { cur = m[1]; sections[cur] = []; continue; }
+    if (cur && line.trim()) sections[cur].push(line.trim());
+  }
+  return sections;
+}
+
+// DBA_PROFILES 섹션에서 특정 resource_name의 DEFAULT 프로파일 limit 값을 찾는다(대문자 무시).
+function profileLimit(profRows: string[], resource: string): string | null {
+  for (const row of profRows) {
+    const [prof, res, limit] = row.split("|");
+    if (prof?.toUpperCase() === "DEFAULT" && res?.toUpperCase() === resource.toUpperCase()) return (limit ?? "").trim();
+  }
+  return null;
+}
+
 export const tiberoPack: VendorPack = {
   id: "tibero",
   category: "DB",
@@ -137,6 +161,170 @@ export const tiberoPack: VendorPack = {
             ? { id: "TB-14", status: "fail", evidence: `설정파일 권한 과다: ${permsRaw.trim()}` }
             : { id: "TB-14", status: "pass", evidence: `설정파일 권한 양호: ${permsRaw.trim()}` };
 
-    return [tb13, tb14];
+    // TB-02: SYS 기본 비밀번호 로그인 시도 결과. dbInputsProvided/connOk와 독립적으로,
+    // 자체 로그인 시도 결과(sysOut)만으로 판정한다.
+    const sysOut = taskStdout(ctx.tasks, "TB-DB: tibero sys default login");
+    const tb02: CheckResult = sysOut.includes("__SYS_DEFAULT_PW_ABSENT__")
+      ? { id: "TB-02", status: "pass", evidence: "SYS 계정 기본 비밀번호 로그인 실패(기본비번 아님)" }
+      : sysOut.includes("__SYS_DEFAULT_PW__")
+        ? { id: "TB-02", status: "fail", evidence: "SYS 계정 기본 비밀번호로 로그인 성공" }
+        : { id: "TB-02", status: "review", evidence: "SYS 기본 비밀번호 점검 결과를 확인할 수 없음" };
+
+    // TB-01/03~12: 사용자 제공 DBA 계정으로 접속한 tbSQL 쿼리 결과 기반 판정.
+    const dbInputsProvided = !!(
+      ctx.inputsProvided?.has("tibero_db_user") &&
+      ctx.inputsProvided?.has("tibero_db_pass") &&
+      ctx.inputsProvided?.has("tibero_tbsid")
+    );
+    const queriesOut = taskStdout(ctx.tasks, "TB-DB: tibero queries");
+    const connOk = queriesOut.includes("__CONN_OK__");
+    const dbIds = ["TB-01", "TB-03", "TB-04", "TB-05", "TB-06", "TB-07", "TB-08", "TB-09", "TB-10", "TB-11", "TB-12"];
+
+    let db: Record<string, CheckResult>;
+    if (!dbInputsProvided) {
+      db = Object.fromEntries(
+        dbIds.map((id) => [id, { id, status: "review", evidence: "사전 입력값 미제공(DB 계정/비밀번호/인스턴스)" } as CheckResult]),
+      );
+    } else if (!connOk) {
+      db = Object.fromEntries(
+        dbIds.map((id) => [id, { id, status: "review", evidence: "DB 인증 실패" } as CheckResult]),
+      );
+    } else {
+      const sections = splitSections(queriesOut);
+      const tb01Rows = sections.TB01 ?? [];
+      const tb03Rows = sections.TB03 ?? [];
+      const tb04Rows = sections.TB04 ?? [];
+      const profRows = sections.TBPROF ?? [];
+      const tb11Rows = sections.TB11 ?? [];
+
+      // TB-01: 기본계정이 하나라도 OPEN이면 fail(보수적으로 판단).
+      const openDefaults = tb01Rows
+        .filter((row) => {
+          const [account, status] = row.split("|");
+          return DEFAULT_ACCOUNTS.includes((account ?? "").trim().toUpperCase()) && (status ?? "").trim().toUpperCase() === "OPEN";
+        })
+        .map((row) => row.split("|")[0]);
+      const tb01: CheckResult =
+        openDefaults.length > 0
+          ? { id: "TB-01", status: "fail", evidence: `기본계정 OPEN 상태 확인됨: ${openDefaults.join(", ")}` }
+          : { id: "TB-01", status: "pass", evidence: "기본계정 모두 LOCK/EXPIRED 상태" };
+
+      // TB-03: SYS를 제외한 grantee가 하나라도 있으면 fail.
+      const nonSysDba = tb03Rows.filter((g) => g.trim().toUpperCase() !== "SYS");
+      const tb03: CheckResult =
+        nonSysDba.length > 0
+          ? { id: "TB-03", status: "fail", evidence: `비-SYS 계정에 DBA 권한 부여됨: ${nonSysDba.join(", ")}` }
+          : { id: "TB-03", status: "pass", evidence: "DBA 권한은 SYS에만 부여됨" };
+
+      // TB-04: ANY 권한 부여 존재 여부.
+      const tb04: CheckResult =
+        tb04Rows.length > 0
+          ? { id: "TB-04", status: "fail", evidence: `ANY 권한 부여 존재: ${tb04Rows.join(", ")}` }
+          : { id: "TB-04", status: "pass", evidence: "ANY 권한 부여 없음" };
+
+      // TB-05: FAILED_LOGIN_ATTEMPTS.
+      const failedLoginAttempts = profileLimit(profRows, "FAILED_LOGIN_ATTEMPTS");
+      const tb05: CheckResult =
+        failedLoginAttempts === null
+          ? { id: "TB-05", status: "review", evidence: "FAILED_LOGIN_ATTEMPTS 값을 확인할 수 없음" }
+          : failedLoginAttempts.toUpperCase() === "UNLIMITED"
+            ? { id: "TB-05", status: "fail", evidence: "FAILED_LOGIN_ATTEMPTS=UNLIMITED(무제한)" }
+            : { id: "TB-05", status: "pass", evidence: `FAILED_LOGIN_ATTEMPTS=${failedLoginAttempts}` };
+
+      // TB-06: PASSWORD_LOCK_TIME(값 표시만, null이면 review).
+      const passwordLockTime = profileLimit(profRows, "PASSWORD_LOCK_TIME");
+      const tb06: CheckResult =
+        passwordLockTime === null
+          ? { id: "TB-06", status: "review", evidence: "PASSWORD_LOCK_TIME 값을 확인할 수 없음" }
+          : { id: "TB-06", status: "pass", evidence: `PASSWORD_LOCK_TIME=${passwordLockTime}` };
+
+      // TB-07: PASSWORD_LIFE_TIME.
+      const passwordLifeTime = profileLimit(profRows, "PASSWORD_LIFE_TIME");
+      const tb07: CheckResult =
+        passwordLifeTime === null
+          ? { id: "TB-07", status: "review", evidence: "PASSWORD_LIFE_TIME 값을 확인할 수 없음" }
+          : passwordLifeTime.toUpperCase() === "UNLIMITED"
+            ? { id: "TB-07", status: "fail", evidence: "PASSWORD_LIFE_TIME=UNLIMITED(무제한)" }
+            : { id: "TB-07", status: "pass", evidence: `PASSWORD_LIFE_TIME=${passwordLifeTime}` };
+
+      // TB-08: PASSWORD_REUSE_TIME/MAX 둘 다 UNLIMITED(또는 없음)면 fail.
+      const reuseTime = profileLimit(profRows, "PASSWORD_REUSE_TIME");
+      const reuseMax = profileLimit(profRows, "PASSWORD_REUSE_MAX");
+      const isUnlimitedOrAbsent = (v: string | null) => v === null || v.toUpperCase() === "UNLIMITED";
+      const reuseEvidence = `PASSWORD_REUSE_TIME=${reuseTime ?? "미설정"}, PASSWORD_REUSE_MAX=${reuseMax ?? "미설정"}`;
+      const tb08: CheckResult =
+        isUnlimitedOrAbsent(reuseTime) && isUnlimitedOrAbsent(reuseMax)
+          ? { id: "TB-08", status: "fail", evidence: reuseEvidence }
+          : { id: "TB-08", status: "pass", evidence: reuseEvidence };
+
+      // TB-09: PASSWORD_VERIFY_FUNCTION이 NULL/빈값이면 fail.
+      const verifyFn = profileLimit(profRows, "PASSWORD_VERIFY_FUNCTION");
+      const tb09: CheckResult =
+        !verifyFn || verifyFn.toUpperCase() === "NULL"
+          ? { id: "TB-09", status: "fail", evidence: `PASSWORD_VERIFY_FUNCTION=${verifyFn ?? "미설정"}` }
+          : { id: "TB-09", status: "pass", evidence: `PASSWORD_VERIFY_FUNCTION=${verifyFn}` };
+
+      // TB-10: SESSIONS_PER_USER이 UNLIMITED면 review, 숫자면 pass, 확인 불가면 review.
+      const sessionsPerUser = profileLimit(profRows, "SESSIONS_PER_USER");
+      const tb10: CheckResult =
+        sessionsPerUser === null
+          ? { id: "TB-10", status: "review", evidence: "SESSIONS_PER_USER 값을 확인할 수 없음" }
+          : sessionsPerUser.toUpperCase() === "UNLIMITED"
+            ? { id: "TB-10", status: "review", evidence: "SESSIONS_PER_USER=UNLIMITED(무제한, 검토 필요)" }
+            : { id: "TB-10", status: "pass", evidence: `SESSIONS_PER_USER=${sessionsPerUser}` };
+
+      // TB-11/12: v$parameter의 audit_trail / audit_sys_operations.
+      const findParam = (name: string): string | null => {
+        const row = tb11Rows.find((r) => r.split("|")[0]?.trim().toLowerCase() === name);
+        if (!row) return null;
+        return (row.split("|")[1] ?? "").trim();
+      };
+      const auditTrail = findParam("audit_trail");
+      const tb11: CheckResult =
+        auditTrail === null
+          ? { id: "TB-11", status: "review", evidence: "audit_trail 값을 확인할 수 없음" }
+          : auditTrail.toUpperCase() === "NONE"
+            ? { id: "TB-11", status: "fail", evidence: `audit_trail=${auditTrail}` }
+            : { id: "TB-11", status: "pass", evidence: `audit_trail=${auditTrail}` };
+
+      const auditSysOperations = findParam("audit_sys_operations");
+      const tb12: CheckResult =
+        auditSysOperations === null
+          ? { id: "TB-12", status: "review", evidence: "audit_sys_operations 값을 확인할 수 없음" }
+          : auditSysOperations.toUpperCase() === "Y"
+            ? { id: "TB-12", status: "pass", evidence: `audit_sys_operations=${auditSysOperations}` }
+            : { id: "TB-12", status: "review", evidence: `audit_sys_operations=${auditSysOperations}(검토 필요)` };
+
+      db = {
+        "TB-01": tb01,
+        "TB-03": tb03,
+        "TB-04": tb04,
+        "TB-05": tb05,
+        "TB-06": tb06,
+        "TB-07": tb07,
+        "TB-08": tb08,
+        "TB-09": tb09,
+        "TB-10": tb10,
+        "TB-11": tb11,
+        "TB-12": tb12,
+      };
+    }
+
+    return [
+      db["TB-01"],
+      tb02,
+      db["TB-03"],
+      db["TB-04"],
+      db["TB-05"],
+      db["TB-06"],
+      db["TB-07"],
+      db["TB-08"],
+      db["TB-09"],
+      db["TB-10"],
+      db["TB-11"],
+      db["TB-12"],
+      tb13,
+      tb14,
+    ];
   },
 };
