@@ -12,7 +12,7 @@ const svgProps = {
   strokeLinejoin: "round" as const,
 };
 
-function KindIcon({ kind }: { kind: AssetKind }) {
+export function KindIcon({ kind }: { kind: AssetKind }) {
   switch (kind) {
     case "os": // 모니터
       return (
