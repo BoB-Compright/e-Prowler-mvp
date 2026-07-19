@@ -142,14 +142,20 @@ export const jeusPack: VendorPack = {
         ? { id: "JE-01", status: "fail", evidence: "기본 관리자 계정(administrator) 존재" }
         : { id: "JE-01", status: "pass", evidence: "administrator 계정 없음" };
 
+      // accounts.xml은 있으나 비밀번호 항목을 하나도 파싱하지 못하면(빈/비정형 파일) 암호화
+      // 여부를 단정할 수 없으므로 pass가 아니라 review(JE-09 data-source 부재 처리와 대칭, fail-closed).
       const pws = pwValues(accXml);
-      je02 = pws.some(isPlaintext)
-        ? { id: "JE-02", status: "fail", evidence: "관리자 비밀번호가 평문으로 저장됨" }
-        : { id: "JE-02", status: "pass", evidence: "관리자 비밀번호가 모두 암호화됨" };
+      je02 = pws.length === 0
+        ? { id: "JE-02", status: "review", evidence: "accounts.xml에서 비밀번호 항목을 확인할 수 없음" }
+        : pws.some(isPlaintext)
+          ? { id: "JE-02", status: "fail", evidence: "관리자 비밀번호가 평문으로 저장됨" }
+          : { id: "JE-02", status: "pass", evidence: "관리자 비밀번호가 모두 암호화됨" };
 
-      je03 = pws.some((pw) => xmlHas(pw, /\{(DES|DESede|blowfish)\}/i))
-        ? { id: "JE-03", status: "review", evidence: "약한 비밀번호 암호화 알고리즘(DES/DESede/blowfish) 사용" }
-        : { id: "JE-03", status: "pass", evidence: "약한 암호화 알고리즘 미사용" };
+      je03 = pws.length === 0
+        ? { id: "JE-03", status: "review", evidence: "accounts.xml에서 비밀번호 항목을 확인할 수 없음" }
+        : pws.some((pw) => xmlHas(pw, /\{(DES|DESede|blowfish)\}/i))
+          ? { id: "JE-03", status: "review", evidence: "약한 비밀번호 암호화 알고리즘(DES/DESede/blowfish) 사용" }
+          : { id: "JE-03", status: "pass", evidence: "약한 암호화 알고리즘 미사용" };
     }
 
     // --- JE-04: accounts.xml 권한 ---
@@ -211,15 +217,14 @@ export const jeusPack: VendorPack = {
           ? { id: "JE-07", status: "pass", evidence: "세션 쿠키 보안속성(secure/http-only) 모두 설정 확인됨" }
           : { id: "JE-07", status: "fail", evidence: "세션 쿠키 secure/http-only 속성 미흡(둘 다 필요)" };
 
-      // JE-08: SSL 사용 여부는 listener 블록 범위(또는 실제 <ssl> 요소)로 한정한다. 문서 어디든
-      // 나오는 "https" 문자열을 매치하던 방식은 무관한 텍스트로 pass 오판(fail-open) 위험이 있다.
-      // listener 정보가 전혀 없으면 확인 불가(review).
+      // JE-08: SSL 사용 여부는 listener 블록 범위 안에서만 인정한다. 문서 전역에서 <ssl>/https를
+      // 찾으면 리스너와 무관한 위치의 요소로 pass 오판(fail-open)할 수 있다. listener 정보가
+      // 전혀 없으면 확인 불가(review).
       const listenerBlocks = extractAllBetween(domXml, "listener");
-      const hasSslElement = /<ssl[\s>]/i.test(domXml);
       const sslInListener = listenerBlocks.some((l) => /<ssl[\s>]|ssl\s*=|https/i.test(l));
-      je08 = listenerBlocks.length === 0 && !hasSslElement
+      je08 = listenerBlocks.length === 0
         ? { id: "JE-08", status: "review", evidence: "리스너 설정을 확인할 수 없어 SSL 사용 여부 확인 불가" }
-        : hasSslElement || sslInListener
+        : sslInListener
           ? { id: "JE-08", status: "pass", evidence: "SSL/TLS 리스너 설정 확인됨" }
           : { id: "JE-08", status: "fail", evidence: "SSL/TLS 리스너 설정 없음" };
 

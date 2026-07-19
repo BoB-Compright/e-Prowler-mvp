@@ -140,6 +140,21 @@ describe("jeusPack", () => {
     expect(r.find((x) => x.id === "JE-08")!.status).toBe("review");
   });
 
+  // fail-open 회귀: <ssl>이 listener 밖에만 있으면 SSL 리스너로 인정하지 않는다(해당 리스너는 평문).
+  it("JE-08 fails when <ssl> appears only outside any listener block", () => {
+    const dom = `<domain><ssl-config/><listener><port>8080</port></listener></domain>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-08")!.status).toBe("fail");
+  });
+
+  // fail-closed: accounts.xml은 있으나 비밀번호 항목이 없으면 JE-02/03은 pass가 아니라 review.
+  it("JE-02/JE-03 review when accounts.xml has no parseable password", () => {
+    const acc = `<accounts><user><name>svcadmin</name></user></accounts>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: accounts.xml content": acc }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-02")!.status).toBe("review");
+    expect(r.find((x) => x.id === "JE-03")!.status).toBe("review");
+  });
+
   it("JE-10 reviews when a sample app is deployed", () => {
     const dom = `<domain><deployed><name>examples</name></deployed></domain>`;
     const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
