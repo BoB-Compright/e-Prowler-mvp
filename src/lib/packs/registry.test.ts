@@ -10,7 +10,7 @@ describe("registry", () => {
     expect(findVendorPack("DB", "SQLServer")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mssql", "db-mysql", "db-oracle", "db-postgresql", "jeus", "os-unix", "os-windows", "tibero", "was-tomcat", "was-websphere", "was-weblogic", "web-apache", "web-iis", "web-nginx"].sort());
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mssql", "db-mysql", "db-oracle", "db-postgresql", "jeus", "os-unix", "os-windows", "tibero", "was-tomcat", "was-websphere", "was-weblogic", "web-apache", "web-iis", "web-nginx", "webtob"].sort());
   });
   it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
     expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
@@ -46,6 +46,10 @@ describe("registry", () => {
   it("finds the jeus pack by WAS/JEUS (case-insensitive vendor)", () => {
     expect(findVendorPack("WAS", "JEUS")?.id).toBe("jeus");
     expect(findVendorPack("WAS", "jeus")?.id).toBe("jeus");
+  });
+  it("finds the webtob pack by WEB/WebtoB (case-insensitive vendor)", () => {
+    expect(findVendorPack("WEB", "WebtoB")?.id).toBe("webtob");
+    expect(findVendorPack("WEB", "webtob")?.id).toBe("webtob");
   });
 });
 
