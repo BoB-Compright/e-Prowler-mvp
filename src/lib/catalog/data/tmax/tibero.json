@@ -1,4 +1,16 @@
 [
+  { "id": "TB-01", "title": "기본 계정 잠금·비밀번호 변경", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 사용자 관리" } },
+  { "id": "TB-02", "title": "SYS 기본 비밀번호 사용 여부", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 사용자 관리" } },
+  { "id": "TB-03", "title": "불필요한 DBA 롤 부여 계정", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 권한과 롤" } },
+  { "id": "TB-04", "title": "과도한 시스템 특권 부여", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 권한과 롤" } },
+  { "id": "TB-05", "title": "로그인 실패 잠금(FAILED_LOGIN_ATTEMPTS)", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-06", "title": "계정 잠금 기간(PASSWORD_LOCK_TIME)", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-07", "title": "비밀번호 사용 기간(PASSWORD_LIFE_TIME)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-08", "title": "비밀번호 재사용 제한(PASSWORD_REUSE_TIME/MAX)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-09", "title": "비밀번호 복잡도 함수(PASSWORD_VERIFY_FUNCTION)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-10", "title": "세션 수 제한(SESSIONS_PER_USER)", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 프로파일" } },
+  { "id": "TB-11", "title": "감사 활성화(AUDIT_TRAIL)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 감사" } },
+  { "id": "TB-12", "title": "SYS 감사(AUDIT_SYS_OPERATIONS)", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 감사" } },
   { "id": "TB-13", "title": "리스너 원격 접근제어(IP 제한) 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 네트워크 접근제어" } },
   { "id": "TB-14", "title": "설정파일(.tip) 소유자·권한 관리", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 설정파일 보호" } }
 ]

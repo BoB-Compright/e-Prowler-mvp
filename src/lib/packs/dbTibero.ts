@@ -59,7 +59,7 @@ export const tiberoPack: VendorPack = {
   category: "DB",
   vendors: ["Tibero"],
   executionPath: "linux",
-  itemIds: ["TB-13", "TB-14"],
+  itemIds: ["TB-01", "TB-02", "TB-03", "TB-04", "TB-05", "TB-06", "TB-07", "TB-08", "TB-09", "TB-10", "TB-11", "TB-12", "TB-13", "TB-14"],
   requiredInputs: REQUIRED_INPUTS,
   evidenceTasks: EVIDENCE,
   detect(): boolean {
