@@ -40,7 +40,7 @@ NH-Guardian은 이 과정 전체를 하나의 플랫폼으로 통합합니다.
 - **한 번 등록하면 상시 감시** — 정기 점검 스케줄이 자동으로 돌고, 서버에 설치된 패키지를 NVD(미국 국립 취약점 DB)와 상시 대조해 새 CVE가 공개되는 즉시 알려줍니다.
 - **결과 공유는 링크 하나로** — 비밀번호로 보호된 공유 링크(QR 코드 지원)를 통해 보안 지식이 없는 프로젝트 책임자도 자기 프로젝트의 보안 점수와 상세 리포트를 읽기 전용으로 열람합니다.
 
-숫자로 요약하면: **점검 항목 186개 · 벤더 팩 13종(OS/컨테이너/웹/WAS/DB/Windows) · 자동화된 테스트 1,140개 통과.**
+숫자로 요약하면: **점검 항목 186개 · 벤더 팩 13종(OS/컨테이너/웹/WAS/DB/Windows) · 자동화된 테스트 1,136개 통과.**
 
 ---
 
@@ -236,7 +236,7 @@ flowchart LR
 | AI | Claude API (`@anthropic-ai/sdk`) · zod 응답 스키마 검증 |
 | 외부 연동 | NVD API (CVE) · GitHub (레포 클론) · xlsx (엑셀 업로드/템플릿) |
 | 백그라운드 | in-process 스케줄러 + CVE 폴러 (`instrumentation.ts` 기동, 외부 큐 불필요) |
-| 테스트 | Vitest — **1,140개 테스트 통과** |
+| 테스트 | Vitest — **1,136개 테스트 통과** |
 
 인터넷이 차단된 온프레미스 환경을 전제로 설계되어, 담당자 노트북 한 대에서 전체가 동작합니다(외부 의존은 Claude API·NVD API뿐이며 둘 다 꺼도 점검 자체는 동작).
 
@@ -295,7 +295,6 @@ cp .env.example .env
 | `AUTH_ADMIN_USERNAME` / `AUTH_ADMIN_PASSWORD` | ✅(최초 1회) | 최초 기동 시 관리자 계정 자동 생성 (계정이 이미 있으면 무시) |
 | `ANTHROPIC_API_KEY` | AI 사용 시 | Claude API 키 |
 | `CLAUDE_ANALYSIS_ENABLED` | 선택 | AI 분석 단계 on/off (기본 false — 토큰 절약) |
-| `SHARE_BASE_URL` | 선택 | 공유 링크(복사·QR·메일)에 쓸 고정 공개 주소 (예: `http://172.30.1.30:3000`) — 미설정 시 담당자의 접속 주소를 사용하므로, localhost로 접속해 발송한 링크는 PM이 열 수 없습니다 |
 | `NVD_API_KEY` | 선택 | NVD API 키 (없으면 무키 레이트리밋으로 동작) |
 | `DATABASE_PATH` | 선택 | SQLite 파일 경로 (기본 `./data/app.db`) |
 
@@ -321,7 +320,7 @@ http://localhost:3000 접속 → `/login`에서 관리자 계정으로 로그인
 테스트:
 
 ```bash
-npm test   # Vitest — 1,140 tests
+npm test   # Vitest — 1,136 tests
 ```
 
 ---
