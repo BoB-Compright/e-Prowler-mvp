@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { PUBLIC_ROUTE_HEADER, SESSION_COOKIE_NAME, isPublicPath } from "@/lib/auth/constants";
+import { isOnShareHost, isAllowedShareOnlyPath } from "@/lib/projects/shareUrl";
 
 // Next 16 renamed the "middleware.ts" convention to "proxy.ts" (same runtime
 // behavior, nodejs-only, no edge). This is intentionally lightweight — it
@@ -23,6 +24,17 @@ export function proxy(request: NextRequest) {
   // protected pages unauthenticated.
   const headers = new Headers(request.headers);
   headers.delete(PUBLIC_ROUTE_HEADER);
+
+  // 공개 공유 호스트(ngrok 고정 도메인)로 온 요청은 공유 경로만 통과시키고
+  // 나머지는 404로 막는다 — 로그인/대시보드/내부 API의 존재조차 드러내지 않는다.
+  // host 또는 x-forwarded-host 중 하나라도 공유 호스트면 게이트 발동(fail-closed):
+  // 위조 가능한 x-forwarded-host로는 우회 불가. SHARE_BASE_URL 미설정 시 완전 비활성.
+  if (
+    isOnShareHost(request.headers.get("host"), request.headers.get("x-forwarded-host")) &&
+    !isAllowedShareOnlyPath(pathname)
+  ) {
+    return new NextResponse(null, { status: 404 });
+  }
 
   if (isPublicPath(pathname)) {
     // Tell the root layout this route must stay reachable without a session,

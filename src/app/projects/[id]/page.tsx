@@ -7,6 +7,7 @@ import { countRecentCriticalCveAlertsByAsset } from "@/lib/cve/store";
 import { classifyAssetKind } from "@/lib/assets/kind";
 import { assetScanCategories } from "@/lib/packs/resolve";
 import { ShareLinkPanel } from "./ShareLinkPanel";
+import { resolveShareBaseUrl } from "@/lib/projects/shareUrl";
 import { FleetScanButton } from "./FleetScanButton";
 import { AutoRefresh } from "../../_components/AutoRefresh";
 import { Card } from "../../_components/Card";
@@ -48,6 +49,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           projectName={project.name}
           pmName={project.pmName}
           pmEmail={project.pmEmail}
+          shareBaseUrl={resolveShareBaseUrl()}
         />
       </div>
 
