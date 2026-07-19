@@ -90,8 +90,12 @@ export interface ScanInputSpec {
   secret 유지, 새 값 입력 시 교체(SSH secret 수정과 동일 관례가 있으면 그대로 따름).
 - API(`POST /api/assets`, 수정 경로): `scanInputs` 필드 수용 → `encodeScanInputs`로 저장.
 
-### 5. 카탈로그 노출 (경량)
+### 5. 카탈로그 노출 (경량) + 신규 프레임워크
 
+- **신규 프레임워크 등록**: `src/lib/catalog/frameworks.ts`에 `{ id: "tmax", name: "국산 벤더 하드닝 (Tmax)" }`
+  추가. 이 프레임워크가 티베로/JEUS/WebtoB 항목을 담고, 항목 ID는 **제품별 접두**로 명명한다:
+  **TB-xx(티베로/DB) · JE-xx(JEUS/WAS) · WT-xx(WebtoB/WEB)**. 카탈로그 데이터는
+  `src/lib/catalog/data/tmax/tibero.json`(SP1), 이후 `jeus.json`·`webtob.json`.
 - 카탈로그 화면에서 해당 벤더 팩 항목에 "사전 입력값 필요: <라벨 목록>"을 표시(팩 `requiredInputs`
   기반). 신규 화면 없이 기존 카탈로그에 보조 텍스트만.
 
@@ -125,28 +129,43 @@ export interface ScanInputSpec {
 
 설정파일 경로는 `{tibero_home}/config/{tibero_tbsid}.tip`로 조합.
 
-### 7-3. 점검 항목 초안 (카탈로그 TB-01~TB-08)
+### 7-3. 점검 항목 (관리자 가이드 기반 확장, TB-01~TB-14)
 
-| ID | 항목 | 심각도 | 증거 방식 |
+> 근거: Tibero 7.2.5 관리자 가이드 "사용자 관리와 데이터베이스 보안". **주의: DEFAULT 프로파일이
+> 기본적으로 취약**하다(`FAILED_LOGIN_ATTEMPTS=UNLIMITED`, `PASSWORD_LIFE_TIME=UNLIMITED`,
+> `PASSWORD_GRACE_TIME=UNLIMITED`) — TB-05/07이 이 기본 취약을 잡는다.
+
+| ID | 항목 | 심각도 | 증거·판정 기준 |
 |---|---|---|---|
-| TB-01 | 기본 계정 기본 비밀번호 사용 여부(SYS 등) | High | DB 쿼리(로그인 성공/계정 상태) |
-| TB-02 | 불필요한 DBA 권한 부여 계정 | High | DB 쿼리 `DBA_ROLE_PRIVS`(granted_role='DBA') |
-| TB-03 | 로그인 실패 잠금(FAILED_LOGIN_ATTEMPTS) | Medium | DB 쿼리 `DBA_PROFILES` |
-| TB-04 | 비밀번호 복잡도 함수(PASSWORD_VERIFY_FUNCTION) 지정 | Medium | DB 쿼리 `DBA_PROFILES` |
-| TB-05 | 비밀번호 만료 정책(PASSWORD_LIFE_TIME) | Medium | DB 쿼리 `DBA_PROFILES` |
-| TB-06 | 리스너 접근제어(LSNR_INVITED_IP/DENIED_IP) 설정 | Medium | 설정파일 `.tip` 읽기 |
-| TB-07 | 설정파일(`.tip`) 소유자·권한 | Medium | SSH `stat`(파일 권한) |
-| TB-08 | 감사(audit) 활성화 | Low | DB 쿼리(감사 파라미터) |
+| TB-01 | 기본 계정 잠금/비밀번호 변경 | High | `DBA_USERS`: SYS·SYSCAT·SYSGIS·OUTLN·SYSBACKUP·TIBERO·TIBERO1·LBACSYS 중 미사용 계정 OPEN 여부 |
+| TB-02 | SYS 기본 비밀번호(`tibero`) 사용 | High | `tbsql SYS/tibero@{tbsid}` 로그인 성공 시 취약 |
+| TB-03 | 불필요한 DBA 롤 부여 계정 | High | `DBA_ROLE_PRIVS` granted_role='DBA' — SYS 외 부여 계정 검토 |
+| TB-04 | 과도한 시스템 특권(ANY 등) | Medium | `DBA_SYS_PRIVS` 위험 특권 부여 계정 |
+| TB-05 | 로그인 실패 잠금(FAILED_LOGIN_ATTEMPTS) | High | `DBA_PROFILES`: UNLIMITED이면 취약(권장 ≤5) |
+| TB-06 | 계정 잠금 기간(PASSWORD_LOCK_TIME) | Low | `DBA_PROFILES`: 과도히 짧으면 검토 |
+| TB-07 | 비밀번호 사용 기간(PASSWORD_LIFE_TIME) | Medium | `DBA_PROFILES`: UNLIMITED이면 취약(권장 ≤90일) |
+| TB-08 | 비밀번호 재사용 제한(PASSWORD_REUSE_TIME/MAX) | Medium | `DBA_PROFILES`: 둘 다 UNLIMITED이면 취약 |
+| TB-09 | 비밀번호 복잡도 함수(PASSWORD_VERIFY_FUNCTION) | Medium | `DBA_PROFILES`: NULL이면 취약(VERIFY_FUNCTION/VERIFY_FUNCTION2 권장) |
+| TB-10 | 세션 수 제한(SESSIONS_PER_USER) | Low | `DBA_PROFILES`: UNLIMITED이면 검토 |
+| TB-11 | 감사 활성화(AUDIT_TRAIL) | Medium | 파라미터: NONE이면 취약(DB/DB_EXTENDED/OS 권장) |
+| TB-12 | SYS 감사(AUDIT_SYS_OPERATIONS) | Low | 파라미터: N이면 검토(권장 Y) |
+| TB-13 | 리스너 원격 접근제어 | Medium | `.tip`: LISTENER REMOTE + LSNR_INVITED_IP/DENIED_IP 설정 유무 |
+| TB-14 | 설정파일(`.tip`) 소유자·권한 | Medium | SSH `stat`: 소유자 tibero, 권한 과다(그룹/기타 쓰기) 여부 |
 
-- 증거 태스크: (a) `.tip` 파일 존재·권한·내용 읽기(SSH), (b) `tbsql -s {user}/{pass}@{tbsid}`로
-  시스템 뷰 조회(로그인 실패 시 해당 DB-쿼리 항목은 `review` + "DB 인증 실패").
-- `detect`: `.tip` 파일 존재 또는 `tbsvr` 프로세스 존재로 티베로 설치 판별.
-- `evaluate`: 위 증거로 항목별 pass/fail/review 산출. 명확한 증거 없으면 `review`.
+- **증거 태스크(효율)**: 프로파일 항목(TB-05~10)은 `DBA_PROFILES` **한 번 쿼리**로, 계정 항목
+  (TB-01/03/04)은 `DBA_USERS`/`DBA_ROLE_PRIVS`/`DBA_SYS_PRIVS` 쿼리로, 감사(TB-11/12)는 파라미터
+  조회로, 리스너(TB-13)는 `.tip` 읽기로, 파일권한(TB-14)은 SSH `stat`로, TB-02는 기본계정 로그인
+  시도로 수집. 대략 6개 evidence 태스크가 14개 항목을 커버.
+- 태스크 구성: (a) SSH로 `.tip` 존재·권한·내용, (b) `tbsql -s {user}/{pass}@{tbsid}`로 시스템 뷰/파라미터
+  조회(로그인 실패 시 DB-쿼리 의존 항목은 `review` + "DB 인증 실패"), (c) SYS 기본비번 로그인 시도.
+- `detect`: `.tip` 파일 존재 또는 `tbsvr`/`tblistener` 프로세스 존재로 티베로 설치 판별.
+- `evaluate`: 위 증거로 항목별 pass/fail/review. 명확한 증거 없으면 `review`.
 
-### 7-4. 프레임워크 명칭
+### 7-4. 프레임워크 명칭 (확정)
 
-카탈로그 프레임워크는 기존 KISA/CIS와 별개로 "국산 벤더 하드닝(Tmax)" 또는 기존 KISA DBMS 축에
-편입할지 검토 필요(초안: 별도 표기 `벤더 하드닝`). 사용자 검토 항목.
+기존 KISA/CIS와 별개의 **신규 프레임워크 `국산 벤더 하드닝 (Tmax)`(id `tmax`)** 로 둔다. 항목 ID는
+제품별 접두로 명명: **TB(티베로/DB) · JE(JEUS/WAS) · WT(WebtoB/WEB)**. SP1은 TB만, SP2/SP3에서
+JE/WT 추가.
 
 ---
 
@@ -180,7 +199,10 @@ export interface ScanInputSpec {
 
 ## 참고(리서치 출처)
 
-- Tmax 티베로 보안 가이드/관리자 안내서(계정·프로파일·verify_function·FAILED_LOGIN_ATTEMPTS):
-  tmaxtibero.blog, docs.tibero.com, technet.tmax.co.kr.
-- 접속·설정(`tbsql sys`, `$TB_HOME/config/$TB_SID.tip`, LSNR_INVITED_IP/DENIED_IP, 리스너 포트):
-  docs.tibero.com, ncloud-docs Tibero 퀵가이드, gurubee 강의.
+- **Tibero 7.2.5 관리자 가이드 "사용자 관리와 데이터베이스 보안"**(기본 계정 목록, `DBA_PROFILES`
+  파라미터 FAILED_LOGIN_ATTEMPTS/PASSWORD_LIFE_TIME/PASSWORD_REUSE_*/PASSWORD_VERIFY_FUNCTION/
+  SESSIONS_PER_USER, DEFAULT 프로파일 기본값, VERIFY_FUNCTION 규칙, DBA_USERS/ROLE_PRIVS/SYS_PRIVS,
+  AUDIT_TRAIL/AUDIT_SYS_OPERATIONS, LSNR_INVITED_IP/DENIED_IP·LISTENER REMOTE):
+  https://docs.tibero.com/tibero-manuals/7.2.5.manuals/tibero-administrator-guide/user-management-and-security
+- 티베로 보안 가이드/접속(`tbsql sys/tibero`, `$TB_HOME/config/$TB_SID.tip`, 리스너 포트):
+  tmaxtibero.blog, docs.tibero.com, ncloud-docs Tibero 퀵가이드.
