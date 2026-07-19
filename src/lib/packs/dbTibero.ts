@@ -36,7 +36,7 @@ function isMissing(stdout: string): boolean {
 // .tip 텍스트에서 리스너 IP 접근제어 설정(LSNR_INVITED_IP/DENIED_IP 또는 파일 지정)이 있는지.
 // `=` 뒤에 공백이 아닌 값이 최소 1자 있어야 "설정됨"으로 인정한다(빈 값은 미설정).
 function hasListenerAcl(tip: string): boolean {
-  return /^\s*(LSNR_INVITED_IP|LSNR_DENIED_IP|LSNR_INVITED_IP_FILE|LSNR_DENIED_IP_FILE)\s*=\s*\S/im.test(tip);
+  return /^[ \t]*(LSNR_INVITED_IP|LSNR_DENIED_IP|LSNR_INVITED_IP_FILE|LSNR_DENIED_IP_FILE)[ \t]*=[ \t]*\S/im.test(tip);
 }
 
 // "user:group mode" 형태에서 mode를 파싱한다. 3자리(또는 앞에 0이 붙은 4자리) 8진수

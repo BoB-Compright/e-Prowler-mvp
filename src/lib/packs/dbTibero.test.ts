@@ -92,4 +92,10 @@ describe("tiberoPack", () => {
     const r = tiberoPack.evaluate({ findings: null, tasks, inputsProvided: new Set(["tibero_home", "tibero_tbsid"]) });
     expect(r.find((x) => x.id === "TB-13")!.status).toBe("fail");
   });
+
+  it("TB-13 fails when empty ACL followed by another directive on next line (regex scope bug)", () => {
+    const tasks = [task("TB-13: tibero tip content", "LSNR_INVITED_IP=\nMAX_SESSION_COUNT=100\n")];
+    const r = tiberoPack.evaluate({ findings: null, tasks, inputsProvided: new Set(["tibero_home", "tibero_tbsid"]) });
+    expect(r.find((x) => x.id === "TB-13")!.status).toBe("fail");
+  });
 });
