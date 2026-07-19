@@ -5,6 +5,7 @@ import {
   resolveShareHost,
   isOnShareHost,
   isAllowedShareOnlyPath,
+  isShareViewPath,
 } from "./shareUrl";
 
 describe("resolveShareBaseUrl", () => {
@@ -98,5 +99,19 @@ describe("isAllowedShareOnlyPath", () => {
     expect(isAllowedShareOnlyPath("/api/assets")).toBe(false);
     expect(isAllowedShareOnlyPath("/sharewolf")).toBe(false);
     expect(isAllowedShareOnlyPath("/api/shareX")).toBe(false);
+  });
+});
+
+describe("isShareViewPath (공유 뷰 셸 판별)", () => {
+  it("is true for the share pages and the blocked page", () => {
+    expect(isShareViewPath("/share")).toBe(true);
+    expect(isShareViewPath("/share/abc123")).toBe(true);
+    expect(isShareViewPath("/share-blocked")).toBe(true);
+  });
+  it("is false for other paths incl. near-misses", () => {
+    expect(isShareViewPath("/")).toBe(false);
+    expect(isShareViewPath("/login")).toBe(false);
+    expect(isShareViewPath("/sharewolf")).toBe(false);
+    expect(isShareViewPath("/api/share/x")).toBe(false);
   });
 });

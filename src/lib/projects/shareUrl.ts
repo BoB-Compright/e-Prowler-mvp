@@ -55,3 +55,9 @@ const SHARE_ALLOWED_PREFIXES = ["/share/", "/api/share/"];
 export function isAllowedShareOnlyPath(pathname: string): boolean {
   return SHARE_ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
+
+// 공유 뷰(미니멀 공개 셸로 렌더할 경로) 판별. 오매칭 방지를 위해 정확히 매칭한다:
+// /share, /share/**, 그리고 안내 페이지 /share-blocked. (/sharewolf, /api/share/* 제외)
+export function isShareViewPath(pathname: string): boolean {
+  return pathname === "/share" || pathname.startsWith("/share/") || pathname === "/share-blocked";
+}

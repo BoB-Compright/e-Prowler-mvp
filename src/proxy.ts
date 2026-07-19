@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { PUBLIC_ROUTE_HEADER, SESSION_COOKIE_NAME, isPublicPath } from "@/lib/auth/constants";
-import { isOnShareHost, isAllowedShareOnlyPath } from "@/lib/projects/shareUrl";
+import { isOnShareHost, isAllowedShareOnlyPath, isShareViewPath } from "@/lib/projects/shareUrl";
 
 // Next 16 renamed the "middleware.ts" convention to "proxy.ts" (same runtime
 // behavior, nodejs-only, no edge). This is intentionally lightweight — it
@@ -24,6 +24,13 @@ export function proxy(request: NextRequest) {
   // protected pages unauthenticated.
   const headers = new Headers(request.headers);
   headers.delete(PUBLIC_ROUTE_HEADER);
+
+  // 클라이언트가 보낸 x-share-view를 먼저 제거(레이아웃이 신뢰하는 헤더) 후,
+  // 공유 뷰 경로에만 프록시가 직접 세팅한다 — 레이아웃은 이 헤더로 미니멀 셸을 고른다.
+  headers.delete("x-share-view");
+  if (isShareViewPath(pathname)) {
+    headers.set("x-share-view", "1");
+  }
 
   // 공개 공유 호스트(ngrok 고정 도메인)로 온 요청은 공유 경로만 통과시키고
   // 나머지는 404로 막는다 — 로그인/대시보드/내부 API의 존재조차 드러내지 않는다.
