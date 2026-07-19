@@ -143,15 +143,40 @@ describe("tiberoPack DB checks (TB-01~12)", () => {
   });
 
   it("TB-11 fails when audit_trail is NONE", () => {
-    const queries = "__CONN_OK__\n###TB01\n###TB03\n###TB04\n###TBPROF\nDEFAULT|FAILED_LOGIN_ATTEMPTS|5\n###TB11\naudit_trail|NONE\n";
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\nDEFAULT|FAILED_LOGIN_ATTEMPTS|5\n###TB11\naudit_trail|NONE\n";
     const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
     expect(r.find((x) => x.id === "TB-11")!.status).toBe("fail");
     expect(r.find((x) => x.id === "TB-05")!.status).toBe("pass"); // 5 → 양호
   });
 
   it("TB-03 fails when a non-SYS account has DBA role", () => {
-    const queries = "__CONN_OK__\n###TB01\n###TB03\nAPPUSER\n###TB04\n###TBPROF\n###TB11\n";
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\nAPPUSER\n###TB04\n###TBPROF\n###TB11\n";
     const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
     expect(r.find((x) => x.id === "TB-03")!.status).toBe("fail");
+  });
+
+  // --- fail-closed gap: empty TB01 with __CONN_OK__ means the query batch didn't
+  // actually run (DBA_USERS always returns >=1 row when the session works), so an
+  // empty TB01 section must NOT be read as "no default accounts / pass".
+  it("reviews TB-01 AND TB-03~12 when __CONN_OK__ is present but ###TB01 section is empty (query batch untrustworthy)", () => {
+    const queries = "__CONN_OK__\n###TB01\n###TB03\n###TB04\n###TBPROF\n###TB11\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    for (const id of ["TB-01", "TB-05", "TB-11"]) {
+      const item = r.find((x) => x.id === id)!;
+      expect(item.status).toBe("review");
+      expect(item.evidence).toContain("DB 조회 결과 없음");
+    }
+  });
+
+  it("TB-10 reviews when SESSIONS_PER_USER is UNLIMITED (queries did run, TB01 has a row)", () => {
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\nDEFAULT|SESSIONS_PER_USER|UNLIMITED\n###TB11\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-10")!.status).toBe("review");
+  });
+
+  it("TB-12 reviews when audit_sys_operations is N (queries did run, TB01 has a row)", () => {
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\n###TB11\naudit_sys_operations|N\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-12")!.status).toBe("review");
   });
 });
