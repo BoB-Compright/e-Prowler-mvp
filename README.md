@@ -178,12 +178,13 @@ CVE 상세 화면은 영향받는 자산 목록과 배포판별 조치 가이드
 **사내망 밖 PM에게 공유하기 (점검자별 고정 링크)** — 공유 링크를 **안 바뀌는 고정 URL**로 만들려면 ngrok 고정 도메인을 쓴다. `.env`에 발급받은 도메인을 넣고 서버와 터널을 띄우면:
 
 ```bash
-# .env: SHARE_BASE_URL=https://myname.ngrok-free.app
+# .env: SHARE_BASE_URL=https://myname.ngrok-free.app  (도메인을 먼저 .env에)
+npm run build                                  # ★ 도메인을 실어서 빌드(build-time에 인라인)
 npm run start                                  # NH-Guardian 서버 기동
 ngrok http 3000 --url https://myname.ngrok-free.app    # 고정 도메인으로 노출(수동)
 ```
 
-공유 링크(복사·QR·메일)가 모두 `https://myname.ngrok-free.app/share/<token>` 으로 생성되고, 재실행해도 URL이 바뀌지 않아 PM에게 한 번만 전달하면 됩니다. 점검자가 재점검하면 같은 링크에서 최신 조치가 반영됩니다. 이 공개 도메인으로는 `/share`·`/api/share`만 열리고 로그인·대시보드·내부 API는 404로 차단됩니다(점검자는 localhost로 작업). 다만 이 404는 라우트·API를 가릴 뿐 정적 클라이언트 번들(`/_next/static`)까지 막지는 않으며, 실질적 보호는 관리자 로그인과 공유 비밀번호입니다(다중 방어선). 점검자마다 자기 도메인 = 자기 링크입니다. 자세한 설정은 [ngrok 공유 가이드](docs/ops/share-ngrok.md) 참고. (노트북/터널이 꺼진 시간엔 열람 불가하나 주소는 유지됩니다.)
+`SHARE_BASE_URL`은 **빌드 시점에 굳는 값**입니다 — 반드시 `.env`에 넣고 `npm run build`를 해야 게이트·링크가 그 도메인으로 동작하며(안 넣고 빌드하면 게이트 비활성), 도메인이 바뀌면 재빌드합니다. 공유 링크(복사·QR·메일)가 모두 `https://myname.ngrok-free.app/share/<token>` 으로 생성되고, 재실행해도 URL이 바뀌지 않아 PM에게 한 번만 전달하면 됩니다. 점검자가 재점검하면 같은 링크에서 최신 조치가 반영됩니다. 이 공개 도메인으로는 `/share`·`/api/share`만 열리고 로그인·대시보드·내부 API는 404로 차단됩니다(점검자는 localhost로 작업). 다만 이 404는 라우트·API를 가릴 뿐 정적 클라이언트 번들(`/_next/static`)까지 막지는 않으며, 실질적 보호는 관리자 로그인과 공유 비밀번호입니다(다중 방어선). 점검자마다 자기 도메인 = 자기 링크입니다. 자세한 설정은 [ngrok 공유 가이드](docs/ops/share-ngrok.md) 참고. (노트북/터널이 꺼진 시간엔 열람 불가하나 주소는 유지됩니다.)
 
 ![공유 뷰 — 프로젝트 종합 보안 점수와 자산 선택](docs/images/share-report.jpg)
 
