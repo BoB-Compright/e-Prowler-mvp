@@ -40,7 +40,14 @@ export function proxy(request: NextRequest) {
     isOnShareHost(request.headers.get("host"), request.headers.get("x-forwarded-host")) &&
     !isAllowedShareOnlyPath(pathname)
   ) {
-    return new NextResponse(null, { status: 404 });
+    // bare 404 대신 친절한 안내 페이지로 rewrite(상태 404 유지 — 라우트 존재는 은폐).
+    // 안내 페이지도 미니멀 셸이어야 하므로 x-share-view/public 헤더를 세팅해 전달한다.
+    headers.set("x-share-view", "1");
+    headers.set(PUBLIC_ROUTE_HEADER, "1");
+    return NextResponse.rewrite(new URL("/share-blocked", request.url), {
+      status: 404,
+      request: { headers },
+    });
   }
 
   if (isPublicPath(pathname)) {

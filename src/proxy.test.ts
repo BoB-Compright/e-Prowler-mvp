@@ -70,4 +70,14 @@ describe("proxy share-only host gate (#81)", () => {
     process.env.SHARE_BASE_URL = SHARE_HOST; // no https:// prefix
     expect(proxy(req(SHARE_HOST, "/login")).status).toBe(404);
   });
+
+  it("rewrites blocked paths on the share host to /share-blocked (404)", () => {
+    const res = proxy(req(SHARE_HOST, "/login"));
+    expect(res.status).toBe(404);
+    expect(res.headers.get("x-middleware-rewrite")).toContain("/share-blocked");
+  });
+
+  it("still allows /share-blocked itself on the share host", () => {
+    expect(proxy(req(SHARE_HOST, "/share-blocked")).status).toBe(200);
+  });
 });

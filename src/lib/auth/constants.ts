@@ -13,7 +13,7 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const PUBLIC_ROUTE_HEADER = "x-public-route";
 
 // Exact page/API paths that never require a session.
-const PUBLIC_EXACT_PATHS = new Set(["/login", "/api/auth/login"]);
+const PUBLIC_EXACT_PATHS = new Set(["/login", "/api/auth/login", "/share-blocked"]);
 
 // Path prefixes that never require a session (share links and their API).
 const PUBLIC_PATH_PREFIXES = ["/share/", "/api/share/"];
