@@ -144,8 +144,10 @@ export const webtobPack: VendorPack = {
         ? { id: "WT-04", status: "review", evidence: "ErrorDocument 미설정(기본 에러페이지 노출 가능)" }
         : { id: "WT-04", status: "pass", evidence: `ErrorDocument 설정됨: ${errorDoc}` };
 
-      // WT-05: *SSL 섹션 또는 SSLFlag/443 관련 설정 있으면 pass, 없으면 fail.
-      const hasSsl = hasSection(httpm, "SSL") || /SSLFlag|:\s*443\b|\b443\b/i.test(httpm);
+      // WT-05: *SSL 섹션 또는 SSLFlag 지시어가 있으면 pass, 없으면 fail. 파일 전역에서 "443"
+      // 같은 substring을 훑던 방식은 무관한 숫자(타임아웃·포트 등)에 매치돼 취약 설정을
+      // pass로 오판(fail-open)할 수 있어 제거한다 — 지시어/섹션 단위로만 판정(fail-closed).
+      const hasSsl = hasSection(httpm, "SSL") || directive(httpm, "SSLFlag") !== null;
       wt05 = hasSsl
         ? { id: "WT-05", status: "pass", evidence: "SSL/TLS 설정 확인됨" }
         : { id: "WT-05", status: "fail", evidence: "SSL/TLS 설정 없음" };
@@ -170,10 +172,12 @@ export const webtobPack: VendorPack = {
         : { id: "WT-08", status: "pass", evidence: "상위경로/심볼릭 링크 허용 설정 없음" };
 
       // WT-09: *ADMIN 섹션이 있고 접근제어(Admin_ip 등)가 전체 개방(0.0.0.0)이거나
-      // 확인할 수 없으면 review. 섹션 자체가 없으면 관리 리스너 미노출로 간주해 pass.
+      // 확인할 수 없으면 review. 섹션 자체가 없으면 http.m만으로는 wsadmin 접근제어 여부를
+      // 단정할 수 없으므로(관리 인터페이스가 기본값·다른 경로로 열려 있을 수 있음) pass가 아니라
+      // review로 둔다 — fail-closed(확인 불가를 안전으로 오판 금지).
       const adminSection = hasSection(httpm, "ADMIN");
       if (!adminSection) {
-        wt09 = { id: "WT-09", status: "pass", evidence: "관리(Admin) 리스너 설정 없음" };
+        wt09 = { id: "WT-09", status: "review", evidence: "관리(Admin) 리스너 설정을 http.m에서 확인할 수 없음" };
       } else {
         const adminIp = directive(httpm, "Admin_ip");
         wt09 = adminIp === null || adminIp.trim() === "0.0.0.0"

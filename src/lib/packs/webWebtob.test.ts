@@ -87,6 +87,13 @@ describe("webtobPack", () => {
     expect(r.find((x) => x.id === "WT-05")!.status).toBe("pass");
   });
 
+  // fail-open 회귀: "443"이 무관한 값(Timeout 등)으로 등장해도 SSL 설정으로 오판하지 않는다.
+  it("WT-05 fails when 443 appears only as an unrelated value (no SSL config)", () => {
+    const httpm = `*NODE\nTimeout = "443"\nMaxUser = "443"\n`;
+    const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "WT-05")!.status).toBe("fail");
+  });
+
   it("WT-06 reviews when no logging section present", () => {
     const httpm = `*NODE\nOptions = "FollowSymLinks"\n`;
     const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
@@ -129,8 +136,15 @@ describe("webtobPack", () => {
     expect(r.find((x) => x.id === "WT-09")!.status).toBe("review");
   });
 
-  it("WT-09 passes when no admin section present", () => {
+  // fail-closed: *ADMIN 섹션이 없으면 http.m만으로 wsadmin 접근제어를 단정할 수 없어 review.
+  it("WT-09 reviews when no admin section present", () => {
     const httpm = `*NODE\nOptions = "None"\n`;
+    const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "WT-09")!.status).toBe("review");
+  });
+
+  it("WT-09 passes when admin listener is IP-restricted", () => {
+    const httpm = `*NODE\n*ADMIN\nAdmin_ip = "10.0.0.5"\n`;
     const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
     expect(r.find((x) => x.id === "WT-09")!.status).toBe("pass");
   });
