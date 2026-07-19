@@ -30,25 +30,78 @@ function getClient(): Anthropic {
   return client;
 }
 
-// 실제 Claude(haiku) 번역: 항목마다 한 문장 한국어로. 실패한 항목은 결과에서 빠진다.
-async function claudeTranslate(items: { cveId: string; summary: string }[]): Promise<Map<string, string>> {
+// Claude 호출을 좁은 함수로 추상화(system+user → 텍스트)해서 배치/폴백 로직을
+// SDK 없이 테스트할 수 있게 한다.
+type ClaudeCall = (system: string, user: string, maxTokens: number) => Promise<string>;
+
+const sdkCall: ClaudeCall = async (system, user, maxTokens) => {
+  const res = await getClient().messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: user }],
+  });
+  const text = res.content.find((b) => b.type === "text");
+  return text && "text" in text ? text.text : "";
+};
+
+// 배치 응답에서 {cveId: 번역문} JSON을 견고하게 파싱한다. 코드펜스·앞뒤 잡음을
+// 허용하고, 요청하지 않은 id·비문자열·빈 값은 무시한다. 파싱 불가면 빈 Map.
+export function parseBatchTranslationResponse(text: string, expectedIds: string[]): Map<string, string> {
   const out = new Map<string, string>();
-  for (const item of items) {
-    try {
-      const res = await getClient().messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 300,
-        system: "다음 CVE 영문 요약을 한국어 한 문장으로 간결히 번역하세요. 설명 없이 번역문만 출력합니다.",
-        messages: [{ role: "user", content: sanitizeForClaude(item.summary) }],
-      });
-      const text = res.content.find((b) => b.type === "text");
-      if (text && "text" in text && text.text.trim()) out.set(item.cveId, text.text.trim());
-    } catch {
-      // 이 항목만 건너뛴다(부분 성공 허용) — 화면은 영문 폴백.
-    }
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) return out;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return out;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return out;
+  const expected = new Set(expectedIds);
+  for (const [id, value] of Object.entries(parsed)) {
+    if (expected.has(id) && typeof value === "string" && value.trim()) out.set(id, value.trim());
   }
   return out;
 }
+
+const BATCH_SYSTEM =
+  "다음 CVE 영문 요약 목록을 각각 한국어 한 문장으로 간결히 번역하세요. " +
+  '응답은 설명 없이 {"CVE-ID": "번역문"} 형태의 JSON 객체만 출력합니다.';
+const ITEM_SYSTEM = "다음 CVE 영문 요약을 한국어 한 문장으로 간결히 번역하세요. 설명 없이 번역문만 출력합니다.";
+
+// 실제 Claude(haiku) 번역. 캐시 미스 전체(≤30건)를 한 번의 배치 호출로 번역하고,
+// 배치 실패·파싱 불가 시에만 기존 항목별 순차 번역으로 폴백한다(부분 성공 허용) (#80).
+export function makeClaudeTranslate(call: ClaudeCall): (items: { cveId: string; summary: string }[]) => Promise<Map<string, string>> {
+  return async (items) => {
+    if (items.length === 0) return new Map();
+
+    try {
+      const payload = JSON.stringify(
+        items.map((i) => ({ cveId: i.cveId, summary: sanitizeForClaude(i.summary) })),
+      );
+      const text = await call(BATCH_SYSTEM, payload, 150 * items.length);
+      const batch = parseBatchTranslationResponse(text, items.map((i) => i.cveId));
+      if (batch.size > 0) return batch;
+    } catch {
+      // 배치 실패 — 아래 항목별 폴백으로.
+    }
+
+    const out = new Map<string, string>();
+    for (const item of items) {
+      try {
+        const text = await call(ITEM_SYSTEM, sanitizeForClaude(item.summary), 300);
+        if (text.trim()) out.set(item.cveId, text.trim());
+      } catch {
+        // 이 항목만 건너뛴다(부분 성공 허용) — 화면은 영문 폴백.
+      }
+    }
+    return out;
+  };
+}
+
+const claudeTranslate = makeClaudeTranslate(sdkCall);
 
 export interface TranslateDeps {
   translate: (items: { cveId: string; summary: string }[]) => Promise<Map<string, string>>;
