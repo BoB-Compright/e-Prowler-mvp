@@ -86,7 +86,7 @@ describe("POST /api/share/[token]", () => {
 
     // 판정 배지 이외의 상세 필드(건수/항목/CVE)는 계속 비노출이어야 한다.
     for (const asset of body.assets as Array<Record<string, unknown>>) {
-      expect(Object.keys(asset).sort()).toEqual(["displayName", "id", "type", "verdict"]);
+      expect(Object.keys(asset).sort()).toEqual(["displayName", "id", "kind", "type", "verdict"]);
     }
 
     // 응답 최상위는 project/assets/perAsset/score만 노출한다(runs/findings는 perAsset으로 대체).

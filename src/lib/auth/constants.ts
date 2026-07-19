@@ -12,8 +12,12 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // that must stay reachable without a session.
 export const PUBLIC_ROUTE_HEADER = "x-public-route";
 
+// Request header src/proxy.ts sets on share-view routes so the root layout
+// renders the minimal public shell (no admin nav) instead of the admin shell.
+export const SHARE_VIEW_HEADER = "x-share-view";
+
 // Exact page/API paths that never require a session.
-const PUBLIC_EXACT_PATHS = new Set(["/login", "/api/auth/login"]);
+const PUBLIC_EXACT_PATHS = new Set(["/login", "/api/auth/login", "/share-blocked"]);
 
 // Path prefixes that never require a session (share links and their API).
 const PUBLIC_PATH_PREFIXES = ["/share/", "/api/share/"];

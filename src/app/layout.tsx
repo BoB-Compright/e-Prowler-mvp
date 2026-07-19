@@ -7,7 +7,8 @@ import { NavCollapseScript } from "./_components/NavCollapseScript";
 import { AppHeader } from "./_components/AppHeader";
 import { AppSidebar } from "./_components/AppSidebar";
 import { CveLiveToasts } from "./_components/CveLiveToasts";
-import { PUBLIC_ROUTE_HEADER } from "@/lib/auth/constants";
+import { BrandLogo } from "./_components/BrandLogo";
+import { PUBLIC_ROUTE_HEADER, SHARE_VIEW_HEADER } from "@/lib/auth/constants";
 import { getSessionUserFromCookies, requireSessionUserOrRedirect } from "@/lib/auth/serverSession";
 
 // DESIGN.md's documented substitute for the licensed CoinbaseSans/Display typefaces.
@@ -31,6 +32,7 @@ export default async function RootLayout({
   // can still show the profile block for an already-signed-in user.
   const requestHeaders = await headers();
   const isPublicRoute = requestHeaders.get(PUBLIC_ROUTE_HEADER) === "1";
+  const isShareView = requestHeaders.get(SHARE_VIEW_HEADER) === "1";
   const session = isPublicRoute
     ? await getSessionUserFromCookies()
     : await requireSessionUserOrRedirect();
@@ -42,12 +44,25 @@ export default async function RootLayout({
         <NavCollapseScript />
       </head>
       <body className="min-h-full">
-        <AppSidebar />
-        <div className="app-main flex min-h-screen flex-col">
-          <AppHeader user={session ? { username: session.username } : null} />
-          {children}
-          {session && !isPublicRoute && <CveLiveToasts />}
-        </div>
+        {isShareView ? (
+          <div className="flex min-h-screen flex-col">
+            <header className="sticky top-0 z-30 border-b border-border bg-surface">
+              <div className="flex h-16 items-center px-4 md:px-8">
+                <BrandLogo subtext />
+              </div>
+            </header>
+            {children}
+          </div>
+        ) : (
+          <>
+            <AppSidebar />
+            <div className="app-main flex min-h-screen flex-col">
+              <AppHeader user={session ? { username: session.username } : null} />
+              {children}
+              {session && !isPublicRoute && <CveLiveToasts />}
+            </div>
+          </>
+        )}
       </body>
     </html>
   );

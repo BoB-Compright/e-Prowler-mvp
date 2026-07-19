@@ -10,6 +10,9 @@ import type { BadgeStatus } from "../../_components/statusBadgeStyles";
 import { SecurityScoreGauge } from "@/app/_components/dashboard/SecurityScoreGauge";
 import type { ScoreGrade } from "@/lib/dashboard/securityScore";
 import { ShareReport } from "./ShareReport";
+import type { AssetKind } from "@/lib/assets/kind";
+import { firstGroupedAssetId, groupAssetsByKind } from "@/lib/assets/groupByKind";
+import { KindIcon } from "@/app/_components/AssetKindBadge";
 
 type AssetVerdict = "pass" | "fail" | "review" | "error" | "running" | "cancelled" | "none";
 
@@ -18,6 +21,7 @@ interface ShareAsset {
   displayName: string;
   type: "repo" | "server";
   verdict: AssetVerdict;
+  kind: AssetKind;
 }
 
 interface SharePerAsset {
@@ -58,6 +62,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
   const [password, setPassword] = useState("");
   const [data, setData] = useState<ShareData | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [selectedKind, setSelectedKind] = useState<AssetKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,7 +89,7 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
       }
       const json: ShareData = await res.json();
       setData(json);
-      setSelectedAssetId(json.assets[0]?.id ?? null);
+      setSelectedAssetId(firstGroupedAssetId(json.assets));
     } finally {
       setSubmitting(false);
     }
@@ -94,6 +99,9 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
     const perAssetByAssetId = new Map(data.perAsset.map((entry) => [entry.assetId, entry]));
     const selectedAsset = data.assets.find((asset) => asset.id === selectedAssetId) ?? null;
     const selectedEntry = selectedAssetId ? (perAssetByAssetId.get(selectedAssetId) ?? null) : null;
+    const groups = groupAssetsByKind(data.assets);
+    const activeKind = selectedKind ?? data.assets.find((a) => a.id === selectedAssetId)?.kind ?? groups[0]?.kind ?? null;
+    const activeGroup = groups.find((g) => g.kind === activeKind) ?? null;
 
     return (
       <div>
@@ -117,26 +125,48 @@ export function ShareGate({ token, initialStatus }: { token: string; initialStat
           </Card>
         ) : (
           <>
-            <div className="mb-4 -mx-1 overflow-x-auto px-1">
-              <div className="flex gap-2 pb-1">
-                {data.assets.map((asset) => {
-                  const verdictBadge = VERDICT_BADGE[asset.verdict];
-                  const active = asset.id === selectedAssetId;
-                  return (
-                    <button
-                      key={asset.id}
-                      type="button"
-                      onClick={() => setSelectedAssetId(asset.id)}
-                      className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm whitespace-nowrap transition-colors ${
-                        active ? "border-primary bg-surface font-semibold" : "border-border hover:bg-bg"
-                      }`}
-                    >
-                      <span>{asset.displayName}</span>
-                      <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* 종류 칩(아이콘+라벨+개수) — 종류 수가 적어 가로 스크롤 불필요 */}
+            <div className="mb-3 flex flex-wrap gap-2">
+              {groups.map((group) => {
+                const active = group.kind === activeKind;
+                return (
+                  <button
+                    key={group.kind}
+                    type="button"
+                    onClick={() => {
+                      setSelectedKind(group.kind);
+                      setSelectedAssetId(group.assets[0]?.id ?? null);
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      active ? "border-primary bg-surface font-semibold text-primary" : "border-border text-muted hover:bg-bg"
+                    }`}
+                  >
+                    <KindIcon kind={group.kind} />
+                    <span>{group.label}</span>
+                    <span className="rounded bg-bg px-1.5 text-xs text-muted">{group.assets.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* 선택된 종류의 자산 칩 */}
+            <div className="mb-4 flex flex-wrap gap-2">
+              {(activeGroup?.assets ?? []).map((asset) => {
+                const verdictBadge = VERDICT_BADGE[asset.verdict];
+                const active = asset.id === selectedAssetId;
+                return (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    onClick={() => setSelectedAssetId(asset.id)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      active ? "border-primary bg-surface font-semibold" : "border-border hover:bg-bg"
+                    }`}
+                  >
+                    <span>{asset.displayName}</span>
+                    <StatusBadge status={verdictBadge.status}>{verdictBadge.label}</StatusBadge>
+                  </button>
+                );
+              })}
             </div>
 
             {selectedEntry?.run ? (

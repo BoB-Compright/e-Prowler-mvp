@@ -47,11 +47,19 @@ export function isOnShareHost(
 }
 
 const SHARE_ALLOWED_PREFIXES = ["/share/", "/api/share/"];
+const SHARE_ALLOWED_EXACT = new Set(["/share-blocked"]);
 
-// 공개 공유 호스트에서 통과시킬 경로(토큰을 동반한 공유 페이지 + 공유 API만).
+// 공개 공유 호스트에서 통과시킬 경로(공유 페이지·공유 API + 안내 페이지). 그 외는 proxy가 rewrite.
 // 토큰 없는 bare "/share", "/api/share"는 실제 라우트가 없으므로 허용하지
 // 않는다 — 허용하면 게이트를 통과해 로그인/인증 API 로직까지 흘러가
 // 307(/login 리다이렉트)·401을 반환하며 그 존재를 노출한다. 그 외는 proxy가 404.
 export function isAllowedShareOnlyPath(pathname: string): boolean {
+  if (SHARE_ALLOWED_EXACT.has(pathname)) return true;
   return SHARE_ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+// 공유 뷰(미니멀 공개 셸로 렌더할 경로) 판별. 오매칭 방지를 위해 정확히 매칭한다:
+// /share, /share/**, 그리고 안내 페이지 /share-blocked. (/sharewolf, /api/share/* 제외)
+export function isShareViewPath(pathname: string): boolean {
+  return pathname === "/share" || pathname.startsWith("/share/") || pathname === "/share-blocked";
 }
