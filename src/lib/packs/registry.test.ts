@@ -10,7 +10,7 @@ describe("registry", () => {
     expect(findVendorPack("DB", "SQLServer")).toBeUndefined();
   });
   it("registers only baseline + web-nginx in this cycle", () => {
-    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mssql", "db-mysql", "db-oracle", "db-postgresql", "os-unix", "os-windows", "tibero", "was-tomcat", "was-websphere", "was-weblogic", "web-apache", "web-iis", "web-nginx"].sort());
+    expect(ALL_PACKS.map((p) => p.id).sort()).toEqual(["container", "db-mssql", "db-mysql", "db-oracle", "db-postgresql", "jeus", "os-unix", "os-windows", "tibero", "was-tomcat", "was-websphere", "was-weblogic", "web-apache", "web-iis", "web-nginx"].sort());
   });
   it("finds the apache pack by WEB/Apache (case-insensitive vendor)", () => {
     expect(findVendorPack("WEB", "Apache")?.id).toBe("web-apache");
@@ -43,10 +43,18 @@ describe("registry", () => {
     expect(findVendorPack("WAS", "WebLogic")?.id).toBe("was-weblogic");
     expect(findVendorPack("WAS", "WebSphere")?.id).toBe("was-websphere");
   });
+  it("finds the jeus pack by WAS/JEUS (case-insensitive vendor)", () => {
+    expect(findVendorPack("WAS", "JEUS")?.id).toBe("jeus");
+    expect(findVendorPack("WAS", "jeus")?.id).toBe("jeus");
+  });
 });
 
 describe("getVendorInputSpecs", () => {
   it("returns [] for a vendor without a pack or without requiredInputs", () => {
     expect(getVendorInputSpecs("DB", "존재하지않는벤더")).toEqual([]);
+  });
+  it("returns 2 input specs (jeus_home, jeus_domain) for WAS/JEUS", () => {
+    const specs = getVendorInputSpecs("WAS", "JEUS");
+    expect(specs.map((s) => s.name)).toEqual(["jeus_home", "jeus_domain"]);
   });
 });

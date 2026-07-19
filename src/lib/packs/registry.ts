@@ -10,9 +10,10 @@ import { dbPostgresPack } from "./dbPostgres";
 import { dbOraclePack } from "./dbOracle";
 import { webIisPack, dbMssqlPack, wasWeblogicPack, wasWebspherePack } from "./windowsApps";
 import { tiberoPack } from "./dbTibero";
+import { jeusPack } from "./wasJeus";
 
 // 이번 사이클(#0+#1 이전)에 등록된 팩. #1(Apache)~#4는 여기에 팩을 추가만 한다.
-export const ALL_PACKS: VendorPack[] = [osUnixPack, containerPack, osWindowsPack, webNginxPack, webApachePack, wasTomcatPack, dbMysqlPack, dbPostgresPack, dbOraclePack, webIisPack, dbMssqlPack, wasWeblogicPack, wasWebspherePack, tiberoPack];
+export const ALL_PACKS: VendorPack[] = [osUnixPack, containerPack, osWindowsPack, webNginxPack, webApachePack, wasTomcatPack, dbMysqlPack, dbPostgresPack, dbOraclePack, webIisPack, dbMssqlPack, wasWeblogicPack, wasWebspherePack, tiberoPack, jeusPack];
 
 // 애플리케이션 벤더 팩(vendors 비어있지 않음)만 대상으로, category와 vendor로
 // 팩을 찾는다. vendor는 대소문자 무시.
