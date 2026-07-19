@@ -97,6 +97,15 @@ describe("tiberoPack", () => {
     expect(q.raw).not.toMatch(/tbsql[^\n]*\$p/); // argv에 비번 변수 없음
   });
 
+  // --- regression: v$parameter must survive shell expansion on the target ---
+  it("TB-11/TB-12 query escapes v$parameter so the shell doesn't expand $parameter as an unset variable", () => {
+    const q = tiberoPack.evidenceTasks.find((t) => t.name === "TB-DB: tibero queries")!;
+    // JS-level string must contain a literal backslash before $ (i.e. `\$parameter`),
+    // so the rendered shell command sees `v\$parameter` and passes `v$parameter`
+    // through to tbsql untouched instead of the shell expanding `$parameter` (unset → "").
+    expect(q.raw).toContain("v\\$parameter");
+  });
+
   it("TB-13 fails when LSNR_INVITED_IP is present but has no value (not actually configured)", () => {
     const tasks = [task("TB-13: tibero tip content", "LSNR_INVITED_IP=\n")];
     const r = tiberoPack.evaluate({ findings: null, tasks, inputsProvided: new Set(["tibero_home", "tibero_tbsid"]) });
@@ -178,5 +187,23 @@ describe("tiberoPack DB checks (TB-01~12)", () => {
     const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\n###TB11\naudit_sys_operations|N\n";
     const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
     expect(r.find((x) => x.id === "TB-12")!.status).toBe("review");
+  });
+
+  // --- TB-01: SYS must be excluded from the default-account OPEN check ---
+  // SYS cannot be locked and is legitimately OPEN in every working instance, so
+  // treating SYS|OPEN as a fail would make TB-01 a near-universal false positive.
+  it("TB-01 passes when only SYS is OPEN (SYS is excluded from the default-account check)", () => {
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\n###TB03\n###TB04\n###TBPROF\n###TB11\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "TB-01")!.status).toBe("pass");
+  });
+
+  it("TB-01 fails when a real unused default account (OUTLN) is OPEN", () => {
+    const queries = "__CONN_OK__\n###TB01\nSYS|OPEN\nOUTLN|OPEN\n###TB03\n###TB04\n###TBPROF\n###TB11\n";
+    const r = tiberoPack.evaluate({ findings: null, tasks: dbTasks("__SYS_DEFAULT_PW_ABSENT__", queries), inputsProvided: PROVIDED });
+    const tb01 = r.find((x) => x.id === "TB-01")!;
+    expect(tb01.status).toBe("fail");
+    expect(tb01.evidence).toContain("OUTLN");
+    expect(tb01.evidence).not.toContain("SYS"); // SYS itself must not be reported as an offending default account
   });
 });

@@ -15,7 +15,11 @@ const REQUIRED_INPUTS: ScanInputSpec[] = [
 ];
 
 // tbSQL 접속 변수는 quote 필터로 셸 인용해 변수에 담고, 비밀번호는 argv가 아닌
-// CONN(stdin)으로 전달한다 — ps 노출·명령 주입 모두 방지.
+// CONN(stdin)으로 전달한다 — 명령 주입 방지 + tbSQL 프로세스 argv·컨트롤 노드의
+// CLI/로그에 비밀번호 평문 노출 방지. 단, Ansible이 `{{ tibero_db_pass | quote }}`를
+// 컨트롤 사이드에서 렌더링해 `p='<password>'` 형태로 타겟 호스트의 `sh -c` argv에
+// 주입하므로, 스캔 실행 창(window) 동안 타겟 호스트의 셸 argv(ps)에는 비밀번호
+// 평문이 일시적으로 노출된다(조직 통제 하 온프레미스 호스트에서만 허용 가능한 트레이드오프).
 const DBUSER_Q = `{{ tibero_db_user | quote }}`;
 const DBPASS_Q = `{{ tibero_db_pass | quote }}`;
 const TBSID_Q = `{{ tibero_tbsid | quote }}`;
@@ -102,7 +106,10 @@ function isOverPermissive(mode: string): boolean {
 }
 
 // TB-01 기본계정 목록(미사용 시 잠금/만료돼 있어야 하는 계정들).
-const DEFAULT_ACCOUNTS = ["SYS", "SYSCAT", "SYSGIS", "OUTLN", "SYSBACKUP", "TIBERO", "TIBERO1", "LBACSYS"];
+// SYS는 제외한다: SYS 계정은 잠글 수 없고(cannot be locked) 정상적인 세션에서도
+// 항상 OPEN 상태이므로, 포함하면 사실상 모든 인스턴스에서 TB-01이 오탐(false positive)
+// fail 처리된다.
+const DEFAULT_ACCOUNTS = ["SYSCAT", "SYSGIS", "OUTLN", "SYSBACKUP", "TIBERO", "TIBERO1", "LBACSYS"];
 
 // tbSQL 쿼리 출력을 ###마커로 섹션 분할한다. 각 섹션은 마커 다음부터 다음 마커(또는 끝)까지의 라인.
 function splitSections(out: string): Record<string, string[]> {
