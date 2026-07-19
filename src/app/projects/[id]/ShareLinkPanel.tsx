@@ -6,6 +6,7 @@ import { StatusBadge } from "../../_components/StatusBadge";
 import type { BadgeStatus } from "../../_components/statusBadgeStyles";
 import type { ShareStatus } from "@/lib/projects/types";
 import { buildShareMailto } from "@/lib/projects/shareMail";
+import { buildShareUrl } from "@/lib/projects/shareUrl";
 
 const inputClass =
   "rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary";
@@ -27,6 +28,7 @@ export function ShareLinkPanel({
   projectName,
   pmName,
   pmEmail,
+  shareBaseUrl,
 }: {
   projectId: string;
   shareToken: string;
@@ -34,6 +36,7 @@ export function ShareLinkPanel({
   projectName: string;
   pmName: string;
   pmEmail: string;
+  shareBaseUrl: string | null;
 }) {
   const [token, setToken] = useState(shareToken);
   const [status, setStatus] = useState<ShareStatus>(shareStatus);
@@ -49,15 +52,15 @@ export function ShareLinkPanel({
   const [qrError, setQrError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Reads `window.location`, which is unavailable during SSR — this must run
-    // post-mount so the server render and first client render both show "" and
-    // hydrate cleanly, with the real URL populated right after.
+    // SHARE_BASE_URL(고정 공개 주소)이 설정돼 있으면 점검자의 접속 주소와 무관하게
+    // 그 주소로 링크를 만든다 — localhost로 작업 중이어도 복사·QR·메일 주소가
+    // PM이 열 수 있는 고정 주소가 되도록.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShareUrl(`${window.location.origin}/share/${token}`);
+    setShareUrl(buildShareUrl(shareBaseUrl ?? window.location.origin, token));
     // 토큰이 바뀌면(재발급 등) 이전 토큰으로 만든 QR은 죽은 링크이므로 폐기 — 아래 생성 이펙트가 재생성.
     setQrDataUrl(null);
     setQrError(null);
-  }, [token]);
+  }, [token, shareBaseUrl]);
 
   useEffect(() => {
     // QR은 패널이 열려 있고 아직 만들지 않았을 때만 생성. 재발급으로 qrDataUrl이 비워지면 새 URL로 재생성된다.
