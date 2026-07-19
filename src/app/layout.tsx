@@ -8,7 +8,7 @@ import { AppHeader } from "./_components/AppHeader";
 import { AppSidebar } from "./_components/AppSidebar";
 import { CveLiveToasts } from "./_components/CveLiveToasts";
 import { BrandLogo } from "./_components/BrandLogo";
-import { PUBLIC_ROUTE_HEADER } from "@/lib/auth/constants";
+import { PUBLIC_ROUTE_HEADER, SHARE_VIEW_HEADER } from "@/lib/auth/constants";
 import { getSessionUserFromCookies, requireSessionUserOrRedirect } from "@/lib/auth/serverSession";
 
 // DESIGN.md's documented substitute for the licensed CoinbaseSans/Display typefaces.
@@ -32,7 +32,7 @@ export default async function RootLayout({
   // can still show the profile block for an already-signed-in user.
   const requestHeaders = await headers();
   const isPublicRoute = requestHeaders.get(PUBLIC_ROUTE_HEADER) === "1";
-  const isShareView = requestHeaders.get("x-share-view") === "1";
+  const isShareView = requestHeaders.get(SHARE_VIEW_HEADER) === "1";
   const session = isPublicRoute
     ? await getSessionUserFromCookies()
     : await requireSessionUserOrRedirect();
