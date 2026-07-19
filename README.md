@@ -40,7 +40,7 @@ NH-Guardian은 이 과정 전체를 하나의 플랫폼으로 통합합니다.
 - **한 번 등록하면 상시 감시** — 정기 점검 스케줄이 자동으로 돌고, 서버에 설치된 패키지를 NVD(미국 국립 취약점 DB)와 상시 대조해 새 CVE가 공개되는 즉시 알려줍니다.
 - **결과 공유는 링크 하나로** — 비밀번호로 보호된 공유 링크(QR 코드 지원)를 통해 보안 지식이 없는 프로젝트 책임자도 자기 프로젝트의 보안 점수와 상세 리포트를 읽기 전용으로 열람합니다.
 
-숫자로 요약하면: **점검 항목 186개 · 벤더 팩 13종(OS/컨테이너/웹/WAS/DB/Windows) · 자동화된 테스트 1,136개 통과.**
+숫자로 요약하면: **점검 항목 186개 · 벤더 팩 13종(OS/컨테이너/웹/WAS/DB/Windows) · 자동화된 테스트 1,159개 통과.**
 
 ---
 
@@ -183,7 +183,7 @@ npm run start                                  # NH-Guardian 서버 기동
 ngrok http 3000 --url https://myname.ngrok-free.app    # 고정 도메인으로 노출(수동)
 ```
 
-공유 링크(복사·QR·메일)가 모두 `https://myname.ngrok-free.app/share/<token>` 으로 생성되고, 재실행해도 URL이 바뀌지 않아 PM에게 한 번만 전달하면 됩니다. 점검자가 재점검하면 같은 링크에서 최신 조치가 반영됩니다. 이 공개 도메인으로는 `/share`·`/api/share`만 열리고 로그인·대시보드·내부 API는 404로 차단됩니다(점검자는 localhost로 작업). 점검자마다 자기 도메인 = 자기 링크입니다. 자세한 설정은 [ngrok 공유 가이드](docs/ops/share-ngrok.md) 참고. (노트북/터널이 꺼진 시간엔 열람 불가하나 주소는 유지됩니다.)
+공유 링크(복사·QR·메일)가 모두 `https://myname.ngrok-free.app/share/<token>` 으로 생성되고, 재실행해도 URL이 바뀌지 않아 PM에게 한 번만 전달하면 됩니다. 점검자가 재점검하면 같은 링크에서 최신 조치가 반영됩니다. 이 공개 도메인으로는 `/share`·`/api/share`만 열리고 로그인·대시보드·내부 API는 404로 차단됩니다(점검자는 localhost로 작업). 다만 이 404는 라우트·API를 가릴 뿐 정적 클라이언트 번들(`/_next/static`)까지 막지는 않으며, 실질적 보호는 관리자 로그인과 공유 비밀번호입니다(다중 방어선). 점검자마다 자기 도메인 = 자기 링크입니다. 자세한 설정은 [ngrok 공유 가이드](docs/ops/share-ngrok.md) 참고. (노트북/터널이 꺼진 시간엔 열람 불가하나 주소는 유지됩니다.)
 
 ![공유 뷰 — 프로젝트 종합 보안 점수와 자산 선택](docs/images/share-report.jpg)
 
@@ -246,7 +246,7 @@ flowchart LR
 | AI | Claude API (`@anthropic-ai/sdk`) · zod 응답 스키마 검증 |
 | 외부 연동 | NVD API (CVE) · GitHub (레포 클론) · xlsx (엑셀 업로드/템플릿) |
 | 백그라운드 | in-process 스케줄러 + CVE 폴러 (`instrumentation.ts` 기동, 외부 큐 불필요) |
-| 테스트 | Vitest — **1,136개 테스트 통과** |
+| 테스트 | Vitest — **1,159개 테스트 통과** |
 
 인터넷이 차단된 온프레미스 환경을 전제로 설계되어, 담당자 노트북 한 대에서 전체가 동작합니다(외부 의존은 Claude API·NVD API뿐이며 둘 다 꺼도 점검 자체는 동작).
 
@@ -330,7 +330,7 @@ http://localhost:3000 접속 → `/login`에서 관리자 계정으로 로그인
 테스트:
 
 ```bash
-npm test   # Vitest — 1,136 tests
+npm test   # Vitest — 1,159 tests
 ```
 
 ---

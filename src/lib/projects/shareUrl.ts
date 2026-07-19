@@ -9,7 +9,10 @@ export function resolveShareBaseUrl(
 ): string | null {
   const raw = env.SHARE_BASE_URL?.trim();
   if (!raw) return null;
-  return raw.replace(/\/+$/, "");
+  // 운영자가 스킴 없이 값을 넣어도(예: "myname.ngrok-free.app") new URL()이 던지지 않도록
+  // https://를 보정한다 — 스킴 누락은 게이트를 fail-open으로 만들고 공유 링크도 깨뜨린다.
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return withScheme.replace(/\/+$/, "");
 }
 
 export function buildShareUrl(baseUrl: string, token: string): string {
@@ -30,12 +33,17 @@ export function resolveShareHost(
   }
 }
 
-export function isShareHostRequest(
-  requestHost: string | null,
+// 공개 공유 호스트 판별. fail-closed: host 또는 x-forwarded-host 중 하나라도 공유
+// 호스트면 공개 요청으로 본다 — 클라이언트가 위조 가능한 x-forwarded-host로는
+// 게이트를 우회(제거)할 수 없고, 오직 제한을 더할 수만 있다.
+export function isOnShareHost(
+  hostHeader: string | null,
+  forwardedHost: string | null,
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   const shareHost = resolveShareHost(env);
-  return shareHost !== null && requestHost === shareHost;
+  if (!shareHost) return false;
+  return hostHeader === shareHost || forwardedHost === shareHost;
 }
 
 const SHARE_ALLOWED_PREFIXES = ["/share/", "/api/share/"];

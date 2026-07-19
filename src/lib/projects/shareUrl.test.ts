@@ -3,7 +3,7 @@ import {
   buildShareUrl,
   resolveShareBaseUrl,
   resolveShareHost,
-  isShareHostRequest,
+  isOnShareHost,
   isAllowedShareOnlyPath,
 } from "./shareUrl";
 
@@ -23,6 +23,12 @@ describe("resolveShareBaseUrl", () => {
   it("returns null when unset or blank", () => {
     expect(resolveShareBaseUrl({})).toBeNull();
     expect(resolveShareBaseUrl({ SHARE_BASE_URL: "   " })).toBeNull();
+  });
+
+  it("prepends https:// when the value has no scheme", () => {
+    expect(resolveShareBaseUrl({ SHARE_BASE_URL: "myname.ngrok-free.app" })).toBe(
+      "https://myname.ngrok-free.app",
+    );
   });
 });
 
@@ -45,19 +51,37 @@ describe("resolveShareHost", () => {
     expect(resolveShareHost({})).toBeNull();
     expect(resolveShareHost({ SHARE_BASE_URL: "not a url" })).toBeNull();
   });
+
+  it("returns the host for a scheme-less SHARE_BASE_URL", () => {
+    expect(resolveShareHost({ SHARE_BASE_URL: "myname.ngrok-free.app" })).toBe(
+      "myname.ngrok-free.app",
+    );
+  });
 });
 
-describe("isShareHostRequest", () => {
+describe("isOnShareHost", () => {
   const env = { SHARE_BASE_URL: "https://myname.ngrok-free.app" };
-  it("is true when the request host matches the share host", () => {
-    expect(isShareHostRequest("myname.ngrok-free.app", env)).toBe(true);
+  const SHARE_HOST = "myname.ngrok-free.app";
+
+  it("is true when the host header matches the share host", () => {
+    expect(isOnShareHost(SHARE_HOST, null, env)).toBe(true);
   });
-  it("is false for localhost or other hosts", () => {
-    expect(isShareHostRequest("localhost:3000", env)).toBe(false);
-    expect(isShareHostRequest(null, env)).toBe(false);
+
+  it("is true when the x-forwarded-host header matches the share host", () => {
+    expect(isOnShareHost(null, SHARE_HOST, env)).toBe(true);
   });
+
+  it("is true (fail-closed) when host matches but x-forwarded-host is spoofed to a different value", () => {
+    expect(isOnShareHost(SHARE_HOST, "evil.example", env)).toBe(true);
+  });
+
+  it("is false when neither header matches the share host", () => {
+    expect(isOnShareHost("localhost:3000", null, env)).toBe(false);
+    expect(isOnShareHost(null, null, env)).toBe(false);
+  });
+
   it("is false when SHARE_BASE_URL is unset (gate disabled)", () => {
-    expect(isShareHostRequest("myname.ngrok-free.app", {})).toBe(false);
+    expect(isOnShareHost(SHARE_HOST, null, {})).toBe(false);
   });
 });
 

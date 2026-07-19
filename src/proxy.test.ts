@@ -4,9 +4,15 @@ import { proxy } from "./proxy";
 
 const SHARE_HOST = "myname.ngrok-free.app";
 
-function req(host: string, path: string, cookie?: string): NextRequest {
+function req(
+  host: string,
+  path: string,
+  cookie?: string,
+  forwardedHost?: string,
+): NextRequest {
   const headers: Record<string, string> = { host };
   if (cookie) headers.cookie = cookie;
+  if (forwardedHost) headers["x-forwarded-host"] = forwardedHost;
   return new NextRequest(`http://${host}${path}`, { headers });
 }
 
@@ -49,5 +55,19 @@ describe("proxy share-only host gate (#81)", () => {
     delete process.env.SHARE_BASE_URL;
     // 공유 호스트로 와도 게이트 없음 → 기존 동작(쿠키 없는 /는 리다이렉트)
     expect(proxy(req(SHARE_HOST, "/")).status).toBe(307);
+  });
+
+  it("gates on x-forwarded-host matching the share host even when host does not match", () => {
+    expect(proxy(req("localhost:3000", "/login", undefined, SHARE_HOST)).status).toBe(404);
+  });
+
+  it("C1: does not let a spoofed x-forwarded-host bypass the gate when Host is the share host", () => {
+    // Host는 공유 호스트지만 x-forwarded-host가 위조된 값 — 게이트는 fail-closed로 여전히 발동해야 한다.
+    expect(proxy(req(SHARE_HOST, "/login", undefined, "evil.example")).status).toBe(404);
+  });
+
+  it("gates correctly even when SHARE_BASE_URL has no scheme", () => {
+    process.env.SHARE_BASE_URL = SHARE_HOST; // no https:// prefix
+    expect(proxy(req(SHARE_HOST, "/login")).status).toBe(404);
   });
 });
