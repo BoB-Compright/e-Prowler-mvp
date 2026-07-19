@@ -6,7 +6,7 @@ const nginxPresent = [{ taskName: "nginx detection (internal)", stdout: "present
 
 describe("webNginxPack", () => {
   it("owns the web catalog ids and the nginx evidence tasks", () => {
-    const webIds = getCatalogByCategory("web").map((i) => i.id).sort();
+    const webIds = getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id).sort();
     expect(webNginxPack.itemIds.slice().sort()).toEqual(webIds);
     expect(webNginxPack.vendors).toEqual(["Nginx"]);
     const names = webNginxPack.evidenceTasks.map((t) => t.name);

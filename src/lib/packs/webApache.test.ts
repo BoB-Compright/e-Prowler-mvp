@@ -183,7 +183,7 @@ describe("security-settings and patch-log evaluators WEB-19/20/21/22/23/24/25/26
 });
 
 it("webApachePack shape + evaluate returns one result per web item", () => {
-  const webIds = getCatalogByCategory("web").map((i) => i.id).sort();
+  const webIds = getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id).sort();
   expect(webApachePack.id).toBe("web-apache");
   expect(webApachePack.vendors).toEqual(["Apache"]);
   expect(webApachePack.itemIds.slice().sort()).toEqual(webIds);

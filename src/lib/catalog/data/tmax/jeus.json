@@ -1,0 +1,15 @@
+[
+  { "id": "JE-01", "title": "기본 관리자 계정(administrator) 사용", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 보안 관리 · 계정" } },
+  { "id": "JE-02", "title": "관리자 비밀번호 평문 저장", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 보안 관리 · 비밀번호 암호화" } },
+  { "id": "JE-03", "title": "약한 비밀번호 암호화 알고리즘", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 보안 관리 · 비밀번호 암호화" } },
+  { "id": "JE-04", "title": "계정파일(accounts.xml) 권한", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 보안 관리 · 설정파일 보호" } },
+  { "id": "JE-05", "title": "보안 키파일(security.key) 권한", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 보안 관리 · 설정파일 보호" } },
+  { "id": "JE-06", "title": "세션 타임아웃 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 세션" } },
+  { "id": "JE-07", "title": "세션 쿠키 보안속성(secure/http-only)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 세션" } },
+  { "id": "JE-08", "title": "SSL/TLS 리스너 사용", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 리스너" } },
+  { "id": "JE-09", "title": "데이터소스 DB 비밀번호 암호화", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 데이터소스" } },
+  { "id": "JE-10", "title": "불필요한 샘플/예제 앱 배포", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 배포" } },
+  { "id": "JE-11", "title": "접근/감사 로그 활성화", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 로깅" } },
+  { "id": "JE-12", "title": "관리 콘솔 접근 제어", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 관리" } },
+  { "id": "JE-13", "title": "에러페이지/스택트레이스 노출", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "JEUS 도메인 설정 · 에러" } }
+]

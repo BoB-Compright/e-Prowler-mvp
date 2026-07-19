@@ -5,8 +5,8 @@ export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
 
 export const CATEGORY_VENDORS: Record<AssetCategory, string[]> = {
   OS: ["Ubuntu", "RHEL", "CentOS", "Windows Server"],
-  WEB: ["Apache", "Nginx", "IIS"],
-  WAS: ["Tomcat", "JBoss/WildFly", "WebLogic", "WebSphere"],
+  WEB: ["Apache", "Nginx", "IIS", "WebtoB"],
+  WAS: ["Tomcat", "JBoss/WildFly", "WebLogic", "WebSphere", "JEUS"],
   DB: ["Oracle", "MySQL", "PostgreSQL", "MSSQL", "MariaDB", "Tibero"],
 };
 
