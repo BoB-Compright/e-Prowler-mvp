@@ -14,12 +14,59 @@ const REQUIRED_INPUTS: ScanInputSpec[] = [
   { name: "tibero_listener_port", label: "리스너 포트", kind: "text", required: false, placeholder: "8629" },
 ];
 
-// 파일기반 증거만(플랜 1). DB 로그인 쿼리(TB-01~12)는 플랜 2.
+// tbSQL 접속 변수는 quote 필터로 셸 인용해 변수에 담고, 비밀번호는 argv가 아닌
+// CONN(stdin)으로 전달한다 — ps 노출·명령 주입 모두 방지.
+const DBUSER_Q = `{{ tibero_db_user | quote }}`;
+const DBPASS_Q = `{{ tibero_db_pass | quote }}`;
+const TBSID_Q = `{{ tibero_tbsid | quote }}`;
+
+// TB-02: SYS 기본 비밀번호(tibero)로 로그인 시도. 성공하면 기본비번 사용(취약).
+// 기본비번 문자열은 사용자 입력이 아니지만 형식 일관성 위해 리터럴로 둔다.
+const SYS_DEFAULT_LOGIN: PlaybookTask = {
+  name: "TB-DB: tibero sys default login",
+  raw: [
+    `s=${TBSID_Q}`,
+    `out=$(printf 'CONN SYS/tibero@%s\\nPROMPT __SYSLOGIN_OK__\\nEXIT\\n' "$s" | tbsql -s /nolog 2>&1)`,
+    `if printf '%s' "$out" | grep -q __SYSLOGIN_OK__; then echo __SYS_DEFAULT_PW__; else echo __SYS_DEFAULT_PW_ABSENT__; fi`,
+  ].join("\n"),
+};
+
+// TB-01/03~12: 사용자 제공 DBA 계정으로 접속해 시스템 뷰·파라미터를 한 세션에서 조회.
+// 각 결과 앞에 ###TBnn 마커를 찍어 evaluate가 섹션을 분리한다. 접속 성공 시에만 마커가 나온다.
+const DB_QUERIES: PlaybookTask = {
+  name: "TB-DB: tibero queries",
+  raw: [
+    `u=${DBUSER_Q}`,
+    `p=${DBPASS_Q}`,
+    `s=${TBSID_Q}`,
+    `{`,
+    `  printf 'CONN %s/%s@%s\\n' "$u" "$p" "$s"`,
+    `  printf 'SET HEADING OFF FEEDBACK OFF PAGESIZE 0 LINESIZE 300\\n'`,
+    `  printf 'PROMPT __CONN_OK__\\n'`,
+    `  printf 'PROMPT ###TB01\\n'`,
+    `  printf "SELECT username||'|'||account_status FROM dba_users;\\n"`,
+    `  printf 'PROMPT ###TB03\\n'`,
+    `  printf "SELECT grantee FROM dba_role_privs WHERE granted_role='DBA';\\n"`,
+    `  printf 'PROMPT ###TB04\\n'`,
+    `  printf "SELECT grantee||'|'||privilege FROM dba_sys_privs WHERE privilege LIKE '%%ANY%%';\\n"`,
+    `  printf 'PROMPT ###TBPROF\\n'`,
+    `  printf "SELECT profile||'|'||resource_name||'|'||limit FROM dba_profiles WHERE resource_name IN ('FAILED_LOGIN_ATTEMPTS','PASSWORD_LOCK_TIME','PASSWORD_LIFE_TIME','PASSWORD_REUSE_TIME','PASSWORD_REUSE_MAX','PASSWORD_VERIFY_FUNCTION','SESSIONS_PER_USER');\\n"`,
+    `  printf 'PROMPT ###TB11\\n'`,
+    `  printf "SELECT name||'|'||value FROM v\\$parameter WHERE name IN ('audit_trail','audit_sys_operations');\\n"`,
+    `  printf 'EXIT\\n'`,
+    `} | tbsql -s /nolog 2>&1`,
+  ].join("\n"),
+};
+
+// 파일기반 증거(TB-13/14) + tbSQL 인증 쿼리 evidence(TB-01/02~12, 안전 접속).
+// evaluate()의 TB-01~12 판정 로직은 다음 태스크에서 추가된다.
 const EVIDENCE: PlaybookTask[] = [
   { name: "TB-13: tibero tip content",
     raw: `p=${TIP_PATH_QUOTED}\nif [ -f "$p" ]; then cat "$p"; else echo ${MISSING}; fi` },
   { name: "TB-14: tibero tip perms",
     raw: `p=${TIP_PATH_QUOTED}\nif [ -f "$p" ]; then stat -c "%U:%G %a" "$p"; else echo ${MISSING}; fi` },
+  SYS_DEFAULT_LOGIN,
+  DB_QUERIES,
 ];
 
 function taskStdout(tasks: AnsibleTaskOutput[], name: string): string {

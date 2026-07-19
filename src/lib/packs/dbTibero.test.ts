@@ -87,6 +87,16 @@ describe("tiberoPack", () => {
     expect(r.find((x) => x.id === "TB-14")!.status).toBe("review");
   });
 
+  it("tbSQL evidence quotes user inputs and passes password via stdin CONN, not argv (#injection/#ps)", () => {
+    const q = tiberoPack.evidenceTasks.find((t) => t.name === "TB-DB: tibero queries")!;
+    expect(q.raw).toContain("{{ tibero_db_pass | quote }}");
+    expect(q.raw).toContain("{{ tibero_tbsid | quote }}");
+    expect(q.raw).toContain("CONN %s/%s@%s"); // stdin 경로
+    // 비밀번호가 tbsql argv에 직접 붙지 않음: tbsql 호출은 -s /nolog 뿐
+    expect(q.raw).toMatch(/tbsql -s \/nolog/);
+    expect(q.raw).not.toMatch(/tbsql[^\n]*\$p/); // argv에 비번 변수 없음
+  });
+
   it("TB-13 fails when LSNR_INVITED_IP is present but has no value (not actually configured)", () => {
     const tasks = [task("TB-13: tibero tip content", "LSNR_INVITED_IP=\n")];
     const r = tiberoPack.evaluate({ findings: null, tasks, inputsProvided: new Set(["tibero_home", "tibero_tbsid"]) });
