@@ -6,6 +6,7 @@ import { getAssetStatusMap } from "@/lib/pipeline/assetStatus";
 import { getDecoratedResults } from "@/lib/checks/decorate";
 import { computeSecurityScore } from "@/lib/dashboard/securityScore";
 import { computeRiskSummary } from "@/lib/checks/riskSummary";
+import { classifyAssetKind } from "@/lib/assets/kind";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     displayName: asset.displayName,
     type: asset.type,
     verdict: statusMap.get(asset.id)?.kind ?? "none",
+    kind: classifyAssetKind(asset),
   }));
   // 자산별 최신 성공 run의 전체 데코 점검 항목(pass 포함, evidence·reason 노출).
   // getDecoratedResults는 CVE 매치 내역을 애초에 반환하지 않으므로 계속 비노출.
