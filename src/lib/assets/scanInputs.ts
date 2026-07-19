@@ -24,10 +24,22 @@ export function decodeScanInputs(specs: ScanInputSpec[], stored: string | null):
   } catch {
     return {};
   }
+  // 파싱된 값이 객체가 아니면 (배열, 문자열, 숫자 등) 빈 맵 반환
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(parsed)) {
     if (typeof value !== "string" || !value) continue;
-    out[name] = secretNames.has(name) ? decryptSecret(value) : value;
+    if (secretNames.has(name)) {
+      // secret 복호화 실패 시 해당 필드만 스킵 (전체 디코드 실패 아님)
+      try {
+        out[name] = decryptSecret(value);
+      } catch {
+        // 복호화 실패한 필드는 출력에서 제외
+        continue;
+      }
+    } else {
+      out[name] = value;
+    }
   }
   return out;
 }
