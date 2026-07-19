@@ -112,6 +112,34 @@ describe("jeusPack", () => {
     expect(r.find((x) => x.id === "JE-08")!.status).toBe("pass");
   });
 
+  // fail-closed 회귀: secure만 있고 http-only가 없는 쿠키는 pass가 아니라 fail이어야 한다.
+  it("JE-07 fails when cookie has secure but not http-only", () => {
+    const dom = `<domain><session-config><cookie secure="true"/></session-config></domain>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-07")!.status).toBe("fail");
+  });
+
+  // fail-open 회귀: 쿠키가 아닌 무관한 요소(SSL 리스너)에 secure/http-only가 있어도
+  // session-config 밖이므로 JE-07은 fail이어야 한다(문서 전역 매치로 pass 오판 금지).
+  it("JE-07 fails when secure/http-only appear only outside session-config", () => {
+    const dom = `<domain><listener><ssl secure="true" http-only="true"/></listener><session-config><cookie/></session-config></domain>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-07")!.status).toBe("fail");
+  });
+
+  it("JE-07 reviews when domain.xml has no session-config", () => {
+    const dom = `<domain><listener><port>8080</port></listener></domain>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-07")!.status).toBe("review");
+  });
+
+  // fail-closed: 리스너 정보가 전혀 없으면 SSL 사용 여부를 단정할 수 없으므로 review.
+  it("JE-08 reviews when domain.xml has no listener info", () => {
+    const dom = `<domain><session-config><timeout>10</timeout></session-config></domain>`;
+    const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "JE-08")!.status).toBe("review");
+  });
+
   it("JE-10 reviews when a sample app is deployed", () => {
     const dom = `<domain><deployed><name>examples</name></deployed></domain>`;
     const r = jeusPack.evaluate({ findings: null, tasks: tasks({ "JE: domain.xml content": dom }), inputsProvided: PROVIDED });

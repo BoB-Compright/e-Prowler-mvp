@@ -201,18 +201,27 @@ export const jeusPack: VendorPack = {
           ? { id: "JE-06", status: "review", evidence: `세션 타임아웃=${timeoutVal}분(30분 초과)` }
           : { id: "JE-06", status: "pass", evidence: `세션 타임아웃=${timeoutVal}분` };
 
-      // JE-07: 쿠키 secure·http-only(또는 httponly) 둘 다 없으면 fail.
-      const hasSecure = xmlHas(domXml, /\bsecure\b/i);
-      const hasHttpOnly = xmlHas(domXml, /http-only|httponly/i);
-      je07 = !hasSecure && !hasHttpOnly
-        ? { id: "JE-07", status: "fail", evidence: "세션 쿠키 secure/http-only 속성 미설정" }
-        : { id: "JE-07", status: "pass", evidence: "세션 쿠키 보안속성(secure/http-only) 설정 확인됨" };
+      // JE-07: 쿠키 보안속성은 session-config 블록 범위 안에서만 확인한다. 문서 전체에서
+      // secure/http-only를 찾으면 무관한 요소(예: SSL 리스너의 secure 속성)가 우연히
+      // 매치돼 취약한 쿠키를 pass로 오판(fail-open)할 수 있다. 스캐너 원칙(fail-closed)에 따라
+      // 두 속성이 "모두" 있어야 pass, session-config 자체가 없으면 확인 불가(review).
+      je07 = sessionConfig === null
+        ? { id: "JE-07", status: "review", evidence: "session-config를 찾을 수 없어 쿠키 보안속성 확인 불가" }
+        : /\bsecure\b/i.test(sessionConfig) && /http-only|httponly/i.test(sessionConfig)
+          ? { id: "JE-07", status: "pass", evidence: "세션 쿠키 보안속성(secure/http-only) 모두 설정 확인됨" }
+          : { id: "JE-07", status: "fail", evidence: "세션 쿠키 secure/http-only 속성 미흡(둘 다 필요)" };
 
-      // JE-08: SSL/HTTPS 리스너 존재 여부.
-      const hasSsl = xmlHas(domXml, /<ssl[\s>]|https/i);
-      je08 = hasSsl
-        ? { id: "JE-08", status: "pass", evidence: "SSL/TLS 리스너 설정 확인됨" }
-        : { id: "JE-08", status: "fail", evidence: "SSL/TLS 리스너 설정 없음" };
+      // JE-08: SSL 사용 여부는 listener 블록 범위(또는 실제 <ssl> 요소)로 한정한다. 문서 어디든
+      // 나오는 "https" 문자열을 매치하던 방식은 무관한 텍스트로 pass 오판(fail-open) 위험이 있다.
+      // listener 정보가 전혀 없으면 확인 불가(review).
+      const listenerBlocks = extractAllBetween(domXml, "listener");
+      const hasSslElement = /<ssl[\s>]/i.test(domXml);
+      const sslInListener = listenerBlocks.some((l) => /<ssl[\s>]|ssl\s*=|https/i.test(l));
+      je08 = listenerBlocks.length === 0 && !hasSslElement
+        ? { id: "JE-08", status: "review", evidence: "리스너 설정을 확인할 수 없어 SSL 사용 여부 확인 불가" }
+        : hasSslElement || sslInListener
+          ? { id: "JE-08", status: "pass", evidence: "SSL/TLS 리스너 설정 확인됨" }
+          : { id: "JE-08", status: "fail", evidence: "SSL/TLS 리스너 설정 없음" };
 
       // JE-09: data-source 안 password. 평문 있으면 fail, 모두 암호화면 pass, data-source 없으면 review.
       const dsBlocks = extractAllBetween(domXml, "data-source");
