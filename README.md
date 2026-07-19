@@ -180,7 +180,7 @@ CVE 상세 화면은 영향받는 자산 목록과 배포판별 조치 가이드
 ```bash
 # .env: SHARE_BASE_URL=https://myname.ngrok-free.app
 npm run start                                  # NH-Guardian 서버 기동
-ngrok http --url=myname.ngrok-free.app 3000    # 고정 도메인으로 노출(수동)
+ngrok http 3000 --url https://myname.ngrok-free.app    # 고정 도메인으로 노출(수동)
 ```
 
 공유 링크(복사·QR·메일)가 모두 `https://myname.ngrok-free.app/share/<token>` 으로 생성되고, 재실행해도 URL이 바뀌지 않아 PM에게 한 번만 전달하면 됩니다. 점검자가 재점검하면 같은 링크에서 최신 조치가 반영됩니다. 이 공개 도메인으로는 `/share`·`/api/share`만 열리고 로그인·대시보드·내부 API는 404로 차단됩니다(점검자는 localhost로 작업). 점검자마다 자기 도메인 = 자기 링크입니다. 자세한 설정은 [ngrok 공유 가이드](docs/ops/share-ngrok.md) 참고. (노트북/터널이 꺼진 시간엔 열람 불가하나 주소는 유지됩니다.)
