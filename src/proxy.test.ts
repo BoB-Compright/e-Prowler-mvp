@@ -29,6 +29,13 @@ describe("proxy share-only host gate (#81)", () => {
     expect(proxy(req(SHARE_HOST, "/api/assets")).status).toBe(404);
   });
 
+  it("404s bare /share and /api/share (no token) — must not leak login/API existence", () => {
+    expect(proxy(req(SHARE_HOST, "/share")).status).toBe(404);
+    expect(proxy(req(SHARE_HOST, "/api/share")).status).toBe(404);
+    expect(proxy(req(SHARE_HOST, "/api/shareX")).status).toBe(404);
+    expect(proxy(req(SHARE_HOST, "/sharewolf")).status).toBe(404);
+  });
+
   it("does not gate localhost — existing auth behavior is preserved", () => {
     // 쿠키 없는 보호 페이지는 /login으로 리다이렉트(기존 동작)
     const redirect = proxy(req("localhost:3000", "/"));

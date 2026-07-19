@@ -62,16 +62,17 @@ describe("isShareHostRequest", () => {
 });
 
 describe("isAllowedShareOnlyPath", () => {
-  it("allows share pages and share API", () => {
-    expect(isAllowedShareOnlyPath("/share")).toBe(true);
+  it("allows only token-bearing share paths, not the bare prefix", () => {
+    expect(isAllowedShareOnlyPath("/share")).toBe(false);
     expect(isAllowedShareOnlyPath("/share/abc123")).toBe(true);
-    expect(isAllowedShareOnlyPath("/api/share")).toBe(true);
+    expect(isAllowedShareOnlyPath("/api/share")).toBe(false);
     expect(isAllowedShareOnlyPath("/api/share/abc123")).toBe(true);
   });
-  it("blocks login, dashboard and internal APIs", () => {
+  it("blocks login, dashboard, internal APIs and near-miss paths", () => {
     expect(isAllowedShareOnlyPath("/login")).toBe(false);
     expect(isAllowedShareOnlyPath("/")).toBe(false);
     expect(isAllowedShareOnlyPath("/api/assets")).toBe(false);
     expect(isAllowedShareOnlyPath("/sharewolf")).toBe(false);
+    expect(isAllowedShareOnlyPath("/api/shareX")).toBe(false);
   });
 });
