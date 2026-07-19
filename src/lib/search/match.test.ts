@@ -22,6 +22,7 @@ function makeRepoAsset(overrides: Partial<Asset> = {}): Asset {
     category: null,
     vendor: null,
     dockerfilePath: null,
+    scanInputs: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -45,6 +46,7 @@ function makeServerAsset(overrides: Partial<Asset> = {}): Asset {
     category: null,
     vendor: null,
     dockerfilePath: null,
+    scanInputs: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

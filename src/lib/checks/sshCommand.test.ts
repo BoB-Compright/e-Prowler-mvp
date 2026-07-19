@@ -20,6 +20,7 @@ function serverAsset(overrides: Partial<Asset> = {}): Asset {
     category: null,
     vendor: null,
     dockerfilePath: null,
+    scanInputs: null,
     createdAt: "now",
     ...overrides,
   };
