@@ -38,7 +38,7 @@ export const webNginxPack: VendorPack = {
   category: "WEB",
   vendors: ["Nginx"],
   executionPath: "linux",
-  itemIds: getCatalogByCategory("web").map((i) => i.id),
+  itemIds: getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id),
   evidenceTasks: NGINX_EVIDENCE,
   detect: (tasks) => getNginxState(tasks).present,
   evaluate: evaluateWeb,

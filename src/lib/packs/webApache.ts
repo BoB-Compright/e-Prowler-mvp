@@ -262,7 +262,7 @@ export const webApachePack: VendorPack = {
   category: "WEB",
   vendors: ["Apache"],
   executionPath: "linux",
-  itemIds: getCatalogByCategory("web").map((i) => i.id),
+  itemIds: getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id),
   evidenceTasks: APACHE_EVIDENCE,
   detect: (tasks) => getApacheState(tasks).present,
   evaluate: evaluateApache,

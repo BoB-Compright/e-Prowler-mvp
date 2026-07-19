@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 200 items across the six categories", () => {
+  it("loads all 222 items across the six categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(200);
+    expect(summary.total).toBe(222);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
-    expect(summary.byCategory.web).toBe(26);
-    expect(summary.byCategory.was).toBe(28);
+    expect(summary.byCategory.web).toBe(35);
+    expect(summary.byCategory.was).toBe(41);
     expect(summary.byCategory.db).toBe(60);
     expect(summary.byCategory.windows).toBe(10);
   });
@@ -66,11 +66,23 @@ describe("catalog", () => {
 
   it("has 28 CIS-sourced WAS items", () => {
     const was = getCatalogByCategory("was");
-    expect(was).toHaveLength(28);
-    expect(was.every((i) => i.frameworkId === "cis")).toBe(true);
-    expect(was.every((i) => i.source.framework === "CIS")).toBe(true);
+    expect(was).toHaveLength(41);
+    const cisWas = was.filter((i) => i.frameworkId === "cis");
+    expect(cisWas).toHaveLength(28);
+    expect(cisWas.every((i) => i.source.framework === "CIS")).toBe(true);
+    const jeusWas = was.filter((i) => i.frameworkId === "tmax");
+    expect(jeusWas).toHaveLength(13);
+    expect(jeusWas.every((i) => i.source.framework === "Tmax")).toBe(true);
+    expect(jeusWas.map((i) => i.id)).toContain("JE-01");
     expect(was.map((i) => i.id)).toContain("WAS-01");
     expect(was.map((i) => i.id)).toContain("WAS-12");
+  });
+
+  it("has 9 Tmax-sourced WebtoB items in the web category", () => {
+    const webtob = getCatalogByCategory("web").filter((i) => i.frameworkId === "tmax");
+    expect(webtob).toHaveLength(9);
+    expect(webtob.map((i) => i.id)).toContain("WT-01");
+    expect(webtob.every((i) => i.source.framework === "Tmax")).toBe(true);
   });
 
   it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server) plus 14 Tmax-sourced Tibero items", () => {

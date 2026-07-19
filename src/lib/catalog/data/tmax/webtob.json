@@ -1,0 +1,11 @@
+[
+  { "id": "WT-01", "title": "디렉터리 리스팅 비활성", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · Options" } },
+  { "id": "WT-02", "title": "설정파일(http.m) 권한", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · 설정파일 보호" } },
+  { "id": "WT-03", "title": "불필요한 HTTP 메서드 제한", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · Method" } },
+  { "id": "WT-04", "title": "에러페이지/서버 정보 노출", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · ErrorDocument" } },
+  { "id": "WT-05", "title": "SSL/TLS 사용", "severity": "High", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · SSL" } },
+  { "id": "WT-06", "title": "접근 로그(Logging) 설정", "severity": "Low", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · Logging" } },
+  { "id": "WT-07", "title": "요청 크기/타임아웃 제한(DoS 완화)", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · NODE" } },
+  { "id": "WT-08", "title": "상위 경로/심볼릭 링크 접근 제한", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · 접근제어" } },
+  { "id": "WT-09", "title": "관리(wsadmin) 접근 제어", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "WebtoB 환경설정 · 관리" } }
+]

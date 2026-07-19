@@ -998,5 +998,115 @@
     "risk": "티베로 설정 파일(.tip)에 그룹/기타 사용자 쓰기 권한이 열려 있거나 소유자가 DB 서비스 계정이 아니면, 비인가 로컬 계정이 파일을 변조해 인증 우회, 리스너 설정 조작, 서비스 중단 등을 유발할 수 있습니다.",
     "fix": ".tip 설정 파일의 소유자를 티베로 서비스 계정(tibero 등)으로 지정하고 group/other 쓰기 권한을 제거합니다. 1) 설정 파일 경로 확인: $TB_HOME/config/$TB_SID.tip 2) 소유자·권한 확인: ls -l $TB_HOME/config/*.tip 3) 소유자가 tibero 계정이 아니면 chown으로 정정 4) chmod로 그룹/기타 쓰기 권한 제거(권장 640 또는 600) 5) 변경 후 DB 기동 및 설정 반영 여부 확인.",
     "example": "ls -l $TB_HOME/config/tibero.tip\nchown tibero:dba $TB_HOME/config/tibero.tip\nchmod 640 $TB_HOME/config/tibero.tip\nls -l $TB_HOME/config/tibero.tip\n# 기대 결과: -rw-r----- tibero dba"
+  },
+  "JE-01": {
+    "risk": "기본 관리자 계정명은 널리 알려져 무차별 대입 표적이 된다.",
+    "fix": "administrator 대신 고유 관리자 계정을 만들고 기본 계정을 제거/변경한다.",
+    "example": "jeusadmin> add-user newadmin ...; delete-user administrator"
+  },
+  "JE-02": {
+    "risk": "관리자 비밀번호가 평문이면 파일 유출 시 즉시 탈취된다.",
+    "fix": "accounts.xml 비밀번호를 {AES} 등으로 암호화 저장한다.",
+    "example": "JEUS_HOME/bin/encryption 또는 jeusadmin set-password"
+  },
+  "JE-03": {
+    "risk": "DES 등 약한 알고리즘은 복호화 위험이 있다.",
+    "fix": "AES 또는 SEED로 재암호화한다.",
+    "example": "encryption -algorithm AES ..."
+  },
+  "JE-04": {
+    "risk": "비밀번호를 담은 accounts.xml에 타 사용자 접근이 가능하면 유출된다.",
+    "fix": "소유자만 읽도록 권한을 제한한다.",
+    "example": "chmod 600 accounts.xml"
+  },
+  "JE-05": {
+    "risk": "보안 키파일 노출 시 암호화가 무력화된다.",
+    "fix": "security.key를 소유자 전용으로 제한한다.",
+    "example": "chmod 600 security.key"
+  },
+  "JE-06": {
+    "risk": "세션 타임아웃이 길거나 없으면 세션 탈취 위험이 커진다.",
+    "fix": "session-config 타임아웃을 30분 이하로 설정한다.",
+    "example": "<session-config><timeout>30</timeout></session-config>"
+  },
+  "JE-07": {
+    "risk": "세션 쿠키에 secure/http-only가 없으면 탈취·XSS에 취약하다.",
+    "fix": "쿠키에 secure·http-only를 설정한다.",
+    "example": "cookie secure=true http-only=true"
+  },
+  "JE-08": {
+    "risk": "평문 리스너만 있으면 통신이 도청된다.",
+    "fix": "HTTPS/SSL 리스너를 구성한다.",
+    "example": "domain.xml listener에 ssl 설정 추가"
+  },
+  "JE-09": {
+    "risk": "데이터소스 DB 비밀번호가 평문이면 DB까지 탈취된다.",
+    "fix": "data-source password를 암호화 형식으로 저장한다.",
+    "example": "<password>{AES}...</password>"
+  },
+  "JE-10": {
+    "risk": "샘플/예제 앱은 알려진 취약점의 공격면이 된다.",
+    "fix": "examples/console 등 불필요 앱을 언디플로이한다.",
+    "example": "jeusadmin undeploy examples"
+  },
+  "JE-11": {
+    "risk": "접근/감사 로그가 없으면 침해 추적이 불가능하다.",
+    "fix": "access-log/logging을 활성화한다.",
+    "example": "domain.xml에 access-log 설정"
+  },
+  "JE-12": {
+    "risk": "관리 콘솔이 전체 개방이면 무단 관리 접근 위험이 있다.",
+    "fix": "관리 리스너를 허용 IP로 제한한다.",
+    "example": "관리 리스너 bind-address를 내부망으로 제한"
+  },
+  "JE-13": {
+    "risk": "에러페이지에 스택트레이스가 노출되면 내부 정보가 유출된다.",
+    "fix": "커스텀 에러페이지 사용, 스택트레이스 노출을 끈다.",
+    "example": "show-stacktrace=false, error-page 설정"
+  },
+  "WT-01": {
+    "risk": "디렉터리 리스팅이 켜지면 파일 구조가 노출된다.",
+    "fix": "Options에서 INDEX를 제거한다.",
+    "example": "Options=\"...\" (INDEX 제외)"
+  },
+  "WT-02": {
+    "risk": "http.m에 타 사용자 쓰기 권한이 있으면 설정이 변조된다.",
+    "fix": "소유자만 쓰도록 권한을 제한한다.",
+    "example": "chmod 644 http.m"
+  },
+  "WT-03": {
+    "risk": "PUT/DELETE/TRACE 등은 파일 조작·XST에 악용된다.",
+    "fix": "필요한 메서드만 허용한다.",
+    "example": "Method=\"GET,POST,HEAD\""
+  },
+  "WT-04": {
+    "risk": "기본 에러페이지·서버 버전 노출은 정보 수집을 돕는다.",
+    "fix": "커스텀 ErrorDocument·서버 토큰 최소화.",
+    "example": "ErrorDocument 설정, 서버 헤더 최소화"
+  },
+  "WT-05": {
+    "risk": "평문 HTTP만 제공하면 통신이 도청된다.",
+    "fix": "SSL 절/443 리스너를 구성한다.",
+    "example": "http.m에 SSL 절 추가"
+  },
+  "WT-06": {
+    "risk": "접근 로그가 없으면 침해 추적이 어렵다.",
+    "fix": "Logging 절로 access log를 설정한다.",
+    "example": "*LOGGING 절 설정"
+  },
+  "WT-07": {
+    "risk": "요청 크기·타임아웃 제한이 없으면 DoS에 취약하다.",
+    "fix": "요청 본문·타임아웃 제한을 설정한다.",
+    "example": "NODE 절에 요청 제한 설정"
+  },
+  "WT-08": {
+    "risk": "상위 경로/심볼릭 링크 접근 허용은 경로 우회에 악용된다.",
+    "fix": "상위 경로·심볼릭 링크 접근을 제한한다.",
+    "example": "FollowSymLinks 비활성"
+  },
+  "WT-09": {
+    "risk": "관리 리스너가 개방되면 무단 관리 접근 위험이 있다.",
+    "fix": "wsadmin 접근을 허용 IP로 제한한다.",
+    "example": "Admin 리스너 접근 IP 제한"
   }
 }
