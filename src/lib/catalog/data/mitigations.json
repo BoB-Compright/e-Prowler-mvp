@@ -929,6 +929,66 @@
     "fix": "WSUS, Windows Update, 또는 SCCM/Intune 등 패치 관리 체계를 통해 매월 정기 보안 롤업(Patch Tuesday)과 긴급(0-day) 패치를 신속히 적용하고, 적용 현황을 주기적으로 점검·보고합니다. 프로덕션 적용 전 테스트 환경에서 회귀 검증을 거쳐 배포 일정을 수립합니다.",
     "example": "PowerShell(Windows Update):\nInstall-Module PSWindowsUpdate\nGet-WindowsUpdate\nInstall-WindowsUpdate -AcceptAll -AutoReboot\n\n패치 적용 이력 확인:\nGet-HotFix | Sort-Object InstalledOn -Descending\n\nGPO 경로: 컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > Windows Update에서 자동 업데이트 구성"
   },
+  "TB-01": {
+    "risk": "기본 계정이 열린 채 방치되면 알려진 계정명으로 침입에 악용된다.",
+    "fix": "미사용 기본 계정을 ACCOUNT LOCK하고, 사용하는 계정은 비밀번호를 변경한다.",
+    "example": "ALTER USER OUTLN ACCOUNT LOCK;"
+  },
+  "TB-02": {
+    "risk": "SYS가 기본 비밀번호 tibero를 그대로 쓰면 누구나 최고 권한으로 접속할 수 있다.",
+    "fix": "SYS 비밀번호를 강한 값으로 즉시 변경한다.",
+    "example": "ALTER USER SYS IDENTIFIED BY <강한비밀번호>;"
+  },
+  "TB-03": {
+    "risk": "불필요한 계정에 DBA 롤이 있으면 권한 오남용·확대 위험이 크다.",
+    "fix": "업무상 불필요한 계정에서 DBA 롤을 회수한다.",
+    "example": "REVOKE DBA FROM <계정>;"
+  },
+  "TB-04": {
+    "risk": "ANY류 시스템 특권은 다른 스키마 객체까지 침해할 수 있어 위험하다.",
+    "fix": "필요 최소 권한만 남기고 과도한 시스템 특권을 회수한다.",
+    "example": "REVOKE SELECT ANY TABLE FROM <계정>;"
+  },
+  "TB-05": {
+    "risk": "로그인 실패 잠금이 없으면 무차별 대입 공격을 막지 못한다.",
+    "fix": "프로파일의 FAILED_LOGIN_ATTEMPTS를 5 이하로 설정한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT FAILED_LOGIN_ATTEMPTS 5;"
+  },
+  "TB-06": {
+    "risk": "계정 잠금 기간이 너무 짧으면 잠금 효과가 약해진다.",
+    "fix": "PASSWORD_LOCK_TIME을 조직 정책에 맞게 설정한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT PASSWORD_LOCK_TIME 1;"
+  },
+  "TB-07": {
+    "risk": "비밀번호 사용 기간이 무제한이면 유출된 비밀번호가 계속 유효하다.",
+    "fix": "PASSWORD_LIFE_TIME을 90일 이하로 설정한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT PASSWORD_LIFE_TIME 90;"
+  },
+  "TB-08": {
+    "risk": "비밀번호 재사용 제한이 없으면 사용자가 옛 비밀번호를 반복 사용한다.",
+    "fix": "PASSWORD_REUSE_TIME 또는 PASSWORD_REUSE_MAX를 설정한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT PASSWORD_REUSE_MAX 3;"
+  },
+  "TB-09": {
+    "risk": "비밀번호 복잡도 검증이 없으면 취약한 비밀번호가 허용된다.",
+    "fix": "PASSWORD_VERIFY_FUNCTION에 VERIFY_FUNCTION 또는 VERIFY_FUNCTION2를 지정한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT PASSWORD_VERIFY_FUNCTION VERIFY_FUNCTION2;"
+  },
+  "TB-10": {
+    "risk": "사용자당 세션 수 제한이 없으면 자원 고갈·오남용에 취약하다.",
+    "fix": "SESSIONS_PER_USER를 업무 기준으로 제한한다.",
+    "example": "ALTER PROFILE DEFAULT LIMIT SESSIONS_PER_USER 10;"
+  },
+  "TB-11": {
+    "risk": "감사가 꺼져 있으면 침해·오남용 추적이 불가능하다.",
+    "fix": "AUDIT_TRAIL을 DB/DB_EXTENDED/OS 중 하나로 설정한다.",
+    "example": "AUDIT_TRAIL=DB (.tip에 설정 후 재기동)"
+  },
+  "TB-12": {
+    "risk": "SYS 작업 감사가 꺼져 있으면 최고 권한 활동이 기록되지 않는다.",
+    "fix": "AUDIT_SYS_OPERATIONS를 Y로 설정한다.",
+    "example": "AUDIT_SYS_OPERATIONS=Y (.tip에 설정 후 재기동)"
+  },
   "TB-13": {
     "risk": "티베로 리스너(tblistener)가 모든 IP로부터의 접속을 허용하도록 설정돼 있으면, 외부 또는 비인가 네트워크 구간의 호스트가 리스너에 직접 접근해 DB 연결을 시도하거나 리스너 자체를 대상으로 한 스캐닝·서비스 거부 공격에 노출될 수 있습니다.",
     "fix": "리스너 설정 파일(listener.ora 또는 tip 내 tb_listener 관련 항목)에서 접속을 허용할 IP 대역을 명시적으로 제한합니다. 1) 현재 리스너 설정 확인: tbsvr control status 및 listener.ora 검토 2) 접근을 허용할 관리·애플리케이션 서버 IP 목록 정의 3) tcp_invited_nodes 또는 방화벽/hosts.allow 수준에서 허용 IP 외 접속 차단 4) 변경 후 리스너 재기동 및 허용 IP 외 접속 시도가 거부되는지 확인.",

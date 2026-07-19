@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 188 items across the six categories", () => {
+  it("loads all 200 items across the six categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(188);
+    expect(summary.total).toBe(200);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(28);
-    expect(summary.byCategory.db).toBe(48);
+    expect(summary.byCategory.db).toBe(60);
     expect(summary.byCategory.windows).toBe(10);
   });
 
@@ -73,19 +73,21 @@ describe("catalog", () => {
     expect(was.map((i) => i.id)).toContain("WAS-12");
   });
 
-  it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server) plus 2 Tmax-sourced Tibero items", () => {
+  it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server) plus 14 Tmax-sourced Tibero items", () => {
     const db = getCatalogByCategory("db");
-    expect(db).toHaveLength(48);
+    expect(db).toHaveLength(60);
     const cisItems = db.filter((i) => i.frameworkId === "cis");
     const tmaxItems = db.filter((i) => i.frameworkId === "tmax");
     expect(cisItems).toHaveLength(46);
-    expect(tmaxItems).toHaveLength(2);
+    expect(tmaxItems).toHaveLength(14);
     expect(db.map((i) => i.id)).toContain("DB-01");
     expect(db.map((i) => i.id)).toContain("DB-12");
     expect(db.map((i) => i.id)).toContain("PG-01");
     expect(db.map((i) => i.id)).toContain("PG-12");
     expect(db.map((i) => i.id)).toContain("ORA-01");
     expect(db.map((i) => i.id)).toContain("ORA-12");
+    expect(db.map((i) => i.id)).toContain("TB-01");
+    expect(db.map((i) => i.id)).toContain("TB-12");
     expect(db.map((i) => i.id)).toContain("TB-13");
     expect(db.map((i) => i.id)).toContain("TB-14");
     expect(tmaxItems.every((i) => i.source.framework === "Tmax")).toBe(true);
