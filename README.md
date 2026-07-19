@@ -295,7 +295,7 @@ cp .env.example .env
 | `AUTH_ADMIN_USERNAME` / `AUTH_ADMIN_PASSWORD` | ✅(최초 1회) | 최초 기동 시 관리자 계정 자동 생성 (계정이 이미 있으면 무시) |
 | `ANTHROPIC_API_KEY` | AI 사용 시 | Claude API 키 |
 | `CLAUDE_ANALYSIS_ENABLED` | 선택 | AI 분석 단계 on/off (기본 false — 토큰 절약) |
-| `SHARE_BASE_URL` | 선택 | 공유 링크(복사·QR·메일)에 쓸 고정 공개 주소 (예: `http://172.30.1.30:3000`) — 미설정 시 담당자의 접속 주소를 사용하므로, localhost로 접속해 발송한 링크는 PM이 열 수 없습니다 |
+| `SHARE_BASE_URL` | 선택 | 공유 링크(복사·QR·메일)에 쓸 고정 공개 주소 (예: `http://172.30.1.30:3000`) — 미설정 시 담당자의 접속 주소를 사용하므로, localhost로 접속해 발송한 링크는 PM이 열 수 없습니다. 사내망 밖 PM에게 인터넷으로 공개하려면 공유 화면만 노출하는 [Cloudflare Tunnel 가이드](docs/ops/share-tunnel.md)를 참고하세요 |
 | `NVD_API_KEY` | 선택 | NVD API 키 (없으면 무키 레이트리밋으로 동작) |
 | `DATABASE_PATH` | 선택 | SQLite 파일 경로 (기본 `./data/app.db`) |
 
