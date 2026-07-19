@@ -4,6 +4,7 @@ import webData from "./data/kisa/web.json";
 import wasData from "./data/cis/was.json";
 import dbData from "./data/cis/db.json";
 import windowsData from "./data/cis/windows.json";
+import tiberoData from "./data/tmax/tibero.json";
 import { FRAMEWORKS } from "./frameworks";
 import type { CatalogItem, Category, Framework, Mitigation } from "./types";
 
@@ -25,6 +26,7 @@ const CATALOG_SOURCES: CatalogSource[] = [
   { frameworkId: "cis", category: "was", data: wasData as RawItem[] },
   { frameworkId: "cis", category: "db", data: dbData as RawItem[] },
   { frameworkId: "cis", category: "windows", data: windowsData as RawItem[] },
+  { frameworkId: "tmax", category: "db", data: tiberoData as RawItem[] },
 ];
 
 const CATALOG: CatalogItem[] = CATALOG_SOURCES.flatMap(({ frameworkId, category, data }) =>

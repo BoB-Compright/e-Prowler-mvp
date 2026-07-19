@@ -928,5 +928,15 @@
     "risk": "운영체제 보안 패치가 최신 상태로 유지되지 않으면 이미 공개된 CVE 취약점을 악용한 원격 코드 실행, 권한 상승, 랜섬웨어 감염 등에 그대로 노출됩니다.",
     "fix": "WSUS, Windows Update, 또는 SCCM/Intune 등 패치 관리 체계를 통해 매월 정기 보안 롤업(Patch Tuesday)과 긴급(0-day) 패치를 신속히 적용하고, 적용 현황을 주기적으로 점검·보고합니다. 프로덕션 적용 전 테스트 환경에서 회귀 검증을 거쳐 배포 일정을 수립합니다.",
     "example": "PowerShell(Windows Update):\nInstall-Module PSWindowsUpdate\nGet-WindowsUpdate\nInstall-WindowsUpdate -AcceptAll -AutoReboot\n\n패치 적용 이력 확인:\nGet-HotFix | Sort-Object InstalledOn -Descending\n\nGPO 경로: 컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > Windows Update에서 자동 업데이트 구성"
+  },
+  "TB-13": {
+    "risk": "티베로 리스너(tblistener)가 모든 IP로부터의 접속을 허용하도록 설정돼 있으면, 외부 또는 비인가 네트워크 구간의 호스트가 리스너에 직접 접근해 DB 연결을 시도하거나 리스너 자체를 대상으로 한 스캐닝·서비스 거부 공격에 노출될 수 있습니다.",
+    "fix": "리스너 설정 파일(listener.ora 또는 tip 내 tb_listener 관련 항목)에서 접속을 허용할 IP 대역을 명시적으로 제한합니다. 1) 현재 리스너 설정 확인: tbsvr control status 및 listener.ora 검토 2) 접근을 허용할 관리·애플리케이션 서버 IP 목록 정의 3) tcp_invited_nodes 또는 방화벽/hosts.allow 수준에서 허용 IP 외 접속 차단 4) 변경 후 리스너 재기동 및 허용 IP 외 접속 시도가 거부되는지 확인.",
+    "example": "# listener.ora 또는 방화벽에서 IP 제한\ntcp_invited_nodes = (10.0.1.10, 10.0.1.11)\n# 또는 OS 방화벽\niptables -A INPUT -p tcp --dport 8629 -s 10.0.1.0/24 -j ACCEPT\niptables -A INPUT -p tcp --dport 8629 -j DROP"
+  },
+  "TB-14": {
+    "risk": "티베로 설정 파일(.tip)에 그룹/기타 사용자 쓰기 권한이 열려 있거나 소유자가 DB 서비스 계정이 아니면, 비인가 로컬 계정이 파일을 변조해 인증 우회, 리스너 설정 조작, 서비스 중단 등을 유발할 수 있습니다.",
+    "fix": ".tip 설정 파일의 소유자를 티베로 서비스 계정(tibero 등)으로 지정하고 group/other 쓰기 권한을 제거합니다. 1) 설정 파일 경로 확인: $TB_HOME/config/$TB_SID.tip 2) 소유자·권한 확인: ls -l $TB_HOME/config/*.tip 3) 소유자가 tibero 계정이 아니면 chown으로 정정 4) chmod로 그룹/기타 쓰기 권한 제거(권장 640 또는 600) 5) 변경 후 DB 기동 및 설정 반영 여부 확인.",
+    "example": "ls -l $TB_HOME/config/tibero.tip\nchown tibero:dba $TB_HOME/config/tibero.tip\nchmod 640 $TB_HOME/config/tibero.tip\nls -l $TB_HOME/config/tibero.tip\n# 기대 결과: -rw-r----- tibero dba"
   }
 }

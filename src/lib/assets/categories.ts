@@ -7,7 +7,7 @@ export const CATEGORY_VENDORS: Record<AssetCategory, string[]> = {
   OS: ["Ubuntu", "RHEL", "CentOS", "Windows Server"],
   WEB: ["Apache", "Nginx", "IIS"],
   WAS: ["Tomcat", "JBoss/WildFly", "WebLogic", "WebSphere"],
-  DB: ["Oracle", "MySQL", "PostgreSQL", "MSSQL", "MariaDB"],
+  DB: ["Oracle", "MySQL", "PostgreSQL", "MSSQL", "MariaDB", "Tibero"],
 };
 
 export function isValidCategory(value: unknown): value is AssetCategory {

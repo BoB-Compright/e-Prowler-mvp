@@ -1,0 +1,4 @@
+[
+  { "id": "TB-13", "title": "리스너 원격 접근제어(IP 제한) 설정", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 네트워크 접근제어" } },
+  { "id": "TB-14", "title": "설정파일(.tip) 소유자·권한 관리", "severity": "Medium", "automationStatus": "automated", "source": { "framework": "Tmax", "ref": "Tibero 관리자 가이드 · 설정파일 보호" } }
+]
