@@ -147,7 +147,11 @@ export const webtobPack: VendorPack = {
       // WT-05: *SSL 섹션 또는 SSLFlag 지시어가 있으면 pass, 없으면 fail. 파일 전역에서 "443"
       // 같은 substring을 훑던 방식은 무관한 숫자(타임아웃·포트 등)에 매치돼 취약 설정을
       // pass로 오판(fail-open)할 수 있어 제거한다 — 지시어/섹션 단위로만 판정(fail-closed).
-      const hasSsl = hasSection(httpm, "SSL") || directive(httpm, "SSLFlag") !== null;
+      // SSLFlag는 존재만이 아니라 "켜짐" 값(Y/ON/SSL_ON/TRUE/1)일 때만 유효로 본다 —
+      // SSLFlag = "SSL_OFF"처럼 명시적으로 꺼진 값을 pass로 오판(fail-open)하지 않도록.
+      const sslFlag = directive(httpm, "SSLFlag");
+      const sslFlagOn = sslFlag !== null && /^(Y|ON|SSL_ON|TRUE|1)$/i.test(sslFlag.trim());
+      const hasSsl = hasSection(httpm, "SSL") || sslFlagOn;
       wt05 = hasSsl
         ? { id: "WT-05", status: "pass", evidence: "SSL/TLS 설정 확인됨" }
         : { id: "WT-05", status: "fail", evidence: "SSL/TLS 설정 없음" };
@@ -179,10 +183,13 @@ export const webtobPack: VendorPack = {
       if (!adminSection) {
         wt09 = { id: "WT-09", status: "review", evidence: "관리(Admin) 리스너 설정을 http.m에서 확인할 수 없음" };
       } else {
+        // 빈 값/공백은 "설정됨"이 아니라 확인 불가로 본다(fail-open 방지). 목록에 0.0.0.0이
+        // 토큰으로 포함돼 전체 개방인 경우도 review(단순 문자열 일치가 아닌 토큰 매치).
         const adminIp = directive(httpm, "Admin_ip");
-        wt09 = adminIp === null || adminIp.trim() === "0.0.0.0"
+        const ipVal = adminIp?.trim() ?? "";
+        wt09 = ipVal === "" || /(^|[\s,])0\.0\.0\.0([\s,]|$)/.test(ipVal)
           ? { id: "WT-09", status: "review", evidence: "관리(Admin) 리스너 접근제어가 전체 개방이거나 확인 불가" }
-          : { id: "WT-09", status: "pass", evidence: `관리(Admin) 리스너 접근제어 설정됨: ${adminIp}` };
+          : { id: "WT-09", status: "pass", evidence: `관리(Admin) 리스너 접근제어 설정됨: ${ipVal}` };
       }
     }
 

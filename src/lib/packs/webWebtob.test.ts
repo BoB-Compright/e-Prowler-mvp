@@ -94,6 +94,13 @@ describe("webtobPack", () => {
     expect(r.find((x) => x.id === "WT-05")!.status).toBe("fail");
   });
 
+  // fail-open 회귀: SSLFlag가 명시적으로 꺼짐(SSL_OFF)이면 존재해도 fail이어야 한다.
+  it("WT-05 fails when SSLFlag is explicitly off", () => {
+    const httpm = `*NODE\nSSLFlag = "SSL_OFF"\n`;
+    const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "WT-05")!.status).toBe("fail");
+  });
+
   it("WT-06 reviews when no logging section present", () => {
     const httpm = `*NODE\nOptions = "FollowSymLinks"\n`;
     const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
@@ -147,6 +154,20 @@ describe("webtobPack", () => {
     const httpm = `*NODE\n*ADMIN\nAdmin_ip = "10.0.0.5"\n`;
     const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
     expect(r.find((x) => x.id === "WT-09")!.status).toBe("pass");
+  });
+
+  // fail-open 회귀: Admin_ip가 빈 값이면 "설정됨"이 아니라 review여야 한다.
+  it("WT-09 reviews when Admin_ip is present but empty", () => {
+    const httpm = `*NODE\n*ADMIN\nAdmin_ip = ""\n`;
+    const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "WT-09")!.status).toBe("review");
+  });
+
+  // fail-open 회귀: 목록에 0.0.0.0이 토큰으로 섞여 있으면 전체 개방으로 보고 review.
+  it("WT-09 reviews when Admin_ip list contains 0.0.0.0", () => {
+    const httpm = `*NODE\n*ADMIN\nAdmin_ip = "10.0.0.5,0.0.0.0"\n`;
+    const r = webtobPack.evaluate({ findings: null, tasks: tasks({ "WT: http.m content": httpm }), inputsProvided: PROVIDED });
+    expect(r.find((x) => x.id === "WT-09")!.status).toBe("review");
   });
 
   it("reviews when input missing or file missing", () => {
