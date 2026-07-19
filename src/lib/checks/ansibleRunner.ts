@@ -199,13 +199,14 @@ export async function runAnsibleForServer(
   asset: Asset,
   extraTasks: PlaybookTask[] = [],
   timeoutMs: number = SERVER_TIMEOUT_MS,
+  scanExtraVars: Record<string, string> = {},
 ): Promise<AnsibleTaskOutput[]> {
   const { decryptedSecret, needsKeyFile } = buildServerRunPlan(asset);
 
   return withComposedPlaybook(extraTasks, (playbookPath) => {
     const run = (keyFilePath: string | null): Promise<AnsibleTaskOutput[]> => {
       const plan = buildSshArgs(asset, decryptedSecret, keyFilePath);
-      return runAnsibleWithArgs(plan.args, plan.extraVars, timeoutMs, playbookPath);
+      return runAnsibleWithArgs(plan.args, { ...plan.extraVars, ...scanExtraVars }, timeoutMs, playbookPath);
     };
 
     if (needsKeyFile) {
