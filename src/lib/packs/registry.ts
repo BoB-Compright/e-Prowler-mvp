@@ -1,4 +1,4 @@
-import type { VendorPack } from "./types";
+import type { VendorPack, ScanInputSpec } from "./types";
 import { osUnixPack } from "./osUnix";
 import { containerPack } from "./container";
 import { osWindowsPack } from "./osWindows";
@@ -20,4 +20,9 @@ export function findVendorPack(category: string, vendor: string): VendorPack | u
   return ALL_PACKS.find(
     (p) => p.category === category && p.vendors.some((pv) => pv.toLowerCase() === v),
   );
+}
+
+// 특정 category+vendor 팩이 선언한 사전 입력값 스펙. 폼·저장·스캔이 이 하나를 공유한다.
+export function getVendorInputSpecs(category: string, vendor: string): ScanInputSpec[] {
+  return findVendorPack(category, vendor)?.requiredInputs ?? [];
 }

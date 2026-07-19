@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findVendorPack, ALL_PACKS } from "./registry";
+import { findVendorPack, ALL_PACKS, getVendorInputSpecs } from "./registry";
 
 describe("registry", () => {
   it("finds the nginx pack by WEB/Nginx (case-insensitive vendor)", () => {
@@ -42,5 +42,11 @@ describe("registry", () => {
     expect(findVendorPack("DB", "MSSQL")?.id).toBe("db-mssql");
     expect(findVendorPack("WAS", "WebLogic")?.id).toBe("was-weblogic");
     expect(findVendorPack("WAS", "WebSphere")?.id).toBe("was-websphere");
+  });
+});
+
+describe("getVendorInputSpecs", () => {
+  it("returns [] for a vendor without a pack or without requiredInputs", () => {
+    expect(getVendorInputSpecs("DB", "존재하지않는벤더")).toEqual([]);
   });
 });
