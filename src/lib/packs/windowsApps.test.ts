@@ -3,7 +3,7 @@ import { webIisPack, dbMssqlPack, wasWeblogicPack, wasWebspherePack } from "./wi
 import { evaluatePack } from "./resolve";
 import { getCatalogByCategory } from "@/lib/catalog";
 
-const webIds = () => getCatalogByCategory("web").map((i) => i.id).sort();
+const webIds = () => getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id).sort();
 const byPrefix = (cat: "db" | "was", p: string) =>
   getCatalogByCategory(cat).map((i) => i.id).filter((id) => id.startsWith(p)).sort();
 

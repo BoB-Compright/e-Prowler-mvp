@@ -12,7 +12,7 @@ function windowsPack(
   return { id, category, vendors, executionPath: "windows", itemIds, evidenceTasks: [], detect: () => false, evaluate: () => [] };
 }
 
-const web = () => getCatalogByCategory("web").map((i) => i.id);
+const web = () => getCatalogByCategory("web").filter((i) => i.frameworkId === "kisa").map((i) => i.id);
 const dbBy = (p: string) => getCatalogByCategory("db").map((i) => i.id).filter((id) => id.startsWith(p));
 const wasBy = (p: string) => getCatalogByCategory("was").map((i) => i.id).filter((id) => id.startsWith(p));
 
