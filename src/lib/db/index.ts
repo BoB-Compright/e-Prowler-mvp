@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS assets (
   owner TEXT,
   category TEXT,
   vendor TEXT,
+  scan_inputs TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -215,6 +216,9 @@ export function migrate(db: Database.Database): void {
   }
   if (!assetColumns.some((column) => column.name === "vendor")) {
     db.exec(`ALTER TABLE assets ADD COLUMN vendor TEXT`);
+  }
+  if (!assetColumns.some((column) => column.name === "scan_inputs")) {
+    db.exec(`ALTER TABLE assets ADD COLUMN scan_inputs TEXT`);
   }
 
   const checkCols = db.prepare(`PRAGMA table_info(check_results)`).all() as { name: string }[];

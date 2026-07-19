@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { DuplicateAssetError, createRepoAsset, createServerAsset, listAssets } from "@/lib/assets/store";
 import { isValidCategory } from "@/lib/assets/categories";
 import { requireApiSession } from "@/lib/auth/requireSession";
+import { getVendorInputSpecs } from "@/lib/packs/registry";
+import { encodeScanInputs } from "@/lib/assets/scanInputs";
 
 function optionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -44,6 +46,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ asset }, { status: 201 });
     }
     if (type === "server") {
+      const category = isValidCategory(body.category) ? body.category : null;
+      const vendor = optionalString(body.vendor);
+      const rawInputs =
+        body?.scanInputs && typeof body.scanInputs === "object" ? (body.scanInputs as Record<string, string>) : {};
+      const specs = category && vendor ? getVendorInputSpecs(category, vendor) : [];
+      const scanInputs = specs.length ? encodeScanInputs(specs, rawInputs) : undefined;
       const asset = createServerAsset({
         displayName: String(body.displayName ?? ""),
         hostIp: String(body.hostIp ?? ""),
@@ -55,8 +63,9 @@ export async function POST(req: NextRequest) {
         projectId: body.projectId || null,
         os: optionalString(body.os),
         owner: optionalString(body.owner),
-        category: isValidCategory(body.category) ? body.category : null,
-        vendor: optionalString(body.vendor),
+        category,
+        vendor,
+        scanInputs,
       });
       return NextResponse.json({ asset }, { status: 201 });
     }

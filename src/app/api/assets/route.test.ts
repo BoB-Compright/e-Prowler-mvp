@@ -153,4 +153,67 @@ describe("POST /api/assets", () => {
     const asset = getAsset(body.asset.id);
     expect(asset).toMatchObject({ os: null });
   });
+
+  it("leaves scanInputs unset when the category/vendor has no requiredInputs (today's baseline — no vendor declares any)", async () => {
+    const { getAsset } = await import("@/lib/assets/store");
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+
+    const res = await POST(jsonRequest({
+      type: "server",
+      displayName: "web-01",
+      hostIp: "10.0.0.5",
+      hostname: "web-01",
+      sshPort: 22,
+      authType: "password",
+      username: "admin",
+      secret: "pw",
+      category: "WEB",
+      vendor: "Nginx",
+      scanInputs: { someField: "value" },
+    }, cookie));
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    const asset = getAsset(body.asset.id);
+    expect(asset).toMatchObject({ scanInputs: null });
+  });
+
+  it("encodes and stores scanInputs when the vendor pack declares requiredInputs (secrets encrypted, not stored as plaintext)", async () => {
+    vi.doMock("@/lib/packs/registry", () => ({
+      getVendorInputSpecs: (category: string, vendor: string) =>
+        category === "DB" && vendor === "Tibero"
+          ? [
+              { name: "dbPass", label: "DB 비밀번호", kind: "secret", required: true },
+              { name: "dbHost", label: "DB 호스트", kind: "text", required: false },
+            ]
+          : [],
+    }));
+    const { getAsset } = await import("@/lib/assets/store");
+    const { POST } = await import("./route");
+    const cookie = await authCookie();
+
+    const res = await POST(jsonRequest({
+      type: "server",
+      displayName: "db-01",
+      hostIp: "10.0.0.6",
+      hostname: "db-01",
+      sshPort: 22,
+      authType: "password",
+      username: "admin",
+      secret: "pw",
+      category: "DB",
+      vendor: "Tibero",
+      scanInputs: { dbPass: "s3cr3t", dbHost: "10.0.0.9" },
+    }, cookie));
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    const asset = getAsset(body.asset.id);
+    expect(typeof asset?.scanInputs).toBe("string");
+    expect(asset?.scanInputs).not.toContain("s3cr3t");
+    const parsed = JSON.parse(asset!.scanInputs as string);
+    expect(parsed.dbHost).toBe("10.0.0.9");
+    expect(parsed.dbPass).not.toBe("s3cr3t");
+  });
 });

@@ -244,7 +244,11 @@ describe("runServerScanPipeline", () => {
     const finished = getRun(run.id, db)!;
     expect(finished.stage).toBe("done");
     expect(finished.status).toBe("succeeded");
-    expect(deps.evaluatePlan).toHaveBeenCalledWith(windowsPlan, { findings: null, tasks: [] }, asset);
+    expect(deps.evaluatePlan).toHaveBeenCalledWith(
+      windowsPlan,
+      { findings: null, tasks: [], inputsProvided: new Set() },
+      asset,
+    );
     expect(listCheckResults(run.id, db)).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "W-01", status: "review" })]),
     );

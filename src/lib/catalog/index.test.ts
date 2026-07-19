@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { getCatalog, getCatalogByCategory, getCatalogItem, getCatalogSummary, getFrameworks } from "./index";
 
 describe("catalog", () => {
-  it("loads all 186 items across the six categories", () => {
+  it("loads all 188 items across the six categories", () => {
     const summary = getCatalogSummary();
-    expect(summary.total).toBe(186);
+    expect(summary.total).toBe(188);
     expect(summary.byCategory.container).toBe(9);
     expect(summary.byCategory.unix).toBe(67);
     expect(summary.byCategory.web).toBe(26);
     expect(summary.byCategory.was).toBe(28);
-    expect(summary.byCategory.db).toBe(46);
+    expect(summary.byCategory.db).toBe(48);
     expect(summary.byCategory.windows).toBe(10);
   });
 
@@ -57,10 +57,11 @@ describe("catalog", () => {
     }
   });
 
-  it("registers KISA and CIS frameworks", () => {
+  it("registers KISA, CIS, and Tmax frameworks", () => {
     const ids = getFrameworks().map((f) => f.id);
     expect(ids).toContain("kisa");
     expect(ids).toContain("cis");
+    expect(ids).toContain("tmax");
   });
 
   it("has 28 CIS-sourced WAS items", () => {
@@ -72,19 +73,25 @@ describe("catalog", () => {
     expect(was.map((i) => i.id)).toContain("WAS-12");
   });
 
-  it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server)", () => {
+  it("has 46 CIS-sourced DB items (MySQL + PostgreSQL + Oracle + SQL Server) plus 2 Tmax-sourced Tibero items", () => {
     const db = getCatalogByCategory("db");
-    expect(db).toHaveLength(46);
-    expect(db.every((i) => i.frameworkId === "cis")).toBe(true);
+    expect(db).toHaveLength(48);
+    const cisItems = db.filter((i) => i.frameworkId === "cis");
+    const tmaxItems = db.filter((i) => i.frameworkId === "tmax");
+    expect(cisItems).toHaveLength(46);
+    expect(tmaxItems).toHaveLength(2);
     expect(db.map((i) => i.id)).toContain("DB-01");
     expect(db.map((i) => i.id)).toContain("DB-12");
     expect(db.map((i) => i.id)).toContain("PG-01");
     expect(db.map((i) => i.id)).toContain("PG-12");
     expect(db.map((i) => i.id)).toContain("ORA-01");
     expect(db.map((i) => i.id)).toContain("ORA-12");
+    expect(db.map((i) => i.id)).toContain("TB-13");
+    expect(db.map((i) => i.id)).toContain("TB-14");
+    expect(tmaxItems.every((i) => i.source.framework === "Tmax")).toBe(true);
   });
 
-  it("db category now has 46 items: DB-* (MySQL) + PG-* (PostgreSQL) + ORA-* (Oracle) + MSSQL-* (SQL Server)", () => {
+  it("db category has DB-* (MySQL) + PG-* (PostgreSQL) + ORA-* (Oracle) + MSSQL-* (SQL Server) subsets", () => {
     const ids = getCatalogByCategory("db").map((i) => i.id);
     expect(ids.filter((i) => i.startsWith("DB-"))).toHaveLength(12);
     expect(ids.filter((i) => i.startsWith("PG-"))).toHaveLength(12);

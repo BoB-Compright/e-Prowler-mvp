@@ -7,6 +7,9 @@ import { retryOnConnectionFailure, AuthFailureError } from "@/lib/checks/retry";
 import { saveCheckResults } from "@/lib/checks/store";
 import type { CheckResult } from "@/lib/checks/types";
 import { resolveCheckPlan, evaluatePlan, filterPlanByCategories } from "@/lib/packs/resolve";
+import { buildScanExtraVars } from "@/lib/checks/scanInputsExtraVars";
+import { providedInputNames } from "@/lib/assets/scanInputs";
+import { getVendorInputSpecs } from "@/lib/packs/registry";
 import { analyzeAndSaveChecks } from "@/lib/claude";
 import { createRun, isCancelled, markRunStarted, updateRunStage } from "@/lib/pipeline/runs";
 import type { Run } from "@/lib/pipeline/types";
@@ -127,7 +130,9 @@ export async function runServerScanPipeline(
     updateRunStage(run.id, "ansible_scan", "succeeded", { message: "Windows 호스트 점검은 WinRM 연결 대기 — SSH/Ansible 단계 생략" }, db);
   } else {
     try {
-      tasks = await deps.retryOnConnectionFailure(() => deps.runAnsibleForServer(asset, plan.evidenceTasks));
+      tasks = await deps.retryOnConnectionFailure(() =>
+        deps.runAnsibleForServer(asset, plan.evidenceTasks, undefined, buildScanExtraVars(asset)),
+      );
     } catch (err) {
       // Global constraint: never surface raw credentials/stderr for an auth
       // failure — only the fixed "인증 실패" message is recorded.
@@ -142,7 +147,9 @@ export async function runServerScanPipeline(
   }
 
   updateRunStage(run.id, "rule_evaluation", "running", {}, db);
-  const results: CheckResult[] = deps.evaluatePlan(plan, { findings: null, tasks }, asset);
+  const inputSpecs = asset.category && asset.vendor ? getVendorInputSpecs(asset.category, asset.vendor) : [];
+  const inputsProvided = providedInputNames(inputSpecs, buildScanExtraVars(asset));
+  const results: CheckResult[] = deps.evaluatePlan(plan, { findings: null, tasks, inputsProvided }, asset);
   deps.saveCheckResults(run.id, results, db);
   updateRunStage(run.id, "rule_evaluation", "succeeded", {}, db);
 

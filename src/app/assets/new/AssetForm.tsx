@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Project } from "@/lib/projects/types";
 import { ASSET_CATEGORIES, CATEGORY_VENDORS, type AssetCategory } from "@/lib/assets/categories";
+import type { ScanInputSpec } from "@/lib/packs/types";
 import { Card } from "../../_components/Card";
 
 const inputClass =
@@ -22,7 +23,15 @@ function deriveRepoName(repoUrl: string): string {
   return last ?? "repo";
 }
 
-export function AssetForm({ projects }: { projects: Project[] }) {
+interface AssetFormProps {
+  projects: Project[];
+  // 카테고리→제조사→사전 입력값 스펙. registry.ts는 팩 실행 로직(ansible 등 Node 전용
+  // 의존성)을 포함해 클라이언트 번들에 넣을 수 없으므로, 서버 컴포넌트(page.tsx)가
+  // getVendorInputSpecs로 미리 계산해 직렬화 가능한 데이터로 내려준다.
+  vendorInputSpecs: Record<string, Record<string, ScanInputSpec[]>>;
+}
+
+export function AssetForm({ projects, vendorInputSpecs }: AssetFormProps) {
   const router = useRouter();
   const [type, setType] = useState<"repo" | "server">("repo");
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +59,8 @@ export function AssetForm({ projects }: { projects: Project[] }) {
   const [category, setCategory] = useState<AssetCategory | "">("");
   const [vendor, setVendor] = useState("");
   const [customVendor, setCustomVendor] = useState("");
+  const [scanInputValues, setScanInputValues] = useState<Record<string, string>>({});
+  const inputSpecs = category && vendor ? (vendorInputSpecs[category]?.[vendor] ?? []) : [];
 
   async function handleCreateProject() {
     setProjError(null);
@@ -184,6 +195,7 @@ export function AssetForm({ projects }: { projects: Project[] }) {
         projectId: selectedProjectId || null,
         category: category || null,
         vendor: (vendor === "__custom__" ? customVendor.trim() : vendor) || null,
+        scanInputs: scanInputValues,
       }),
     });
     if (!res.ok) {
@@ -501,6 +513,22 @@ export function AssetForm({ projects }: { projects: Project[] }) {
                   />
                 </label>
               )}
+              {inputSpecs.map((spec) => (
+                <label key={spec.name} className="flex flex-col gap-1">
+                  <span className="text-[13px] font-medium">
+                    {spec.label}
+                    {spec.required && " *"}
+                  </span>
+                  <input
+                    type={spec.kind === "secret" ? "password" : "text"}
+                    value={scanInputValues[spec.name] ?? ""}
+                    placeholder={spec.placeholder}
+                    onChange={(e) => setScanInputValues((v) => ({ ...v, [spec.name]: e.target.value }))}
+                    className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  {spec.help && <span className="text-[12px] text-muted">{spec.help}</span>}
+                </label>
+              ))}
             </div>
           </Card>
 

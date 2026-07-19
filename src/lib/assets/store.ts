@@ -25,6 +25,7 @@ interface AssetRow {
   category: string | null;
   vendor: string | null;
   dockerfile_path: string | null;
+  scan_inputs: string | null;
   created_at: string;
 }
 
@@ -46,12 +47,13 @@ function toAsset(row: AssetRow): Asset {
     category: row.category,
     vendor: row.vendor,
     dockerfilePath: row.dockerfile_path,
+    scanInputs: row.scan_inputs ?? null,
     createdAt: row.created_at,
   };
 }
 
-const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, category, vendor, dockerfile_path, created_at)
-     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @category, @vendor, @dockerfile_path, @created_at)`;
+const INSERT_SQL = `INSERT INTO assets (id, type, project_id, display_name, repo_url, host_ip, hostname, ssh_port, auth_type, username, encrypted_secret, os, owner, category, vendor, dockerfile_path, scan_inputs, created_at)
+     VALUES (@id, @type, @project_id, @display_name, @repo_url, @host_ip, @hostname, @ssh_port, @auth_type, @username, @encrypted_secret, @os, @owner, @category, @vendor, @dockerfile_path, @scan_inputs, @created_at)`;
 
 export function createRepoAsset(
   input: {
@@ -81,6 +83,7 @@ export function createRepoAsset(
     category: null,
     vendor: null,
     dockerfile_path: dfPath,
+    scan_inputs: null,
     created_at: new Date().toISOString(),
   };
   db.prepare(INSERT_SQL).run(row);
@@ -92,6 +95,7 @@ export function createServerAsset(
     displayName: string; hostIp: string; hostname: string; sshPort: number;
     authType: ServerAuthType; username: string; secret: string; projectId?: string | null;
     os?: string | null; owner?: string | null; category?: string | null; vendor?: string | null;
+    scanInputs?: string;
   },
   db: Database = getDb(),
 ): Asset {
@@ -119,6 +123,7 @@ export function createServerAsset(
     category: input.category ?? null,
     vendor: input.vendor ?? null,
     dockerfile_path: null,
+    scan_inputs: input.scanInputs ?? null,
     created_at: new Date().toISOString(),
   };
   db.prepare(INSERT_SQL).run(row);
